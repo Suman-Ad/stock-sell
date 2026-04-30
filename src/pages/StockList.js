@@ -1,0 +1,168 @@
+import React, { useEffect, useState } from "react";
+import { db, auth } from "../firebase";
+import {
+    collection,
+    query,
+    where,
+    onSnapshot,
+    doc,
+    updateDoc,
+    deleteDoc
+} from "firebase/firestore";
+
+const StockList = () => {
+    const [stocks, setStocks] = useState([]);
+
+    useEffect(() => {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const q = query(
+            collection(db, "stocks"),
+            where("userId", "==", user.uid)
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const data = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            setStocks(data);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    // Update price/margin
+    const handleUpdate = async (id, field, value) => {
+        try {
+            await updateDoc(doc(db, "stocks", id), {
+                [field]: Number(value)
+            });
+        } catch (err) {
+            alert(err.message);
+        }
+    };
+
+    // Delete stock
+    const handleDelete = async (id) => {
+        if (!window.confirm("Delete this item?")) return;
+
+        try {
+            await deleteDoc(doc(db, "stocks", id));
+        } catch (err) {
+            alert(err.message);
+        }
+    };
+
+    // Calculate totals
+    const getTotalQty = (sizes) => {
+        return Object.values(sizes || {}).reduce(
+            (sum, s) => sum + (s.qty || 0),
+            0
+        );
+    };
+
+    const getTotalValue = (item) => {
+        const totalQty = getTotalQty(item.sizes);
+        return totalQty * (item.buyingPrice || 0);
+    };
+
+    const getSellingPrice = (item) => {
+        return (item.buyingPrice || 0) + (item.margin || 0);
+    };
+
+    const getTotalSellingValue = (item) => {
+        const totalQty = getTotalQty(item.sizes);
+        return totalQty * getSellingPrice(item);
+    };
+
+    const getProfit = (item) => {
+        const totalQty = getTotalQty(item.sizes);
+        return totalQty * (item.margin || 0);
+    };
+
+    return (
+        <div style={{ padding: "20px" }}>
+            <h2>Stock List</h2>
+
+            <table border="1" cellPadding="10" width="100%">
+                <thead>
+                    <tr>
+                        <th>Catalog</th>
+                        <th>Sizes</th>
+                        <th>Total Qty</th>
+                        <th>Buying Price</th>
+                        <th>Margin</th>
+                        <th>Selling Price</th>
+                        <th>Total Selling</th>
+                        <th>Profit</th>
+                        <th>Total Value</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {stocks.map((item) => {
+                        const totalQty = getTotalQty(item.sizes);
+                        const totalValue = getTotalValue(item);
+                        const sellingPrice = getSellingPrice(item);
+                        const totalSelling = getTotalSellingValue(item);
+                        const profit = getProfit(item);
+
+                        return (
+                            <tr key={item.id}>
+                                <td>{item.catalogId}</td>
+
+                                <td>
+                                    {Object.entries(item.sizes || {}).map(([size, data]) => (
+                                        <div key={size}>
+                                            {size}: {data.qty}
+                                        </div>
+                                    ))}
+                                </td>
+
+                                <td>{totalQty}</td>
+
+                                <td>
+                                    <input
+                                        type="number"
+                                        defaultValue={item.buyingPrice}
+                                        onBlur={(e) =>
+                                            handleUpdate(item.id, "buyingPrice", e.target.value)
+                                        }
+                                    />
+                                </td>
+
+                                <td>
+                                    <input
+                                        type="number"
+                                        defaultValue={item.margin}
+                                        onBlur={(e) =>
+                                            handleUpdate(item.id, "margin", e.target.value)
+                                        }
+                                    />
+                                </td>
+                                <td>{sellingPrice}</td>
+                                <td>{totalSelling}</td>
+                                <td style={{ color: "green", fontWeight: "bold" }}>
+                                    {profit}
+                                </td>
+
+                                <td>{totalValue}</td>
+
+                                <td>
+                                    <button onClick={() => handleDelete(item.id)}>
+                                        Delete
+                                    </button>
+                                </td>
+                            </tr>
+                        );
+                    })}
+                </tbody>
+            </table>
+        </div>
+    );
+};
+
+export default StockList;
