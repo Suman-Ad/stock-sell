@@ -10,41 +10,41 @@ import {
     deleteDoc
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
-
+import StockSummary from "./StockSummary";
 
 const StockList = () => {
     const [stocks, setStocks] = useState([]);
 
 
     useEffect(() => {
-    let unsubscribeSnapshot = null;
+        let unsubscribeSnapshot = null;
 
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-        if (!user) {
-            setStocks([]);
-            if (unsubscribeSnapshot) unsubscribeSnapshot();
-            return;
-        }
+        const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+            if (!user) {
+                setStocks([]);
+                if (unsubscribeSnapshot) unsubscribeSnapshot();
+                return;
+            }
 
-        const q = query(
-            collection(db, "stocks"),
-            where("userId", "==", user.uid)
-        );
+            const q = query(
+                collection(db, "stocks"),
+                where("userId", "==", user.uid)
+            );
 
-        unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
-            const data = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            setStocks(data);
+            unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
+                const data = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                setStocks(data);
+            });
         });
-    });
 
-    return () => {
-        if (unsubscribeSnapshot) unsubscribeSnapshot();
-        unsubscribeAuth();
-    };
-}, []);
+        return () => {
+            if (unsubscribeSnapshot) unsubscribeSnapshot();
+            unsubscribeAuth();
+        };
+    }, []);
 
     // Update price/margin
     const handleUpdate = async (id, field, value) => {
@@ -97,6 +97,7 @@ const StockList = () => {
 
     return (
         <div style={{ padding: "20px" }}>
+            <StockSummary stocks={stocks} />
             <h2>Stock List</h2>
 
             <table border="1" cellPadding="10" width="100%">
