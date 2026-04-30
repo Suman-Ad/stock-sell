@@ -95,6 +95,28 @@ const StockList = () => {
         return totalQty * (item.margin || 0);
     };
 
+    const handleSizeUpdate = async (item, sizeKey, newQty) => {
+        try {
+            const qty = Number(newQty);
+
+            if (isNaN(qty) || qty < 0) return;
+
+            const updatedSizes = {
+                ...item.sizes,
+                [sizeKey]: {
+                    qty
+                }
+            };
+
+            await updateDoc(doc(db, "stocks", item.id), {
+                sizes: updatedSizes
+            });
+
+        } catch (err) {
+            alert(err.message);
+        }
+    };
+
     return (
         <div style={{ padding: "20px" }}>
             <StockSummary stocks={stocks} />
@@ -129,11 +151,42 @@ const StockList = () => {
                                 <td>{item.catalogId}</td>
 
                                 <td>
-                                    {Object.entries(item.sizes || {}).map(([size, data]) => (
-                                        <div key={size}>
-                                            {size}: {data.qty}
-                                        </div>
-                                    ))}
+                                    <td>
+                                        {Object.entries(item.sizes || {}).map(([size, data]) => (
+                                            <div key={size} style={{ marginBottom: "5px" }}>
+                                                <b>{size}</b>:
+
+                                                <input
+                                                    type="number"
+                                                    value={data.qty}
+                                                    style={{ width: "60px", marginLeft: "5px" }}
+                                                    onChange={(e) =>
+                                                        handleSizeUpdate(item, size, e.target.value)
+                                                    }
+                                                />
+
+                                                <button
+                                                    onClick={async () => {
+                                                        const updatedSizes = { ...item.sizes };
+
+                                                        delete updatedSizes[size];
+
+                                                        if (Object.keys(updatedSizes).length === 0) {
+                                                            alert("At least one size required");
+                                                            return;
+                                                        }
+
+                                                        await updateDoc(doc(db, "stocks", item.id), {
+                                                            sizes: updatedSizes
+                                                        });
+                                                    }}
+                                                    style={{ marginLeft: "5px" }}
+                                                >
+                                                    ❌
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </td>
                                 </td>
 
                                 <td>{totalQty}</td>
