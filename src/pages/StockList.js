@@ -9,29 +9,42 @@ import {
     updateDoc,
     deleteDoc
 } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
+
 
 const StockList = () => {
     const [stocks, setStocks] = useState([]);
 
+
     useEffect(() => {
-        const user = auth.currentUser;
-        if (!user) return;
+    let unsubscribeSnapshot = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+        if (!user) {
+            setStocks([]);
+            if (unsubscribeSnapshot) unsubscribeSnapshot();
+            return;
+        }
 
         const q = query(
             collection(db, "stocks"),
             where("userId", "==", user.uid)
         );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             }));
             setStocks(data);
         });
+    });
 
-        return () => unsubscribe();
-    }, []);
+    return () => {
+        if (unsubscribeSnapshot) unsubscribeSnapshot();
+        unsubscribeAuth();
+    };
+}, []);
 
     // Update price/margin
     const handleUpdate = async (id, field, value) => {
@@ -127,7 +140,7 @@ const StockList = () => {
                                 <td>
                                     <input
                                         type="number"
-                                        defaultValue={item.buyingPrice}
+                                        defaultValue={item.buyingPrice || 0}
                                         onBlur={(e) =>
                                             handleUpdate(item.id, "buyingPrice", e.target.value)
                                         }
@@ -137,7 +150,7 @@ const StockList = () => {
                                 <td>
                                     <input
                                         type="number"
-                                        defaultValue={item.margin}
+                                        defaultValue={item.margin || 0}
                                         onBlur={(e) =>
                                             handleUpdate(item.id, "margin", e.target.value)
                                         }
