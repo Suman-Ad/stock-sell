@@ -10,7 +10,18 @@ const Login = () => {
 
   const handleLogin = async () => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+      const user = userCredential.user;
+
+      // 🔴 Block if not verified
+      if (!user.emailVerified) {
+        alert("Please verify your email before login.");
+        return;
+      }
       alert("Login Successful!");
       navigate("/stock-inventory"); // 👉 redirect after login
     } catch (err) {

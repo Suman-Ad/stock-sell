@@ -1,40 +1,114 @@
 import React, { useState } from "react";
 import { auth, db } from "../firebase";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { setDoc, doc } from "firebase/firestore";
+import {
+    createUserWithEmailAndPassword,
+    sendEmailVerification
+} from "firebase/auth";
+import { setDoc, doc, serverTimestamp } from "firebase/firestore";
 import { useNavigate, Link } from "react-router-dom";
 
+
 const Signup = () => {
-    const [name, setName] = useState("");
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
+    const [form, setForm] = useState({
+        name: "",
+        email: "",
+        password: "",
+        shopName: "",
+        address: "",
+        pin: "",
+        govId: ""
+    });
 
     const navigate = useNavigate();
 
+    // handle input change
+    const handleChange = (field, value) => {
+        setForm({ ...form, [field]: value });
+    };
+
+    // validation
+    const validate = () => {
+        if (!form.name || !form.email || !form.password) {
+            alert("Name, Email & Password required");
+            return false;
+        }
+
+        if (!form.shopName) {
+            alert("Shop Name required");
+            return false;
+        }
+
+        if (!form.address || !form.pin) {
+            alert("Complete Address with PIN required");
+            return false;
+        }
+
+        if (!/^\d{6}$/.test(form.pin)) {
+            alert("PIN must be 6 digits");
+            return false;
+        }
+
+        if (!form.govId) {
+            alert("Government ID required");
+            return false;
+        }
+
+        if (form.password.length < 6) {
+            alert("Password must be at least 6 characters");
+            return false;
+        }
+
+        return true;
+    };
+
     const handleSignup = async () => {
         try {
-            // 1️⃣ Create user in Firebase Auth
+            if (!validate()) return;
+
+            // 1️⃣ Create Auth user
             const userCredential = await createUserWithEmailAndPassword(
                 auth,
-                email,
-                password
+                form.email,
+                form.password
             );
 
             const user = userCredential.user;
 
-            // 2️⃣ Store user data in Firestore
+            // 2️⃣ Send email verification
+            await sendEmailVerification(user);
+
+            // 3️⃣ Setup subscription
+            const now = new Date();
+            const end = new Date();
+            end.setMonth(end.getMonth() + 1);
+
+            // 4️⃣ Save user in Firestore
             await setDoc(doc(db, "users", user.uid), {
-                name,
-                email,
-                shopName: "My Store",
-                role: "owner",
-                createdAt: new Date()
+                name: form.name,
+                email: form.email,
+                shopName: form.shopName,
+                address: form.address,
+                pin: form.pin,
+                govId: form.govId,
+
+                role: "user",
+                isActive: false,
+
+                emailVerified: false, // 👈 important
+
+                subscription: {
+                    plan: "free",
+                    startDate: now,
+                    endDate: end,
+                    status: "active"
+                },
+
+                createdAt: serverTimestamp()
             });
 
-            alert("User Registered Successfully!");
+            alert("Verification email sent! Please verify before login.");
 
-            // 3️⃣ Redirect to dashboard or login
-            navigate("/dashboard");
+            navigate("/login");
 
         } catch (err) {
             alert(err.message);
@@ -42,27 +116,61 @@ const Signup = () => {
     };
 
     return (
-        <div style={{ textAlign: "center", marginTop: "50px" }}>
+        <div style={{ textAlign: "center", marginTop: "30px" }}>
             <h2>Signup</h2>
 
             <input
                 type="text"
                 placeholder="Full Name"
-                onChange={(e) => setName(e.target.value)}
+                value={form.name}
+                onChange={(e) => handleChange("name", e.target.value)}
             />
             <br /><br />
 
             <input
                 type="email"
                 placeholder="Email"
-                onChange={(e) => setEmail(e.target.value)}
+                value={form.email}
+                onChange={(e) => handleChange("email", e.target.value)}
             />
             <br /><br />
 
             <input
                 type="password"
                 placeholder="Password"
-                onChange={(e) => setPassword(e.target.value)}
+                value={form.password}
+                onChange={(e) => handleChange("password", e.target.value)}
+            />
+            <br /><br />
+
+            <input
+                type="text"
+                placeholder="Shop Name"
+                value={form.shopName}
+                onChange={(e) => handleChange("shopName", e.target.value)}
+            />
+            <br /><br />
+
+            <textarea
+                placeholder="Address"
+                value={form.address}
+                onChange={(e) => handleChange("address", e.target.value)}
+            />
+            <br /><br />
+
+            <input
+                type="text"
+                placeholder="PIN Code"
+                value={form.pin}
+                onChange={(e) => handleChange("pin", e.target.value)}
+            />
+            <br /><br />
+
+            <input
+                type="text"
+                placeholder="Government ID Number"
+                value={form.govId}
+                onChange={(e) => handleChange("govId", e.target.value)}
             />
             <br /><br />
 

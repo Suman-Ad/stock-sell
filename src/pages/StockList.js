@@ -68,7 +68,6 @@ const StockList = () => {
         }
     };
 
-    // Calculate totals
     const getTotalQty = (sizes) => {
         return Object.values(sizes || {}).reduce(
             (sum, s) => sum + (s.qty || 0),
@@ -76,37 +75,44 @@ const StockList = () => {
         );
     };
 
-    const getTotalValue = (item) => {
-        const totalQty = getTotalQty(item.sizes);
-        return totalQty * (item.buyingPrice || 0);
+    const getTotalInvestment = (sizes) => {
+        return Object.values(sizes || {}).reduce(
+            (sum, s) => sum + (s.qty * (s.buyingPrice || 0)),
+            0
+        );
     };
 
-    const getSellingPrice = (item) => {
-        return (item.buyingPrice || 0) + (item.margin || 0);
+    const getTotalSellingValue = (sizes) => {
+        return Object.values(sizes || {}).reduce(
+            (sum, s) => sum + (s.qty * (s.sellingPrice || 0)),
+            0
+        );
     };
 
-    const getTotalSellingValue = (item) => {
-        const totalQty = getTotalQty(item.sizes);
-        return totalQty * getSellingPrice(item);
+    const getTotalProfit = (sizes) => {
+        return getTotalSellingValue(sizes) - getTotalInvestment(sizes);
     };
 
-    const getProfit = (item) => {
-        const totalQty = getTotalQty(item.sizes);
-        return totalQty * (item.margin || 0);
+    const getAvgSellingPrice = (sizes) => {
+        const totalQty = getTotalQty(sizes);
+        if (!totalQty) return 0;
+        return getTotalSellingValue(sizes) / totalQty;
     };
 
-    const handleSizeUpdate = async (item, sizeKey, newQty) => {
+    const handleSizeUpdate = async (item, sizeKey, field, value) => {
         try {
-            const qty = Number(newQty);
+            const updatedSizes = { ...item.sizes };
 
-            if (isNaN(qty) || qty < 0) return;
+            const sizeData = updatedSizes[sizeKey];
 
-            const updatedSizes = {
-                ...item.sizes,
-                [sizeKey]: {
-                    qty
-                }
-            };
+            const newValue = Number(value);
+            if (isNaN(newValue) || newValue < 0) return;
+
+            sizeData[field] = newValue;
+
+            // recalculate selling price
+            sizeData.sellingPrice =
+                sizeData.buyingPrice * (1 + sizeData.margin / 100);
 
             await updateDoc(doc(db, "stocks", item.id), {
                 sizes: updatedSizes
@@ -126,14 +132,12 @@ const StockList = () => {
                 <thead>
                     <tr>
                         <th>Catalog</th>
-                        <th>Sizes</th>
+                        <th>Sizes - Quantity - Prices - Margin%</th>
                         <th>Total Qty</th>
-                        <th>Buying Price</th>
-                        <th>Margin</th>
-                        <th>Selling Price</th>
-                        <th>Total Selling</th>
+                        <th>Total Investment</th>
+                        <th>Avg Selling Price</th>
+                        <th>Total Selling Value</th>
                         <th>Profit</th>
-                        <th>Total Value</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -141,10 +145,10 @@ const StockList = () => {
                 <tbody>
                     {stocks.map((item) => {
                         const totalQty = getTotalQty(item.sizes);
-                        const totalValue = getTotalValue(item);
-                        const sellingPrice = getSellingPrice(item);
-                        const totalSelling = getTotalSellingValue(item);
-                        const profit = getProfit(item);
+                        const totalInvestment = getTotalInvestment(item.sizes);
+                        const totalSelling = getTotalSellingValue(item.sizes);
+                        const profit = getTotalProfit(item.sizes);
+                        const avgSelling = getAvgSellingPrice(item.sizes);
 
                         return (
                             <tr key={item.id}>
@@ -153,22 +157,45 @@ const StockList = () => {
                                 <td>
                                     <td>
                                         {Object.entries(item.sizes || {}).map(([size, data]) => (
-                                            <div key={size} style={{ marginBottom: "5px" }}>
-                                                <b>{size}</b>:
+                                            <div key={size} style={{ marginBottom: "8px", display: "flex", alignItems: "center", gap: "5px" }}>
+                                                <b>{size}</b>
 
                                                 <input
                                                     type="number"
                                                     value={data.qty}
                                                     style={{ width: "60px", marginLeft: "5px" }}
                                                     onChange={(e) =>
-                                                        handleSizeUpdate(item, size, e.target.value)
+                                                        handleSizeUpdate(item, size, "qty", e.target.value)
                                                     }
                                                 />
+
+                                                <input
+                                                    type="number"
+                                                    value={data.buyingPrice}
+                                                    placeholder="Buy"
+                                                    style={{ width: "70px", marginLeft: "5px" }}
+                                                    onChange={(e) =>
+                                                        handleSizeUpdate(item, size, "buyingPrice", e.target.value)
+                                                    }
+                                                />
+
+                                                <input
+                                                    type="number"
+                                                    value={data.margin}
+                                                    placeholder="%"
+                                                    style={{ width: "60px", marginLeft: "5px" }}
+                                                    onChange={(e) =>
+                                                        handleSizeUpdate(item, size, "margin", e.target.value)
+                                                    }
+                                                />
+
+                                                <span style={{ marginLeft: "8px" }}>
+                                                    ₹{(data.sellingPrice || 0).toFixed(2)}
+                                                </span>
 
                                                 <button
                                                     onClick={async () => {
                                                         const updatedSizes = { ...item.sizes };
-
                                                         delete updatedSizes[size];
 
                                                         if (Object.keys(updatedSizes).length === 0) {
@@ -190,34 +217,12 @@ const StockList = () => {
                                 </td>
 
                                 <td>{totalQty}</td>
-
-                                <td>
-                                    <input
-                                        type="number"
-                                        defaultValue={item.buyingPrice || 0}
-                                        onBlur={(e) =>
-                                            handleUpdate(item.id, "buyingPrice", e.target.value)
-                                        }
-                                    />
-                                </td>
-
-                                <td>
-                                    <input
-                                        type="number"
-                                        defaultValue={item.margin || 0}
-                                        onBlur={(e) =>
-                                            handleUpdate(item.id, "margin", e.target.value)
-                                        }
-                                    />
-                                </td>
-                                <td>{sellingPrice}</td>
-                                <td>{totalSelling}</td>
+                                <td>₹{totalInvestment.toFixed(2)}</td>
+                                <td>₹{avgSelling.toFixed(2)}</td>
+                                <td>₹{totalSelling.toFixed(2)}</td>
                                 <td style={{ color: "green", fontWeight: "bold" }}>
-                                    {profit}
+                                    ₹{profit.toFixed(2)}
                                 </td>
-
-                                <td>{totalValue}</td>
-
                                 <td>
                                     <button onClick={() => handleDelete(item.id)}>
                                         Delete

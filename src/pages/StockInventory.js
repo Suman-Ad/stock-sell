@@ -15,6 +15,10 @@ const colorOptions = [
     "Yellow", "Grey", "Navy", "Maroon"
 ];
 
+const getSellingPrice = (buying, margin) => {
+    return buying * (1 + margin / 100);
+};
+
 const StockInventory = () => {
     const [category, setCategory] = useState("");
     const [subCategory, setSubCategory] = useState("");
@@ -22,31 +26,49 @@ const StockInventory = () => {
     const [color, setColor] = useState("");
     const [customColor, setCustomColor] = useState("");
     const [sizes, setSizes] = useState([
-        { size: "S", qty: 0 },
-        { size: "M", qty: 0 },
-        { size: "L", qty: 0 }
+        { size: "S", qty: 0, buyingPrice: 0, margin: 0 },
+        { size: "M", qty: 0, buyingPrice: 0, margin: 0 },
+        { size: "L", qty: 0, buyingPrice: 0, margin: 0 }
     ]);
-    const [buyingPrice, setBuyingPrice] = useState("");
-    const [margin, setMargin] = useState("");
+
     const [remarks, setRemarks] = useState("");
 
-    const totalQty = sizes.reduce((sum, s) => sum + (s.qty || 0), 0);
+    const totalQty = sizes.reduce((sum, s) => sum + s.qty, 0);
 
-    const buying = Number(buyingPrice) || 0;
-    const marginValue = Number(margin) || 0;
+    const totalInvestment = sizes.reduce(
+        (sum, s) => sum + (s.qty * s.buyingPrice),
+        0
+    );
 
-    const sellingPrice = buying + marginValue;
-    const totalInvestment = totalQty * buying;
-    const totalProfit = totalQty * marginValue;
-    const totalSellingValue = totalQty * sellingPrice;
+    const totalSellingValue = sizes.reduce(
+        (sum, s) => sum + (s.qty * getSellingPrice(s.buyingPrice, s.margin)),
+        0
+    );
+
+    const totalProfit = totalSellingValue - totalInvestment;
+
 
     // Handle size qty change
     const handleSizeChange = (index, value) => {
-        if (value < 0) return; // prevent negative
+        if (value < 0) return;
         const updated = [...sizes];
         updated[index].qty = Number(value);
         setSizes(updated);
     };
+
+    const handleBuyingPriceChange = (index, value) => {
+        const updated = [...sizes];
+        updated[index].buyingPrice = Number(value);
+        setSizes(updated);
+    };
+
+    const handleMarginChange = (index, value) => {
+        const updated = [...sizes];
+        updated[index].margin = Number(value);
+        setSizes(updated);
+    };
+
+
 
     // Add new size row
     const addSizeRow = () => {
@@ -57,7 +79,10 @@ const StockInventory = () => {
             return;
         }
 
-        setSizes([...sizes, { size: "", qty: 0 }]);
+        setSizes([
+            ...sizes,
+            { size: "", qty: 0, buyingPrice: 0, margin: 0 }
+        ]);
     };
 
     // Handle size name change
@@ -91,7 +116,12 @@ const StockInventory = () => {
             const sizeObject = {};
             sizes.forEach((s) => {
                 if (s.size && s.qty > 0) {
-                    sizeObject[s.size] = { qty: Number(s.qty) || 0 };
+                    sizeObject[s.size] = {
+                        qty: s.qty,
+                        buyingPrice: s.buyingPrice,
+                        margin: s.margin,
+                        sellingPrice: getSellingPrice(s.buyingPrice, s.margin)
+                    };
                 }
             });
 
@@ -116,8 +146,6 @@ const StockInventory = () => {
                 color,
                 catalogId,
                 sizes: sizeObject,
-                buyingPrice: Number(buyingPrice) || 0,
-                margin: Number(margin) || 0,
                 remarks,
                 userId: user.uid,
                 createdAt: serverTimestamp()
@@ -137,149 +165,206 @@ const StockInventory = () => {
 
     return (
         <div style={{ padding: "20px" }}>
-            <h2>Stock Inventory</h2>
-            <h4>Category</h4>
-
-            <select
-                value={category}
-                onChange={(e) => {
-                    setCategory(e.target.value);
-                    setSubCategory(""); // reset subcategory
-                }}
-            >
-                <option value="">Select Category</option>
-                {Object.keys(categoryMap).map((cat) => (
-                    <option key={cat} value={cat}>
-                        {cat}
-                    </option>
-                ))}
-            </select>
-
-            <h4>Sub Category</h4>
-
-            <select
-                value={subCategory}
-                onChange={(e) => setSubCategory(e.target.value)}
-                disabled={!category}
-            >
-                <option value="">Select SubCategory</option>
-                {(categoryMap[category] || []).map((sub) => (
-                    <option key={sub} value={sub}>
-                        {sub}
-                    </option>
-                ))}
-            </select>
-
-            <h4>Product Type</h4>
-
-            <select
-                value={productType}
-                onChange={(e) => setProductType(e.target.value)}
-                disabled={!subCategory}
-            >
-                <option value="">Select Product Type</option>
-                {productTypes.map((type) => (
-                    <option key={type} value={type}>
-                        {type}
-                    </option>
-                ))}
-            </select>
-
-            <h4>Color</h4>
-
-            <select
-                value={color}
-                onChange={(e) => {
-                    setColor(e.target.value);
-                    setCustomColor("");
-                }}
-            >
-                <option value="">Select Color</option>
-                {colorOptions.map((c) => (
-                    <option key={c} value={c}>
-                        {c}
-                    </option>
-                ))}
-                <option value="custom">Other</option>
-            </select>
-
-            {color === "custom" && (
-                <input
-                    placeholder="Enter Custom Color"
-                    value={customColor}
-                    onChange={(e) => setCustomColor(e.target.value)}
-                />
-            )}
-
-            <h4>Sizes & Quantity</h4>
-
-            {sizes.map((s, index) => (
-                <div key={index}>
-                    <input
-                        placeholder="Size"
-                        value={s.size}
-                        onChange={(e) =>
-                            handleSizeNameChange(index, e.target.value)
-                        }
-                    />
-                    <input
-                        type="number"
-                        placeholder="Qty"
-                        value={s.qty}
-                        onChange={(e) =>
-                            handleSizeChange(index, e.target.value)
-                        }
-                    />
-                </div>
-            ))}
-
-            <button onClick={addSizeRow}>+ Add Size</button>
-
-            <br /><br />
-
-            <input
-                type="number"
-                placeholder="Buying Price"
-                value={buyingPrice}
-                onChange={(e) => setBuyingPrice(e.target.value)}
-            />
-
-            <input
-                type="number"
-                placeholder="Selling Margin"
-                value={margin}
-                onChange={(e) => setMargin(e.target.value)}
-            />
-
-            <br /><br />
-
-            <textarea
-                placeholder="Remarks / Description"
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-            />
-
-            <br /><br />
-
             <div style={{
-                marginTop: "20px",
+                marginBottom: "20px",
                 padding: "15px",
-                background: "#f5f5f5",
-                borderRadius: "8px"
+                backgroundColor: "#f0f0f0",
+                borderRadius: "5px"
             }}>
-                <h4>📊 Live Summary</h4>
+                <h2>Stock Inventory</h2>
 
-                <p>Total Quantity: <b>{totalQty}</b></p>
-                <p>Selling Price (per item): <b>₹{sellingPrice}</b></p>
-                <p>Total Investment: <b>₹{totalInvestment}</b></p>
-                <p>Total Selling Value: <b>₹{totalSellingValue}</b></p>
-                <p style={{ color: "green" }}>
-                    Total Profit: <b>₹{totalProfit}</b>
-                </p>
+                <div style={{ marginBottom: "20px", padding: "15px", backgroundColor: "#f0f0f0", borderRadius: "5px", display: "flex", flexDirection: "row", gap: "15px" }}>
+                    <h4>Category</h4>
+
+                    <select
+                        value={category}
+                        onChange={(e) => {
+                            setCategory(e.target.value);
+                            setSubCategory(""); // reset subcategory
+                        }}
+                    >
+                        <option value="">Select Category</option>
+                        {Object.keys(categoryMap).map((cat) => (
+                            <option key={cat} value={cat}>
+                                {cat}
+                            </option>
+                        ))}
+                    </select>
+
+                    <h4>Sub Category</h4>
+
+                    <select
+                        value={subCategory}
+                        onChange={(e) => setSubCategory(e.target.value)}
+                        disabled={!category}
+                    >
+                        <option value="">Select SubCategory</option>
+                        {(categoryMap[category] || []).map((sub) => (
+                            <option key={sub} value={sub}>
+                                {sub}
+                            </option>
+                        ))}
+                    </select>
+
+                    <h4>Product Type</h4>
+
+                    <select
+                        value={productType}
+                        onChange={(e) => setProductType(e.target.value)}
+                        disabled={!subCategory}
+                    >
+                        <option value="">Select Product Type</option>
+                        {productTypes.map((type) => (
+                            <option key={type} value={type}>
+                                {type}
+                            </option>
+                        ))}
+                    </select>
+
+                    <h4>Color</h4>
+
+                    <select
+                        value={color}
+                        onChange={(e) => {
+                            setColor(e.target.value);
+                            setCustomColor("");
+                        }}
+                    >
+                        <option value="">Select Color</option>
+                        {colorOptions.map((c) => (
+                            <option key={c} value={c}>
+                                {c}
+                            </option>
+                        ))}
+                        <option value="custom">Other</option>
+                    </select>
+
+                    {color === "custom" && (
+                        <input
+                            placeholder="Enter Custom Color"
+                            value={customColor}
+                            onChange={(e) => setCustomColor(e.target.value)}
+                        />
+                    )}
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "row", gap: "30px" }}>
+
+                    <div style={{
+                        marginBottom: "20px",
+                        padding: "15px",
+                        backgroundColor: "#f0f0f0",
+                        borderRadius: "5px"
+                    }}>
+                        <h4>Sizes - Quantity - Prices - Margin%</h4>
+
+                        {sizes.map((s, index) => {
+                            const selling = getSellingPrice(s.buyingPrice, s.margin);
+
+                            return (
+                                <div key={index} style={{ display: "flex", gap: "10px", marginBottom: "8px", alignItems: "center" }}>
+                                    <div>
+                                        <label style={{ fontSize:"10px", color:"gray" }}>Size</label><br />
+                                        <input
+                                            placeholder="Size"
+                                            value={s.size}
+                                            onChange={(e) =>
+                                                handleSizeNameChange(index, e.target.value)
+                                            }
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ fontSize:"10px", color:"gray" }}>Qty</label><br />
+                                        <input
+                                            type="number"
+                                            placeholder="Qty"
+                                            value={s.qty}
+                                            onChange={(e) =>
+                                                handleSizeChange(index, e.target.value)
+                                            }
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ fontSize:"10px", color:"gray" }}>Buying ₹</label><br />
+                                        <input
+                                            type="number"
+                                            placeholder="Buying ₹"
+                                            value={s.buyingPrice}
+                                            onChange={(e) =>
+                                                handleBuyingPriceChange(index, e.target.value)
+                                            }
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ fontSize:"10px", color:"gray" }}>Margin %</label><br />
+                                        <input
+                                            type="number"
+                                            placeholder="Margin %"
+                                            value={s.margin}
+                                            onChange={(e) =>
+                                                handleMarginChange(index, e.target.value)
+                                            }
+                                        />
+                                    </div>
+
+                                    <span>₹{selling.toFixed(2)}</span>
+                                    <span style={{ color: "green" }}>
+                                        Profit: ₹{(selling - s.buyingPrice).toFixed(2)}
+                                    </span>
+                                </div>
+                            );
+                        })}
+
+                        <button onClick={addSizeRow}>+ Add Size</button>
+
+                        <br /><br />
+
+                        <textarea
+                            placeholder="Remarks / Description"
+                            value={remarks}
+                            onChange={(e) => setRemarks(e.target.value)}
+                        />
+
+                        <br /><br />
+                    </div>
+
+                    <div style={{
+                        marginTop: "20px",
+                        padding: "15px",
+                        background: "#f5f5f5",
+                        borderRadius: "8px"
+                    }}>
+                        <h4>📊 Live Summary</h4>
+
+                        <p>Total Quantity: <b>{totalQty}</b></p>
+                        <p>Avg Selling Price:
+                            <b>
+                                ₹{totalQty ? (totalSellingValue / totalQty).toFixed(2) : 0}
+                            </b>
+                        </p>
+                        <p>Total Investment: <b>₹{totalInvestment}</b></p>
+                        <p>Total Selling Value: <b>₹{totalSellingValue}</b></p>
+                        <p style={{ color: "green" }}>
+                            Total Profit: <b>₹{totalProfit}</b>
+                        </p>
+                    </div>
+                </div>
+
+                <button onClick={handleSave}>Save Stock</button>
             </div>
 
-            <button onClick={handleSave}>Save Stock</button>
-            <StockList />
+            <div style={{
+                margin: "20px 0",
+                padding: "15px",
+                backgroundColor: "#e0e0e0",
+                borderRadius: "5px"
+            }}>
+                <h2>Existing Stocks</h2>
+                <StockList />
+            </div>
         </div>
     );
 };

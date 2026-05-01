@@ -60,9 +60,12 @@ const Layout = () => {
                 justifyContent: "space-between",
                 alignItems: "center"
             }}>
-                <h3>{shopName}</h3>
+                <h3 onClick={() => navigate("/stock-inventory")}
+                    style={{ cursor:"pointer" }}>{shopName}</h3>
 
                 <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+                    <p onClick={() => navigate("/admin")}
+                        style={{ cursor:"pointer"}}>Admin</p>
                     <span>👤 {userName}</span>
 
                     <button
