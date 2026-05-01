@@ -2,11 +2,22 @@ import React, { useState } from "react";
 import { auth } from "../firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useNavigate, Link } from "react-router-dom";
+import { updateDoc, doc } from "firebase/firestore";
+import { sendEmailVerification } from "firebase/auth";
+import { db } from "../firebase";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate(); // ✅ correct
+  const [verificationSent, setVerificationSent] = useState(false);
+
+  const resendVerification = async () => {
+    if (auth.currentUser) {
+      await sendEmailVerification(auth.currentUser);
+      alert("Verification email resent!");
+    }
+  };
 
   const handleLogin = async () => {
     try {
@@ -22,7 +33,16 @@ const Login = () => {
         alert("Please verify your email before login.");
         return;
       }
+
+      setVerificationSent(true); // Reset state on successful login
+
       alert("Login Successful!");
+      if (user.emailVerified) {
+        await updateDoc(doc(db, "users", user.uid), {
+          emailVerified: true
+        });
+      }
+      setVerificationSent(false); // Reset state after successful login
       navigate("/stock-inventory"); // 👉 redirect after login
     } catch (err) {
       alert(err.message);
@@ -48,6 +68,13 @@ const Login = () => {
       <br /><br />
 
       <button onClick={handleLogin}>Login</button>
+
+      {verificationSent && (
+        <div style={{ marginTop: "20px" }}>
+          <p>Your email is not verified. Please check your inbox.</p>
+          <button onClick={resendVerification}>Resend Verification Email</button>
+        </div>
+      )}
 
       <br /><br />
 
