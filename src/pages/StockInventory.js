@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { db, auth } from "../firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, doc } from "firebase/firestore";
 import StockList from "./StockList";
 
 const categoryMap = {
@@ -15,20 +15,91 @@ const colorOptions = [
     "Yellow", "Grey", "Navy", "Maroon"
 ];
 
-const getSellingPrice = (buying, margin) => {
-    return buying * (1 + margin / 100);
+const getSellingPrice = (buying, margin, extraCosts) => {
+    const breakEven =
+        Number(buying) +
+        Number(extraCosts.packaging) +
+        Number(extraCosts.labeling) +
+        Number(extraCosts.rto) +
+        Number(extraCosts.returnCost) +
+        Number(extraCosts.delivery);
+
+    const withGST = breakEven * (1 + extraCosts.gst / 100);
+
+    return withGST * (1 + margin / 100);
 };
 
-const StockInventory = () => {
+const StockInventory = ({ userData }) => {
     const [category, setCategory] = useState("");
     const [subCategory, setSubCategory] = useState("");
     const [productType, setProductType] = useState("");
     const [color, setColor] = useState("");
     const [customColor, setCustomColor] = useState("");
+    const [catalogId, setCatalogId] = useState("");
+    const [extraCosts, setExtraCosts] = useState({
+        packaging: 0,
+        labeling: 0,
+        rto: 0,
+        returnCost: 0,
+        delivery: 0,
+        gst: 0 // %
+    });
+
+    const generateCatalogId = (productName, color, userId) => {
+        const productShort = productName
+            .split("-")
+            .map(word => word[0])
+            .join("")
+            .toUpperCase();
+
+        const colorShort = color.substring(0, 2).toUpperCase();
+
+        // 🔥 Strong random (6 chars)
+        const randomPart = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+        // 🔥 Timestamp (last 5 digits)
+        const timePart = Date.now().toString().slice(-5);
+
+        // 🔥 User short (last 4 chars)
+        const userPart = userId.slice(-4).toUpperCase();
+
+        const catalogId = `${productShort}-${colorShort}-${randomPart}`;
+        const productId = `${userPart}-${productShort}-${colorShort}-${randomPart}-${timePart}`;
+
+        return { catalogId, productId };
+    };
+
     const [sizes, setSizes] = useState([
-        { size: "S", qty: 0, buyingPrice: 0, margin: 0 },
-        { size: "M", qty: 0, buyingPrice: 0, margin: 0 },
-        { size: "L", qty: 0, buyingPrice: 0, margin: 0 }
+        {
+            size: "S", qty: 0, buyingPrice: 0, margin: 0, extraCosts: {
+                packaging: 0,
+                labeling: 0,
+                rto: 0,
+                returnCost: 0,
+                delivery: 0,
+                gst: 0
+            }
+        },
+        {
+            size: "M", qty: 0, buyingPrice: 0, margin: 0, extraCosts: {
+                packaging: 0,
+                labeling: 0,
+                rto: 0,
+                returnCost: 0,
+                delivery: 0,
+                gst: 0
+            }
+        },
+        {
+            size: "L", qty: 0, buyingPrice: 0, margin: 0, extraCosts: {
+                packaging: 0,
+                labeling: 0,
+                rto: 0,
+                returnCost: 0,
+                delivery: 0,
+                gst: 0
+            }
+        }
     ]);
 
     const [remarks, setRemarks] = useState("");
@@ -41,7 +112,7 @@ const StockInventory = () => {
     );
 
     const totalSellingValue = sizes.reduce(
-        (sum, s) => sum + (s.qty * getSellingPrice(s.buyingPrice, s.margin)),
+        (sum, s) => sum + (s.qty * getSellingPrice(s.buyingPrice, s.margin, s.extraCosts)),
         0
     );
 
@@ -81,7 +152,20 @@ const StockInventory = () => {
 
         setSizes([
             ...sizes,
-            { size: "", qty: 0, buyingPrice: 0, margin: 0 }
+            {
+                size: "",
+                qty: 0,
+                buyingPrice: 0,
+                margin: 0,
+                extraCosts: {
+                    packaging: 0,
+                    labeling: 0,
+                    rto: 0,
+                    returnCost: 0,
+                    delivery: 0,
+                    gst: 0
+                }
+            }
         ]);
     };
 
@@ -103,6 +187,12 @@ const StockInventory = () => {
         setSizes(updated);
     };
 
+    const handleExtraCostChange = (index, field, value) => {
+        const updated = [...sizes];
+        updated[index].extraCosts[field] = Number(value);
+        setSizes(updated);
+    };
+
     // Save to Firestore
     const handleSave = async () => {
         try {
@@ -120,7 +210,12 @@ const StockInventory = () => {
                         qty: s.qty,
                         buyingPrice: s.buyingPrice,
                         margin: s.margin,
-                        sellingPrice: getSellingPrice(s.buyingPrice, s.margin)
+                        extraCosts: s.extraCosts,
+                        sellingPrice: getSellingPrice(
+                            s.buyingPrice,
+                            s.margin,
+                            s.extraCosts
+                        )
                     };
                 }
             });
@@ -137,17 +232,23 @@ const StockInventory = () => {
                 return;
             }
 
-            const catalogId = `${category}-${subCategory}-${productType}-${finalColor}`;
+            const productName = `${category}-${subCategory}-${productType}-${finalColor}`;
+            // ✅ Generate IDs properly
+            const { catalogId, productId } = generateCatalogId(productName, finalColor, user.uid);
+            setCatalogId(catalogId); // Set catalogId state to display in input
 
             await addDoc(collection(db, "stocks"), {
                 category,
                 subCategory,
                 productType,
                 color,
+                productName,
+                productId,
                 catalogId,
                 sizes: sizeObject,
                 remarks,
-                userId: user.uid,
+                userId: userData.uid,
+                userDetails: userData,
                 createdAt: serverTimestamp()
             });
 
@@ -169,11 +270,14 @@ const StockInventory = () => {
                 marginBottom: "20px",
                 padding: "15px",
                 backgroundColor: "#f0f0f0",
-                borderRadius: "5px"
+                borderRadius: "5px",
             }}>
                 <h2>Stock Inventory</h2>
+                <h2>Welcome {userData.name}</h2>
+                {/* <p>Role: {userData.role}</p> */}
+                {/* <p>Shop: {userData.shopName}</p> */}
 
-                <div style={{ marginBottom: "20px", padding: "15px", backgroundColor: "#f0f0f0", borderRadius: "5px", display: "flex", flexDirection: "row", gap: "15px" }}>
+                <div style={{ marginBottom: "20px", padding: "15px", backgroundColor: "#f0f0f0", borderRadius: "5px", display: "flex", flexDirection: "row", gap: "15px", flexWrap: "wrap" }}>
                     <h4>Category</h4>
 
                     <select
@@ -248,75 +352,114 @@ const StockInventory = () => {
                     )}
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "row", gap: "30px" }}>
+                <div style={{ marginBottom: "20px", padding: "15px", backgroundColor: "#f0f0f0", borderRadius: "5px" }}>
+                    <h4>Generated Catalog ID:</h4>
+                    <input
+                        placeholder="Catalog ID"
+                        value={catalogId}
+                        readOnly
+                    />
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap" }}>
 
                     <div style={{
                         marginBottom: "20px",
                         padding: "15px",
                         backgroundColor: "#f0f0f0",
-                        borderRadius: "5px"
+                        borderRadius: "5px",
+                        overflow: "auto",
+                        maxHeight: "480px",
+                        flex: "1 1 480px"
                     }}>
                         <h4>Sizes - Quantity - Prices - Margin%</h4>
+                        <div style={{ overflowY: "auto", maxHeight: "300px" }}>
+                            {sizes.map((s, index) => {
+                                const selling = getSellingPrice(s.buyingPrice, s.margin, s.extraCosts);
 
-                        {sizes.map((s, index) => {
-                            const selling = getSellingPrice(s.buyingPrice, s.margin);
+                                return (
+                                    <div key={index} style={{ display: "flex", gap: "10px", marginBottom: "8px", alignItems: "center" }}>
+                                        <div style={{ marginBottom: "20px", padding: "15px", background: "#f9f9f9" }}>
+                                            <div>
+                                                <label style={{ fontSize: "10px", color: "gray" }}>Size</label><br />
+                                                <input
+                                                    placeholder="Size"
+                                                    value={s.size}
+                                                    onChange={(e) =>
+                                                        handleSizeNameChange(index, e.target.value)
+                                                    }
+                                                />
+                                            </div>
 
-                            return (
-                                <div key={index} style={{ display: "flex", gap: "10px", marginBottom: "8px", alignItems: "center" }}>
-                                    <div>
-                                        <label style={{ fontSize:"10px", color:"gray" }}>Size</label><br />
-                                        <input
-                                            placeholder="Size"
-                                            value={s.size}
-                                            onChange={(e) =>
-                                                handleSizeNameChange(index, e.target.value)
-                                            }
-                                        />
+                                            <div>
+                                                <label style={{ fontSize: "10px", color: "gray" }}>Qty</label><br />
+                                                <input
+                                                    type="number"
+                                                    placeholder="Qty"
+                                                    value={s.qty}
+                                                    onChange={(e) =>
+                                                        handleSizeChange(index, e.target.value)
+                                                    }
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label style={{ fontSize: "10px", color: "gray" }}>Buying ₹</label><br />
+                                                <input
+                                                    type="number"
+                                                    placeholder="Buying ₹"
+                                                    value={s.buyingPrice}
+                                                    onChange={(e) =>
+                                                        handleBuyingPriceChange(index, e.target.value)
+                                                    }
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label style={{ fontSize: "10px", color: "gray" }}>Margin %</label><br />
+                                                <input
+                                                    type="number"
+                                                    placeholder="Margin %"
+                                                    value={s.margin}
+                                                    onChange={(e) =>
+                                                        handleMarginChange(index, e.target.value)
+                                                    }
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div style={{ marginBottom: "20px", padding: "15px", background: "#f9f9f9" }}>
+                                            <h4>Extra Costs (Per Item)</h4>
+
+                                            <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
+                                                {Object.keys(s.extraCosts).map((key) => (
+                                                    <div key={key} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                                                        <span style={{ fontSize: "10px", color: "gray" }}>{key.toUpperCase()}</span><br />
+                                                        <input
+                                                            key={key}
+                                                            type="number"
+                                                            placeholder={key}
+                                                            value={s.extraCosts[key]}
+                                                            onChange={(e) =>
+                                                                handleExtraCostChange(index, key, e.target.value)
+                                                            }
+                                                            style={{ width: "70px" }}
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+
+
+                                        <span>₹{selling.toFixed(2)}</span>
+                                        <span style={{ color: "green" }}>
+                                            Profit: ₹{(selling - s.buyingPrice).toFixed(2)}
+                                        </span>
                                     </div>
-
-                                    <div>
-                                        <label style={{ fontSize:"10px", color:"gray" }}>Qty</label><br />
-                                        <input
-                                            type="number"
-                                            placeholder="Qty"
-                                            value={s.qty}
-                                            onChange={(e) =>
-                                                handleSizeChange(index, e.target.value)
-                                            }
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label style={{ fontSize:"10px", color:"gray" }}>Buying ₹</label><br />
-                                        <input
-                                            type="number"
-                                            placeholder="Buying ₹"
-                                            value={s.buyingPrice}
-                                            onChange={(e) =>
-                                                handleBuyingPriceChange(index, e.target.value)
-                                            }
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label style={{ fontSize:"10px", color:"gray" }}>Margin %</label><br />
-                                        <input
-                                            type="number"
-                                            placeholder="Margin %"
-                                            value={s.margin}
-                                            onChange={(e) =>
-                                                handleMarginChange(index, e.target.value)
-                                            }
-                                        />
-                                    </div>
-
-                                    <span>₹{selling.toFixed(2)}</span>
-                                    <span style={{ color: "green" }}>
-                                        Profit: ₹{(selling - s.buyingPrice).toFixed(2)}
-                                    </span>
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
+                        </div>
 
                         <button onClick={addSizeRow}>+ Add Size</button>
 
@@ -332,7 +475,7 @@ const StockInventory = () => {
                     </div>
 
                     <div style={{
-                        marginTop: "20px",
+                        // marginTop: "20px",
                         padding: "15px",
                         background: "#f5f5f5",
                         borderRadius: "8px"

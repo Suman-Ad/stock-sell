@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { auth } from "../firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useNavigate, Link } from "react-router-dom";
-import { updateDoc, doc } from "firebase/firestore";
+import { updateDoc, doc, getDoc } from "firebase/firestore";
 import { sendEmailVerification } from "firebase/auth";
 import { db } from "../firebase";
 
@@ -23,27 +23,67 @@ const Login = () => {
     try {
       const userCredential = await signInWithEmailAndPassword(
         auth,
-        email,
+        email.toLowerCase(),
         password
       );
+
       const user = userCredential.user;
 
-      // 🔴 Block if not verified
+      // ❌ Email not verified
       if (!user.emailVerified) {
+        setVerificationSent(true);
         alert("Please verify your email before login.");
         return;
       }
 
-      setVerificationSent(true); // Reset state on successful login
+      // ✅ Fetch Firestore user
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        alert("User data not found!");
+        return;
+      }
+
+      const dbData = userSnap.data();
+
+      // ❌ Check admin approval
+      if (!dbData.isActive) {
+        alert("Your account is not approved yet.");
+        return;
+      }
+
+      // ❌ Check subscription
+      const now = new Date();
+      const endDate = dbData.subscription?.endDate?.toDate();
+
+      if (endDate && endDate < now) {
+        alert("Subscription expired.");
+        return;
+      }
+
+      // ✅ Merge data
+      const userData = {
+        uid: user.uid,
+        email: user.email,
+        emailVerified: user.emailVerified,
+        ...dbData,
+      };
+
+      // ✅ Remove sensitive data
+      const { govId, ...safeData } = userData;
+
+      localStorage.setItem("user", JSON.stringify(safeData));
+
+      // ✅ Update login info
+      await updateDoc(userRef, {
+        emailVerified: true,
+        lastLogin: new Date(),
+      });
 
       alert("Login Successful!");
-      if (user.emailVerified) {
-        await updateDoc(doc(db, "users", user.uid), {
-          emailVerified: true
-        });
-      }
-      setVerificationSent(false); // Reset state after successful login
-      navigate("/stock-inventory"); // 👉 redirect after login
+      navigate("/stock-inventory");
+
     } catch (err) {
       alert(err.message);
     }

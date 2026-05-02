@@ -14,6 +14,7 @@ const Layout = () => {
     const handleLogout = async () => {
         try {
             await signOut(auth);
+            localStorage.removeItem("user");
             navigate("/login");
         } catch (err) {
             alert(err.message);
@@ -58,12 +59,20 @@ const Layout = () => {
                 padding: "10px 20px",
                 display: "flex",
                 justifyContent: "space-between",
-                alignItems: "center"
+                alignItems: "center",
+                position: "sticky",
+                top:0,
             }}>
                 <h3 onClick={() => navigate("/stock-inventory")}
                     style={{ cursor:"pointer" }}>{shopName}</h3>
 
                 <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+                    <p onClick={() => navigate("/sell-product")}
+                        style={{ cursor:"pointer"}}>Sell Product</p>
+                    <p onClick={() => navigate("/dashboard")}
+                        style={{ cursor:"pointer"}}>Dashboard</p>
+                    <p onClick={() => navigate("/sales-history")}
+                        style={{ cursor:"pointer"}}>Sales History</p>
                     <p onClick={() => navigate("/admin")}
                         style={{ cursor:"pointer"}}>Admin</p>
                     <span>👤 {userName}</span>
@@ -93,7 +102,9 @@ const Layout = () => {
                 background: "#222",
                 color: "#aaa",
                 textAlign: "center",
-                padding: "10px"
+                padding: "10px",
+                // position: "sticky",
+                // bottom:0,
             }}>
                 © {new Date().getFullYear()} Inventory App | Developed by You 🚀
             </footer>
