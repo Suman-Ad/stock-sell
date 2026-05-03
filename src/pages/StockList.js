@@ -259,8 +259,6 @@ const StockList = ({ user }) => {
                 style={{ marginBottom: "15px", padding: "8px", width: "250px" }}
             />
 
-            <p>{soldIds}</p>
-
             <table border="1" cellPadding="10" style={{ borderCollapse: "collapse", overflowX: "auto", display: "block", width: "100%" }}>
                 <thead>
                     <tr>
