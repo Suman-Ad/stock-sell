@@ -90,38 +90,41 @@ const Login = () => {
   };
 
   return (
-    <div style={{ textAlign: "center", marginTop: "50px" }}>
-      <h2>Login</h2>
+    <div className="login-container" >
+      <div className="login-box" >
 
-      <input
-        type="email"
-        placeholder="Email"
-        onChange={(e) => setEmail(e.target.value)}
-      />
-      <br /><br />
+        <h2>Login</h2>
 
-      <input
-        type="password"
-        placeholder="Password"
-        onChange={(e) => setPassword(e.target.value)}
-      />
-      <br /><br />
+        <input
+          type="email"
+          placeholder="Email"
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <br /><br />
 
-      <button onClick={handleLogin}>Login</button>
+        <input
+          type="password"
+          placeholder="Password"
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <br /><br />
 
-      {verificationSent && (
-        <div style={{ marginTop: "20px" }}>
-          <p>Your email is not verified. Please check your inbox.</p>
-          <button onClick={resendVerification}>Resend Verification Email</button>
-        </div>
-      )}
+        <button onClick={handleLogin}>Login</button>
 
-      <br /><br />
+        {verificationSent && (
+          <div style={{ marginTop: "20px" }}>
+            <p>Your email is not verified. Please check your inbox.</p>
+            <button onClick={resendVerification}>Resend Verification Email</button>
+          </div>
+        )}
 
-      {/* ✅ Better way using Link */}
-      <p>
-        Don't have an account? <Link to="/signup">Register</Link>
-      </p>
+        <br /><br />
+
+        {/* ✅ Better way using Link */}
+        <p>
+          Don't have an account? <Link to="/signup">Register</Link>
+        </p>
+      </div>
     </div>
   );
 };

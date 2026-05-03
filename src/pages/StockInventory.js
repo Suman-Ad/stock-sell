@@ -624,7 +624,7 @@ const StockInventory = ({ user }) => {
                 borderRadius: "5px",
             }}>
                 <h2>Stock Inventory</h2>
-                <h2>Welcome {user.name}</h2>
+                <h2>Welcome {user?.name}</h2>
                 {/* <p>Role: {userData.role}</p> */}
                 {/* <p>Shop: {userData.shopName}</p> */}
 
