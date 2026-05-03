@@ -6,7 +6,7 @@ import { Outlet } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 
-const Layout = () => {
+const Layout = ({ user }) => {
     const [userName, setUserName] = useState("");
     const [shopName, setShopName] = useState("");
     const navigate = useNavigate();

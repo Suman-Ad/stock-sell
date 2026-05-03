@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { db, auth } from "../firebase";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import useUserRole from "../hooks/useUserRole";
+import { QRCodeCanvas } from "qrcode.react";
 
 const SalesHistory = () => {
     const [sales, setSales] = useState([]);
@@ -36,6 +37,7 @@ const SalesHistory = () => {
             <table border="1" cellPadding="10">
                 <thead>
                     <tr>
+                        <th>QR</th>
                         <th>Product</th>
                         <th>Size</th>
                         <th>Price</th>
@@ -46,6 +48,9 @@ const SalesHistory = () => {
                 <tbody>
                     {sales.map((s, i) => (
                         <tr key={i}>
+                            <td>
+                                <QRCodeCanvas value={JSON.stringify(s)} size={80} />
+                            </td>
                             <td>{s.productName}</td>
                             <td>{s.size}</td>
                             <td>₹{s.sellingPrice}</td>

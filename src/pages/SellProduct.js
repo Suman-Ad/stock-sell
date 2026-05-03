@@ -3,7 +3,7 @@ import QRScanner from "../components/QrScanner";
 import { db, auth } from "../firebase";
 import { doc, getDoc, updateDoc, addDoc, collection, query, where, getDocs } from "firebase/firestore";
 
-const SellProduct = () => {
+const SellProduct = ({ user }) => {
     const [scanData, setScanData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [scanned, setScanned] = useState(false);

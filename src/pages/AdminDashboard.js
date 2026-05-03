@@ -5,15 +5,28 @@ import {
   onSnapshot,
   doc,
   updateDoc,
-  query
+  query,
+  deleteDoc
 } from "firebase/firestore";
 
-const AdminDashboard = () => {
+const hasHigherRole = (currentUser, targetUser) => {
+  const roles = {
+    user: 1,
+    admin: 2,
+    superadmin: 3
+  };
+
+  return roles[currentUser.role] > roles[targetUser.role];
+};
+
+const AdminDashboard = ({ user }) => {
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [userStocks, setUserStocks] = useState([]);
+  const [editMode, setEditMode] = useState(false);
+  const [editData, setEditData] = useState({});
 
-  // Load users
+  // 🔥 Load users
   useEffect(() => {
     const q = query(collection(db, "users"));
 
@@ -28,7 +41,7 @@ const AdminDashboard = () => {
     return () => unsubscribe();
   }, []);
 
-  // Load selected user stocks
+  // 🔥 Load stocks of selected user
   useEffect(() => {
     if (!selectedUser) return;
 
@@ -45,34 +58,85 @@ const AdminDashboard = () => {
     return () => unsubscribe();
   }, [selectedUser]);
 
-  // Toggle active status
-  const toggleUserStatus = async (user) => {
-    await updateDoc(doc(db, "users", user.id), {
-      isActive: !user.isActive
+  // ✅ Toggle active
+  const toggleUserStatus = async (u) => {
+    if (user.id === u.id) {
+      alert("You cannot modify your own role/status!");
+      return;
+    }
+    if (u.role === "superadmin" && user.role !== "superadmin") {
+      alert("Only Super Admin can modify another Super Admin");
+      return;
+    }
+    await updateDoc(doc(db, "users", u.id), {
+      isActive: !u.isActive
     });
   };
 
-  // Change role
-  const changeRole = async (userId, role) => {
-    await updateDoc(doc(db, "users", userId), {
-      role
+  // ✅ Promote / Demote
+  const promoteUser = async (u) => {
+    if (user.id === u.id) {
+      alert("You cannot modify your own role/status!");
+      return;
+    }
+    if (u.role === "superadmin" && user.role !== "superadmin") {
+      alert("Only Super Admin can modify another Super Admin");
+      return;
+    }
+    await updateDoc(doc(db, "users", u.id), {
+      role: "admin"
     });
   };
 
-  // Update subscription
-  const updateSubscription = async (userId, plan) => {
-    const now = new Date();
-    const end = new Date();
-    end.setMonth(end.getMonth() + 1); // 1 month plan
-
-    await updateDoc(doc(db, "users", userId), {
-      subscription: {
-        plan,
-        startDate: now,
-        endDate: end,
-        status: "active"
-      }
+  const demoteUser = async (u) => {
+    if (user.id === u.id) {
+      alert("You cannot modify your own role/status!");
+      return;
+    }
+    if (u.role === "superadmin" && user.role !== "superadmin") {
+      alert("Only Super Admin can modify another Super Admin");
+      return;
+    }
+    await updateDoc(doc(db, "users", u.id), {
+      role: "user"
     });
+  };
+
+  // ✅ Delete user
+  const deleteUser = async (u) => {
+    if (user.id === u.id) {
+      alert("You cannot delete yourself!");
+      return;
+    }
+    if (u.role === "superadmin" && user.role !== "superadmin") {
+      alert("Only Super Admin can modify another Super Admin");
+      return;
+    }
+    if (!window.confirm("Are you sure you want to delete this user?")) return;
+
+    await deleteDoc(doc(db, "users", u.id));
+
+    if (selectedUser?.id === u.id) {
+      setSelectedUser(null);
+    }
+  };
+
+  // ✅ Start edit
+  const startEdit = (u) => {
+    setEditMode(true);
+    setEditData(u);
+  };
+
+  // ✅ Save edit
+  const saveEdit = async () => {
+    await updateDoc(doc(db, "users", editData.id), {
+      name: editData.name,
+      shopName: editData.shopName,
+      address: editData.address,
+      pin: editData.pin
+    });
+
+    setEditMode(false);
   };
 
   return (
@@ -81,68 +145,115 @@ const AdminDashboard = () => {
 
       <div style={{ display: "flex", gap: "20px" }}>
 
-        {/* USER LIST */}
+        {/* 🔵 USER LIST */}
         <div style={{ width: "40%" }}>
           <h3>Users</h3>
 
-          {users.map(user => (
+          {users.map(u => (
             <div
-              key={user.id}
+              key={u.id}
               style={{
                 border: "1px solid #ccc",
                 padding: "10px",
                 marginBottom: "10px",
-                cursor: "pointer",
-                background: selectedUser?.id === user.id ? "#eef" : "#fff"
+                background: selectedUser?.id === u.id ? "#eef" : "#fff"
               }}
-              onClick={() => setSelectedUser(user)}
+              onClick={() => setSelectedUser(u)}
             >
-              <b>{user.name}</b><br />
-              {user.email}<br />
+              <b>{u.name}</b><br />
+              {u.email}<br />
+              Role: {u.role}<br />
+              Status: {u.isActive ? "Active" : "Inactive"}
 
-              Role:
-              <select
-                value={user.role}
-                onChange={(e) => changeRole(user.id, e.target.value)}
-              >
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-                <option value="superadmin">Super Admin</option>
-              </select>
+              <br /><br />
 
-              <br />
-
-              Status:
-              <button onClick={() => toggleUserStatus(user)}>
-                {user.isActive ? "Deactivate" : "Activate"}
+              {/* 🔥 Actions */}
+              <button onClick={(e) => { e.stopPropagation(); toggleUserStatus(u); }}>
+                {u.isActive ? "Deactivate" : "Activate"}
               </button>
 
-              <br />
+              <button
+                disabled={!hasHigherRole(user, u)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  promoteUser(u);
+                }}
+              >
+                Promote
+              </button>
 
-              Subscription:
-              <button onClick={() => updateSubscription(user.id, "pro")}>
-                Set Pro
+              <button onClick={(e) => { e.stopPropagation(); demoteUser(u); }}>
+                Demote
+              </button>
+
+              <button onClick={(e) => { e.stopPropagation(); startEdit(u); }}>
+                Edit
+              </button>
+
+              <button
+                style={{ color: "red" }}
+                onClick={(e) => { e.stopPropagation(); deleteUser(u); }}
+              >
+                Delete
               </button>
             </div>
           ))}
         </div>
 
-        {/* USER DETAILS */}
+        {/* 🟢 USER DETAILS */}
         <div style={{ width: "60%" }}>
           {selectedUser ? (
             <>
               <h3>User Details</h3>
 
-              <p><b>Name:</b> {selectedUser.name}</p>
-              <p><b>Email:</b> {selectedUser.email}</p>
-              <p><b>Role:</b> {selectedUser.role}</p>
-              <p><b>Status:</b> {selectedUser.isActive ? "Active" : "Inactive"}</p>
+              {editMode ? (
+                <>
+                  <input
+                    value={editData.name}
+                    onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                  />
+                  <br /><br />
 
-              <h4>Subscription</h4>
-              <pre>
-                {JSON.stringify(selectedUser.subscription, null, 2)}
-              </pre>
+                  <input
+                    value={editData.shopName}
+                    onChange={(e) => setEditData({ ...editData, shopName: e.target.value })}
+                  />
+                  <br /><br />
 
+                  <textarea
+                    value={editData.address}
+                    onChange={(e) => setEditData({ ...editData, address: e.target.value })}
+                  />
+                  <br /><br />
+
+                  <input
+                    value={editData.pin}
+                    onChange={(e) => setEditData({ ...editData, pin: e.target.value })}
+                  />
+
+                  <br /><br />
+
+                  <button onClick={saveEdit}>Save</button>
+                  <button onClick={() => setEditMode(false)}>Cancel</button>
+                </>
+              ) : (
+                <>
+                  <p><b>Name:</b> {selectedUser.name}</p>
+                  <p><b>Email:</b> {selectedUser.email}</p>
+                  <p><b>Shop:</b> {selectedUser.shopName}</p>
+                  <p><b>Address:</b> {selectedUser.address}</p>
+                  <p><b>PIN:</b> {selectedUser.pin}</p>
+                  <p><b>Role:</b> {selectedUser.role}</p>
+                  <p><b>Status:</b> {selectedUser.isActive ? "Active" : "Inactive"}</p>
+
+                  <h4>Subscription</h4>
+                  <pre>
+                    {JSON.stringify(selectedUser.subscription, null, 2)}
+                  </pre>
+                </>
+              )}
+
+              {/* 🔥 STOCKS */}
               <h4>User Stocks</h4>
 
               {userStocks.map(stock => (

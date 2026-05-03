@@ -67,13 +67,13 @@ function App() {
         <Route path="/signup" element={<Signup />} />
 
         {/* Protected / App Routes */}
-        <Route element={<Layout />}>
-          <Route path="/stock-inventory" element={<StockInventory userData={user} />} />
-          <Route path="/stock-list" element={<StockList userData={user} />} />
-          <Route path="/sell-product" element={<SellProduct userData={user} />} />
-          <Route path="/dashboard" element={<Dashboard userData={user} />} />
-          <Route path="/sales-history" element={<SalesHistory userData={user} />} />
-          <Route path="/admin" element={<AdminRoute><AdminDashboard userData={user} /></AdminRoute>} />
+        <Route element={<Layout user={user} />}>
+          <Route path="/stock-inventory" element={<StockInventory user={user} />} />
+          <Route path="/stock-list" element={<StockList user={user} />} />
+          <Route path="/sell-product" element={<SellProduct user={user} />} />
+          <Route path="/dashboard" element={<Dashboard user={user} />} />
+          <Route path="/sales-history" element={<SalesHistory user={user} />} />
+          <Route path="/admin" element={<AdminRoute><AdminDashboard user={user} /></AdminRoute>} />
         </Route>
 
       </Routes>

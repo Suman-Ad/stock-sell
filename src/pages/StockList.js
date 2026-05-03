@@ -14,7 +14,17 @@ import StockSummary from "./StockSummary";
 import { QRCodeCanvas } from "qrcode.react";
 import useUserRole from "../hooks/useUserRole";
 
-const StockList = () => {
+const StockList = ({ user }) => {
+    // Print 
+    const [printItem, setPrintItem] = useState(null);
+    const [selectedSize, setSelectedSize] = useState("ALL");
+
+    const role = useUserRole();
+
+    const isAdmin =
+        role === "superadmin" ||
+        role === "admin";
+
     const [stocks, setStocks] = useState([]);
     const [searchId, setSearchId] = useState("");
     const [showQR, setShowQR] = useState({});
@@ -24,56 +34,33 @@ const StockList = () => {
             [id]: !prev[id]
         }));
     };
-    const [printItem, setPrintItem] = useState(null);
-    const [selectedSize, setSelectedSize] = useState("ALL");
+
     const [qrPopup, setQrPopup] = useState({
         open: false,
         value: ""
     });
 
+    const [soldIds, setSoldIds] = useState([]);
 
-    // useEffect(() => {
-    //     let unsubscribeSnapshot = null;
+    useEffect(() => {
+        const unsubscribe = onSnapshot(collection(db, "sales"), (snapshot) => {
+            const ids = snapshot.docs.map(doc => doc.data().uniqueId);
+            setSoldIds(ids);
+        });
 
-    //     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-    //         if (!user) {
-    //             setStocks([]);
-    //             if (unsubscribeSnapshot) unsubscribeSnapshot();
-    //             return;
-    //         }
-
-    //         const q = query(
-    //             collection(db, "stocks"),
-    //             where("userId", "==", user.uid)
-    //         );
-
-    //         unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
-    //             const data = snapshot.docs.map(doc => ({
-    //                 id: doc.id,
-    //                 ...doc.data()
-    //             }));
-    //             setStocks(data);
-    //         });
-    //     });
-
-    //     return () => {
-    //         if (unsubscribeSnapshot) unsubscribeSnapshot();
-    //         unsubscribeAuth();
-    //     };
-    // }, []);
-
-    const role = useUserRole();
+        return () => unsubscribe();
+    }, []);
 
     useEffect(() => {
         if (!auth.currentUser || !role) return;
 
         let q;
 
-        if ((role === "superadmin" || role === "admin")) {
-            // 🔥 Admin sees ALL
-            q = collection(db, "stocks");
+        if (role === "superadmin" || role === "admin") {
+            // ✅ Admin / SuperAdmin → see ALL stocks
+            q = query(collection(db, "stocks"));
         } else {
-            // 👤 User sees own
+            // ✅ Normal user → only own stocks
             q = query(
                 collection(db, "stocks"),
                 where("userId", "==", auth.currentUser.uid)
@@ -107,6 +94,10 @@ const StockList = () => {
         if (!window.confirm("Delete this item?")) return;
 
         try {
+            if (user.uid !== id) {
+                alert("You are not authorized");
+                return
+            };
             await deleteDoc(doc(db, "stocks", id));
         } catch (err) {
             alert(err.message);
@@ -150,6 +141,7 @@ const StockList = () => {
             labeling = 0,
             rto = 0,
             returnCost = 0,
+            advertisementCost = 0,
             delivery = 0,
             gst = 0
         } = extraCosts;
@@ -160,6 +152,7 @@ const StockList = () => {
             Number(labeling) +
             Number(rto) +
             Number(returnCost) +
+            Number(advertisementCost) +
             Number(delivery);
 
         const withGST = breakEven * (1 + gst / 100);
@@ -184,6 +177,7 @@ const StockList = () => {
                     labeling: 0,
                     rto: 0,
                     returnCost: 0,
+                    advertisementCost: 0,
                     delivery: 0,
                     gst: 0
                 };
@@ -235,10 +229,12 @@ const StockList = () => {
                     createdAt: new Date().toISOString()
                 };
 
-                qrList.push({
-                    size,
-                    code: JSON.stringify(qrData) // 🔥 structured QR
-                });
+                if (!soldIds.includes(qrData.uniqueId)) {
+                    qrList.push({
+                        size,
+                        code: JSON.stringify(qrData)
+                    });
+                }
             }
         });
 
@@ -259,6 +255,12 @@ const StockList = () => {
             <table border="1" cellPadding="10" style={{ borderCollapse: "collapse", overflowX: "auto", display: "block", width: "100%" }}>
                 <thead>
                     <tr>
+                        {isAdmin && (
+                            <th>Shop Name</th>
+                        )}
+                        {isAdmin && (
+                            <th>Proprietor Name</th>
+                        )}
                         <th>Product Name</th>
                         <th>Product ID</th>
                         <th>Catalog ID</th>
@@ -284,6 +286,12 @@ const StockList = () => {
 
                         return (
                             <tr key={item.id}>
+                                {isAdmin && (
+                                    <td>{item.createdBy?.shopName || "N/A"}</td>
+                                )}
+                                {isAdmin && (
+                                    <td>{item.createdBy?.name || "N/A"}</td>
+                                )}
                                 <td>{item.productName}</td>
                                 <td>{item.productId}</td>
                                 <td>{item.catalogId}</td>
@@ -312,7 +320,10 @@ const StockList = () => {
                                                                 alert("At least one size required");
                                                                 return;
                                                             }
-
+                                                            if (user.uid !== item.id) {
+                                                                alert("You are not authorizes");
+                                                                return
+                                                            }
                                                             await updateDoc(doc(db, "stocks", item.id), {
                                                                 sizes: updatedSizes
                                                             });
@@ -360,7 +371,7 @@ const StockList = () => {
                                                         </legend>
                                                     </div>
                                                     <div style={{ display: "flex", gap: "4px", marginTop: "4px", borderTop: "1px dashed #ccc", paddingTop: "4px", width: "100%" }}>
-                                                        {["packaging", "labeling", "rto", "returnCost", "delivery", "gst"].map((key) => (
+                                                        {["packaging", "labeling", "rto", "returnCost", "advertisementCost", "delivery", "gst"].map((key) => (
                                                             <div key={key} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                                                                 <legend key={key} style={{ fontSize: "10px", color: "gray" }}>{key.toUpperCase()}</legend>
                                                                 <input
@@ -427,6 +438,7 @@ const StockList = () => {
                                                 gap: "10px"
                                             }}>
                                                 <p><b>Catalog ID:</b> {item.catalogId}</p>
+                                                <p><b>Count:</b> {qrCodes.length}</p>
                                                 <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "4px", overflow: "auto", maxHeight: "190px" }}>
                                                     {qrCodes.map((qr, index) => {
                                                         const qrObj = JSON.parse(qr.code);
