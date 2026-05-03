@@ -4,8 +4,9 @@ import { collection, query, where, onSnapshot } from "firebase/firestore";
 import useUserRole from "../hooks/useUserRole";
 import { QRCodeCanvas } from "qrcode.react";
 
-const SalesHistory = () => {
+const SalesHistory = ({ user }) => {
     const [sales, setSales] = useState([]);
+    const [filterDate, setFilterDate] = useState("");
     const role = useUserRole();
 
     useEffect(() => {
@@ -30,18 +31,57 @@ const SalesHistory = () => {
         return () => unsubscribe();
     }, [role]);
 
+    const totalSales = sales.length;
+
+    const totalRevenue = sales.reduce(
+        (sum, s) => sum + (s.sellingPrice || 0),
+        0
+    );
+
+    const totalProfit = sales.reduce(
+        (sum, s) => sum + (s.profit || 0),
+        0
+    );
+
+    const filteredSales = sales.filter(s => {
+        if (!filterDate) return true;
+
+        const saleDate = new Date(s.soldAt).toISOString().split("T")[0];
+        return saleDate === filterDate;
+    });
+
     return (
         <div style={{ padding: "20px" }}>
             <h2>🧾 Sales History</h2>
+
+            <div style={{
+                marginBottom: "20px",
+                padding: "15px",
+                background: "#f5f5f5",
+                borderRadius: "8px"
+            }}>
+                <h3>📊 Sales Summary</h3>
+
+                <p>Total Orders: <b>{totalSales}</b></p>
+                <p>Total Revenue: <b>₹{totalRevenue.toFixed(2)}</b></p>
+                <p>Total Profit: <b style={{ color: "green" }}>₹{totalProfit.toFixed(2)}</b></p>
+            </div>
+
+            <input
+                type="date"
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
+            />
 
             <table border="1" cellPadding="10">
                 <thead>
                     <tr>
                         <th>QR</th>
+                        <th>Date</th>
                         <th>Product</th>
                         <th>Size</th>
                         <th>Price</th>
-                        <th>Date</th>
+                        <th>Profit</th>
                     </tr>
                 </thead>
 
@@ -49,12 +89,15 @@ const SalesHistory = () => {
                     {sales.map((s, i) => (
                         <tr key={i}>
                             <td>
-                                <QRCodeCanvas value={JSON.stringify(s)} size={80} />
+                                <QRCodeCanvas value={JSON.stringify(s)} size={140} />
                             </td>
+                            <td>{new Date(s.soldAt).toLocaleString()}</td>
                             <td>{s.productName}</td>
                             <td>{s.size}</td>
                             <td>₹{s.sellingPrice}</td>
-                            <td>{new Date(s.soldAt).toLocaleString()}</td>
+                            <td style={{ color: s.profit < 0 ? "red" : "green" }}>
+                                ₹{s.profit?.toFixed(2)}
+                            </td>
                         </tr>
                     ))}
                 </tbody>

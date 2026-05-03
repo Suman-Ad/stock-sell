@@ -26,6 +26,12 @@ const SellProduct = ({ user }) => {
         setLoading(true);
 
         try {
+            if (!data.stockId) {
+                alert("Invalid QR (missing stock reference)");
+                setLoading(false);
+                return;
+            }
+
             // ✅ Prevent duplicate selling
             const saleCheck = query(
                 collection(db, "sales"),
@@ -41,34 +47,35 @@ const SellProduct = ({ user }) => {
             }
 
             // ✅ Find stock by productId
-            const q = query(
-                collection(db, "stocks"),
-                where("productId", "==", data.productId)
-            );
 
-            const snapshot = await getDocs(q);
+            const docRef = doc(db, "stocks", data.stockId);
+            const docSnap = await getDoc(docRef);
 
-            if (snapshot.empty) {
+            if (!docSnap.exists()) {
                 alert("Stock not found!");
                 setLoading(false);
                 return;
             }
 
-            const docSnap = snapshot.docs[0];
             const stock = docSnap.data();
-            const docRef = doc(db, "stocks", docSnap.id);
 
             const sizes = { ...stock.sizes };
+            const currentSize = sizes[data.size];
+
 
             // ✅ Check stock
-            if (!sizes[data.size] || sizes[data.size].qty <= 0) {
+            if (!currentSize || currentSize.qty <= 0) {
                 alert("Out of stock!");
                 setLoading(false);
                 return;
             }
 
-            // ✅ Reduce quantity
-            sizes[data.size].qty -= 1;
+            // store before update
+            const buyingPrice = currentSize.buyingPrice;
+            const profit = data.sellingPrice - buyingPrice;
+
+            // reduce qty
+            currentSize.qty -= 1;
 
             // ✅ Update Firestore
             await updateDoc(docRef, { sizes });
@@ -76,7 +83,8 @@ const SellProduct = ({ user }) => {
             // ✅ Save sale record
             await addDoc(collection(db, "sales"), {
                 ...data,
-                buyingPrice: sizes[data.size].buyingPrice, // 🔥 REQUIRED
+                buyingPrice, // 🔥 REQUIRED
+                profit,
                 userId: auth.currentUser.uid,
                 soldAt: new Date().toISOString()
             });

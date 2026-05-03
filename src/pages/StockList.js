@@ -40,11 +40,11 @@ const StockList = ({ user }) => {
         value: ""
     });
 
-    const [soldIds, setSoldIds] = useState([]);
+    const [soldIds, setSoldIds] = useState(new Set());
 
     useEffect(() => {
         const unsubscribe = onSnapshot(collection(db, "sales"), (snapshot) => {
-            const ids = snapshot.docs.map(doc => doc.data().uniqueId);
+            const ids = new Set(snapshot.docs.map(doc => doc.data().uniqueId));
             setSoldIds(ids);
         });
 
@@ -94,11 +94,11 @@ const StockList = ({ user }) => {
         if (!window.confirm("Delete this item?")) return;
 
         try {
-            if (user.uid !== id) {
+            if (user.uid !== id.userId) {
                 alert("You are not authorized");
                 return
             };
-            await deleteDoc(doc(db, "stocks", id));
+            await deleteDoc(doc(db, "stocks", id.id));
         } catch (err) {
             alert(err.message);
         }
@@ -207,9 +207,11 @@ const StockList = ({ user }) => {
         const qrList = [];
 
         Object.entries(item.sizes).forEach(([size, data]) => {
-            for (let i = 1; i <= data.qty; i++) {
+            const totalUnits = data.initialQty || data.qty;
+            for (let i = 1; i <= totalUnits; i++) {
 
                 const qrData = {
+                    stockId: item.id,
                     productName: item.productName,
                     catalogId: item.catalogId,
                     productId: item.productId,
@@ -224,17 +226,22 @@ const StockList = ({ user }) => {
                     sellingPrice: data.sellingPrice || 0,
 
                     unitNo: i,
-                    uniqueId: `${item.productId}-${size}-${i}`,
+                    uniqueId: `${item.productId}-${size}-${item.id}-${i}`,
 
                     createdAt: new Date().toISOString()
                 };
 
-                if (!soldIds.includes(qrData.uniqueId)) {
+                if (!soldIds.has(qrData.uniqueId)) {
                     qrList.push({
                         size,
                         code: JSON.stringify(qrData)
                     });
                 }
+                // qrList.push({
+                //     size,
+                //     code: JSON.stringify(qrData)
+                // });
+
             }
         });
 
@@ -251,6 +258,8 @@ const StockList = ({ user }) => {
                 onChange={(e) => setSearchId(e.target.value.toUpperCase())}
                 style={{ marginBottom: "15px", padding: "8px", width: "250px" }}
             />
+
+            <p>{soldIds}</p>
 
             <table border="1" cellPadding="10" style={{ borderCollapse: "collapse", overflowX: "auto", display: "block", width: "100%" }}>
                 <thead>
@@ -320,7 +329,7 @@ const StockList = ({ user }) => {
                                                                 alert("At least one size required");
                                                                 return;
                                                             }
-                                                            if (user.uid !== item.id) {
+                                                            if (user.uid !== item.userId) {
                                                                 alert("You are not authorizes");
                                                                 return
                                                             }
@@ -486,7 +495,7 @@ const StockList = ({ user }) => {
                                     <button onClick={() => setPrintItem(item)}>
                                         Print QR
                                     </button>
-                                    <button onClick={() => handleDelete(item.id)}>
+                                    <button onClick={() => handleDelete(item)}>
                                         Delete
                                     </button>
                                 </td>

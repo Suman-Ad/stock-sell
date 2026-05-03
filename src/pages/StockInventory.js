@@ -224,6 +224,7 @@ const StockInventory = ({ user }) => {
                 if (s.size && s.qty > 0) {
                     sizeObject[s.size] = {
                         qty: s.qty,
+                        initialQty: s.qty,
                         buyingPrice: s.buyingPrice,
                         margin: s.margin,
                         extraCosts: s.extraCosts,
@@ -541,6 +542,7 @@ const StockInventory = ({ user }) => {
 
                     sizeObject[row.size] = {
                         qty: Number(row.qty),
+                        initialQty: Number(row.qty),
                         buyingPrice: Number(row.buyingPrice),
                         margin: Number(row.margin),
                         extraCosts,
@@ -565,6 +567,10 @@ const StockInventory = ({ user }) => {
                     Object.keys(sizeObject).forEach((size) => {
                         if (mergedSizes[size]) {
                             mergedSizes[size].qty += sizeObject[size].qty;
+                            // 🔥 ALSO UPDATE initialQty
+                            mergedSizes[size].initialQty =
+                                (mergedSizes[size].initialQty || mergedSizes[size].qty) +
+                                sizeObject[size].qty;
                         } else {
                             mergedSizes[size] = sizeObject[size];
                         }
@@ -888,7 +894,7 @@ const StockInventory = ({ user }) => {
                 borderRadius: "5px"
             }}>
                 <h2>Existing Stocks</h2>
-                <StockList />
+                <StockList user={user} />
             </div>
         </div>
     );
