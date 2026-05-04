@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { db, auth } from "../firebase";
 import { collection, addDoc, serverTimestamp, doc, query, where, getDocs } from "firebase/firestore";
 import StockList from "./StockList";
@@ -33,20 +33,24 @@ const colorOptions = [
 //     return withGST * (1 + margin / 100);
 // };
 
-const getSellingPrice = (buying, margin, extraCosts) => {
+const getSellingPrice = (buying, margin = 0, extraCosts = {}) => {
+    const base = Number(buying) || 0;
+
     const breakEven =
-        // Number(buying) +
-        (margin ? Number(buying) * (1 + Number(margin) / 100) : 0) +
-        Number(extraCosts.packaging) +
-        Number(extraCosts.labeling) +
-        Number(extraCosts.rto) +
-        Number(extraCosts.returnCost) +
-        Number(extraCosts.advertisementCost) +
-        Number(extraCosts.delivery);
+        base * (1 + Number(margin || 0) / 100) +
+        Number(extraCosts.packaging || 0) +
+        Number(extraCosts.labeling || 0) +
+        Number(extraCosts.rto || 0) +
+        Number(extraCosts.returnCost || 0) +
+        Number(extraCosts.advertisementCost || 0) +
+        Number(extraCosts.delivery || 0) +
+        Number(extraCosts.others || 0);
 
-    const withGST = breakEven * (1 + extraCosts.gst / 100);
+    const gst = Number(extraCosts.gst || 0);
 
-    return withGST;
+    const withGST = breakEven * (1 + gst / 100);
+
+    return Number(withGST.toFixed(0)); // ✅ clean integer
 };
 
 const StockInventory = ({ user }) => {
@@ -58,6 +62,16 @@ const StockInventory = ({ user }) => {
     const [catalogId, setCatalogId] = useState("");
     const [previewData, setPreviewData] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [processedCount, setProcessedCount] = useState(0);
+    const [totalCount, setTotalCount] = useState(0);
+
+    const fileInputRef = useRef(null);
+    const resetFileInput = () => {
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+    };
 
     const generateCatalogId = (productName, color, userId) => {
         const productShort = productName
@@ -92,6 +106,7 @@ const StockInventory = ({ user }) => {
                 returnCost: 0,
                 advertisementCost: 0,
                 delivery: 0,
+                others: 0,
                 gst: 0
             }
         },
@@ -103,6 +118,7 @@ const StockInventory = ({ user }) => {
                 returnCost: 0,
                 advertisementCost: 0,
                 delivery: 0,
+                others: 0,
                 gst: 0
             }
         },
@@ -114,6 +130,7 @@ const StockInventory = ({ user }) => {
                 returnCost: 0,
                 advertisementCost: 0,
                 delivery: 0,
+                others: 0,
                 gst: 0
             }
         }
@@ -299,6 +316,7 @@ const StockInventory = ({ user }) => {
                 returnCost: 3,
                 advertisementCost: 5,
                 delivery: 20,
+                others: 10,
                 gst: 5,
                 sellingPrice: ""
             }
@@ -313,132 +331,6 @@ const StockInventory = ({ user }) => {
 
         saveAs(file, "Stock_Template.xlsx");
     };
-
-    // const handleExcelUpload = async (e) => {
-    //     const file = e.target.files[0];
-    //     if (!file) return;
-
-    //     if (!user?.uid) {
-    //         alert("User not logged in!");
-    //         return;
-    //     }
-
-    //     const reader = new FileReader();
-
-    //     reader.onload = async (evt) => {
-    //         const data = new Uint8Array(evt.target.result);
-    //         const workbook = XLSX.read(data, { type: "array" });
-
-    //         const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    //         const jsonData = XLSX.utils.sheet_to_json(sheet);
-    //         setPreviewData(jsonData);
-
-    //         try {
-    //             const batch = writeBatch(db);
-
-    //             // 🔥 GROUP BY catalogId or product
-    //             const grouped = {};
-
-    //             jsonData.forEach((row) => {
-    //                 if (!row.category || !row.size || !row.qty) return;
-
-    //                 const key =
-    //                     row.catalogId && row.catalogId.trim() !== ""
-    //                         ? row.catalogId
-    //                         : `${row.category}-${row.subCategory}-${row.productType}-${row.color}`;
-
-    //                 if (!grouped[key]) grouped[key] = [];
-    //                 grouped[key].push(row);
-    //             });
-
-    //             for (const key in grouped) {
-    //                 const rows = grouped[key];
-
-    //                 const first = rows[0];
-
-    //                 let catalogId = first.catalogId;
-    //                 let productId;
-
-    //                 const productName = `${first.category}-${first.subCategory}-${first.productType}-${first.color}`;
-
-    //                 // 🔥 catalog logic
-    //                 if (catalogId && catalogId.trim() !== "") {
-    //                     productId = `${catalogId}-${Date.now()}`;
-    //                 } else {
-    //                     const generated = generateCatalogId(
-    //                         productName,
-    //                         first.color,
-    //                         user.uid
-    //                     );
-    //                     catalogId = generated.catalogId;
-    //                     productId = generated.productId;
-    //                 }
-
-    //                 const sizeObject = {};
-
-    //                 rows.forEach((row) => {
-    //                     const extraCosts = {
-    //                         packaging: Number(row.packaging || 0),
-    //                         labeling: Number(row.labeling || 0),
-    //                         rto: Number(row.rto || 0),
-    //                         returnCost: Number(row.returnCost || 0),
-    //                         advertisementCost: Number(row.advertisementCost || 0),
-    //                         delivery: Number(row.delivery || 0),
-    //                         gst: Number(row.gst || 0)
-    //                     };
-
-    //                     let sellingPrice = row.sellingPrice;
-
-    //                     if (!sellingPrice) {
-    //                         sellingPrice = getSellingPrice(
-    //                             row.buyingPrice,
-    //                             row.margin,
-    //                             extraCosts
-    //                         );
-    //                     }
-
-    //                     // ❌ prevent duplicate size
-    //                     if (sizeObject[row.size]) return;
-
-    //                     sizeObject[row.size] = {
-    //                         qty: Number(row.qty),
-    //                         buyingPrice: Number(row.buyingPrice),
-    //                         margin: Number(row.margin),
-    //                         extraCosts,
-    //                         sellingPrice: Number(sellingPrice)
-    //                     };
-    //                 });
-
-    //                 const docRef = doc(collection(db, "stocks"));
-
-    //                 batch.set(docRef, {
-    //                     category: first.category,
-    //                     subCategory: first.subCategory,
-    //                     productType: first.productType,
-    //                     color: first.color,
-    //                     productName,
-    //                     productId,
-    //                     catalogId,
-    //                     sizes: sizeObject,
-    //                     remarks: first.remarks || "",
-    //                     userId: user.uid,
-    //                     createdBy: user,
-    //                     createdAt: serverTimestamp()
-    //                 });
-    //             }
-
-    //             await batch.commit();
-
-    //             alert("✅ Excel Uploaded Successfully!");
-
-    //         } catch (err) {
-    //             console.error(err);
-    //             alert("❌ Upload failed: " + err.message);
-    //         }
-    //     };
-
-    //     reader.readAsArrayBuffer(file);
-    // };
 
 
     const handleExcelUpload = (e) => {
@@ -474,11 +366,12 @@ const StockInventory = ({ user }) => {
         }
 
         setLoading(true);
+        setProcessedCount(0);
+        setUploadProgress(0);
 
         try {
             const batch = writeBatch(db);
 
-            // 🔥 GROUPING
             const grouped = {};
 
             previewData.forEach((row) => {
@@ -493,7 +386,12 @@ const StockInventory = ({ user }) => {
                 grouped[key].push(row);
             });
 
-            for (const key in grouped) {
+            const keys = Object.keys(grouped);
+            setTotalCount(keys.length); // 🔥 total groups
+
+            let processed = 0;
+
+            for (const key of keys) {
                 const rows = grouped[key];
                 const first = rows[0];
 
@@ -502,7 +400,6 @@ const StockInventory = ({ user }) => {
 
                 const productName = `${first.category}-${first.subCategory}-${first.productType}-${first.color}`;
 
-                // 🔥 catalog logic
                 if (catalogId && catalogId.trim() !== "") {
                     productId = `${catalogId}-${Date.now()}`;
                 } else {
@@ -525,6 +422,7 @@ const StockInventory = ({ user }) => {
                         returnCost: Number(row.returnCost || 0),
                         advertisementCost: Number(row.advertisementCost || 0),
                         delivery: Number(row.delivery || 0),
+                        others: Number(row.others || 0),
                         gst: Number(row.gst || 0)
                     };
 
@@ -546,11 +444,10 @@ const StockInventory = ({ user }) => {
                         buyingPrice: Number(row.buyingPrice),
                         margin: Number(row.margin),
                         extraCosts,
-                        sellingPrice: Number(sellingPrice)
+                        sellingPrice: Number(sellingPrice.toFixed(0))
                     };
                 });
 
-                // 🔍 CHECK EXISTING
                 const q = query(
                     collection(db, "stocks"),
                     where("catalogId", "==", catalogId)
@@ -567,7 +464,6 @@ const StockInventory = ({ user }) => {
                     Object.keys(sizeObject).forEach((size) => {
                         if (mergedSizes[size]) {
                             mergedSizes[size].qty += sizeObject[size].qty;
-                            // 🔥 ALSO UPDATE initialQty
                             mergedSizes[size].initialQty =
                                 (mergedSizes[size].initialQty || mergedSizes[size].qty) +
                                 sizeObject[size].qty;
@@ -599,13 +495,20 @@ const StockInventory = ({ user }) => {
                         createdAt: serverTimestamp()
                     });
                 }
+
+                // ✅ Update progress
+                processed++;
+                setProcessedCount(processed);
+
+                const percent = Math.round((processed / keys.length) * 100);
+                setUploadProgress(percent);
             }
 
             await batch.commit();
 
             alert("✅ Upload successful!");
-
-            setPreviewData([]); // 🔥 clear preview
+            setPreviewData([]);
+            resetFileInput();
 
         } catch (err) {
             console.error(err);
@@ -628,7 +531,7 @@ const StockInventory = ({ user }) => {
                 {/* <p>Role: {userData.role}</p> */}
                 {/* <p>Shop: {userData.shopName}</p> */}
 
-                <input type="file" accept=".xlsx, .xls" onChange={handleExcelUpload} />
+                <input type="file" accept=".xlsx, .xls" onChange={handleExcelUpload} ref={fileInputRef} />
                 <button onClick={downloadTemplate}>Download Template</button>
                 {previewData.length > 0 && (
                     <div style={{ marginTop: "20px", background: "#fff", padding: "10px" }}>
@@ -654,13 +557,45 @@ const StockInventory = ({ user }) => {
                             </tbody>
                         </table>
 
+                        {loading && (
+                            <div style={{ marginTop: "15px" }}>
+                                <div style={{
+                                    height: "20px",
+                                    width: "100%",
+                                    background: "#ddd",
+                                    borderRadius: "10px",
+                                    overflow: "hidden"
+                                }}>
+                                    <div style={{
+                                        height: "100%",
+                                        width: `${uploadProgress}%`,
+                                        background: "#4caf50",
+                                        transition: "width 0.3s"
+                                    }} />
+                                </div>
+
+                                <p style={{ marginTop: "8px" }}>
+                                    {uploadProgress}% Completed
+                                </p>
+
+                                <p>
+                                    ✅ Processed: <b>{processedCount}</b> / {totalCount}
+                                </p>
+
+                                <p>
+                                    ⏳ Pending: <b>{totalCount - processedCount}</b>
+                                </p>
+                            </div>
+                        )}
+
                         <button onClick={confirmUpload} disabled={loading}>
                             {loading ? "Uploading..." : "✅ Confirm Upload"}
                         </button>
 
-                        <button onClick={() => setPreviewData([])}>
+                        <button onClick={() => { setPreviewData([]); resetFileInput(); }}>
                             ❌ Cancel
                         </button>
+
                     </div>
                 )}
 
@@ -765,8 +700,15 @@ const StockInventory = ({ user }) => {
                                 const selling = getSellingPrice(s.buyingPrice, s.margin, s.extraCosts);
 
                                 return (
-                                    <div key={index} style={{ display: "flex", gap: "10px", marginBottom: "8px", alignItems: "center" }}>
+                                    <div key={index} style={{ display: window.innerWidth > 500 ? "flex" : "grid", gap: "10px", marginBottom: "8px", alignItems: "center" }}>
                                         <div style={{ marginBottom: "20px", padding: "15px", background: "#f9f9f9" }}>
+                                            <div style={{ background: "#fff", padding: "4px 4px", whiteSpace: "nowrap" }}>
+                                                <span>Selling Price:-₹{selling.toFixed(2)}</span>
+                                                <br />
+                                                <span style={{ color: "green" }}>
+                                                    Profit:-₹{(selling - s.buyingPrice).toFixed(2)}
+                                                </span>
+                                            </div>
                                             <div>
                                                 <label style={{ fontSize: "10px", color: "gray" }}>Size</label><br />
                                                 <input
@@ -818,7 +760,7 @@ const StockInventory = ({ user }) => {
                                         <div style={{ marginBottom: "20px", padding: "15px", background: "#f9f9f9" }}>
                                             <h4>Extra Costs (Per Item)</h4>
 
-                                            <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
+                                            <div style={{ display: "grid", gap: "5px", flexWrap: "wrap", gridTemplateColumns: "repeat(4, 1fr)", }}>
                                                 {Object.keys(s.extraCosts).map((key) => (
                                                     <div key={key} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                                                         <span style={{ fontSize: "10px", color: "gray" }}>{key.toUpperCase()}</span><br />
@@ -835,14 +777,6 @@ const StockInventory = ({ user }) => {
                                                     </div>
                                                 ))}
                                             </div>
-                                        </div>
-
-                                        <div style={{ background: "#fff", padding: "4px 4px", whiteSpace: "nowrap" }}>
-                                            <span>Selling Price:-₹{selling.toFixed(2)}</span>
-                                            <br />
-                                            <span style={{ color: "green" }}>
-                                                Profit:-₹{(selling - s.buyingPrice).toFixed(2)}
-                                            </span>
                                         </div>
                                     </div>
                                 );

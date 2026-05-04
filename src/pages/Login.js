@@ -82,7 +82,7 @@ const Login = () => {
       });
 
       alert("Login Successful!");
-      navigate("/stock-inventory");
+      navigate("/dashboard");
 
     } catch (err) {
       alert(err.message);

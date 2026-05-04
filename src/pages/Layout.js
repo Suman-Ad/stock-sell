@@ -63,14 +63,14 @@ const Layout = ({ user }) => {
                 position: "sticky",
                 top:0,
             }}>
-                <h3 onClick={() => navigate("/stock-inventory")}
+                <h3 onClick={() => navigate("/dashboard")}
                     style={{ cursor:"pointer" }}>{shopName}</h3>
 
                 <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+                    <p onClick={() => navigate("/stock-inventory")}
+                        style={{ cursor:"pointer"}}>Stock Inventory</p>
                     <p onClick={() => navigate("/sell-product")}
                         style={{ cursor:"pointer"}}>Sell Product</p>
-                    <p onClick={() => navigate("/dashboard")}
-                        style={{ cursor:"pointer"}}>Dashboard</p>
                     <p onClick={() => navigate("/sales-history")}
                         style={{ cursor:"pointer"}}>Sales History</p>
                     <p onClick={() => navigate("/admin")}

@@ -105,34 +105,34 @@ const StockList = ({ user }) => {
     };
 
     const getTotalQty = (sizes) => {
-        return Object.values(sizes || {}).reduce(
+        return Number(Object.values(sizes || {}).reduce(
             (sum, s) => sum + (s.qty || 0),
             0
-        );
+        ).toFixed(0));
     };
 
     const getTotalInvestment = (sizes) => {
-        return Object.values(sizes || {}).reduce(
+        return Number(Object.values(sizes || {}).reduce(
             (sum, s) => sum + (s.qty * (s.buyingPrice || 0)),
             0
-        );
+        ).toFixed(0));
     };
 
     const getTotalSellingValue = (sizes) => {
-        return Object.values(sizes || {}).reduce(
+        return Number(Object.values(sizes || {}).reduce(
             (sum, s) => sum + (s.qty * (s.sellingPrice || 0)),
             0
-        );
+        ).toFixed(0));
     };
 
     const getTotalProfit = (sizes) => {
-        return getTotalSellingValue(sizes) - getTotalInvestment(sizes);
+        return Number((getTotalSellingValue(sizes) - getTotalInvestment(sizes)).toFixed(0));
     };
 
     const getAvgSellingPrice = (sizes) => {
         const totalQty = getTotalQty(sizes);
         if (!totalQty) return 0;
-        return getTotalSellingValue(sizes) / totalQty;
+        return Number((getTotalSellingValue(sizes) / totalQty).toFixed(0));
     };
 
     const getSellingPrice = (buying, margin, extraCosts = {}) => {
@@ -147,7 +147,7 @@ const StockList = ({ user }) => {
         } = extraCosts;
 
         const breakEven =
-            Number(buying) +
+            Number(buying) * (1 + margin / 100) +
             Number(packaging) +
             Number(labeling) +
             Number(rto) +
@@ -155,9 +155,11 @@ const StockList = ({ user }) => {
             Number(advertisementCost) +
             Number(delivery);
 
-        const withGST = breakEven * (1 + gst / 100);
+        
 
-        return withGST * (1 + margin / 100);
+        const withGST = breakEven * (1 + Number(gst) / 100);
+
+        return Number(withGST.toFixed(0)) ;
     };
 
     const handleSizeUpdate = async (item, sizeKey, field, value) => {
@@ -207,8 +209,8 @@ const StockList = ({ user }) => {
         const qrList = [];
 
         Object.entries(item.sizes).forEach(([size, data]) => {
-            const totalUnits = data.initialQty || data.qty;
-            for (let i = 1; i <= totalUnits; i++) {
+            // const totalUnits = data.initialQty || data.qty;
+            for (let i = 1; i <= data.qty; i++) {
 
                 const qrData = {
                     stockId: item.id,
@@ -377,8 +379,16 @@ const StockList = ({ user }) => {
                                                             />
                                                         </legend>
                                                     </div>
-                                                    <div style={{ display: "flex", gap: "4px", marginTop: "4px", borderTop: "1px dashed #ccc", paddingTop: "4px", width: "100%" }}>
-                                                        {["packaging", "labeling", "rto", "returnCost", "advertisementCost", "delivery", "gst"].map((key) => (
+                                                    <div style={{
+                                                        display: "grid",
+                                                        gridTemplateColumns: "repeat(4, 1fr)", // ✅ 5 columns
+                                                        gap: "6px",
+                                                        marginTop: "6px",
+                                                        borderTop: "1px dashed #ccc",
+                                                        paddingTop: "6px",
+                                                        width: "100%"
+                                                    }}>
+                                                        {["packaging", "labeling", "rto", "returnCost", "advertisementCost", "delivery", "others", "gst"].map((key) => (
                                                             <div key={key} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                                                                 <legend key={key} style={{ fontSize: "10px", color: "gray" }}>{key.toUpperCase()}</legend>
                                                                 <input
@@ -590,8 +600,6 @@ const StockList = ({ user }) => {
     );
 };
 
-export default StockList;
-
 const styles = {
     overlay: {
         position: "fixed",
@@ -619,3 +627,6 @@ const styles = {
         gap: "20px"
     }
 };
+
+export default StockList;
+
