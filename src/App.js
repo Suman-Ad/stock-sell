@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { getDoc, doc } from "firebase/firestore";
 import { db } from "./firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "./firebase";
 
 // Importing pages and components
 import Login from './pages/Login';
@@ -19,6 +21,30 @@ import SalesHistory from './pages/SalesHistory';
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        const snap = await getDoc(doc(db, "users", firebaseUser.uid));
+        if (snap.exists()) {
+          const userData = {
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            ...snap.data(),
+          };
+          setUser(userData);
+          localStorage.setItem("user", JSON.stringify(userData));
+        }
+      } else {
+        setUser(null);
+        localStorage.removeItem("user");
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const refreshUser = async () => {
     const stored = JSON.parse(localStorage.getItem("user"));
@@ -62,8 +88,8 @@ function App() {
       <Routes>
 
         {/* Public Routes */}
-        <Route path="/" element={<Login />} />
-        <Route path="/login" element={<Login />} />
+        <Route path="/" element={<Login setUser={setUser} />} />
+        <Route path="/login" element={<Login setUser={setUser} />} />
         <Route path="/signup" element={<Signup />} />
 
         {/* Protected / App Routes */}

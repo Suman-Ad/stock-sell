@@ -18,20 +18,48 @@ const colorOptions = [
     "Yellow", "Grey", "Navy", "Maroon"
 ];
 
-// const getSellingPrice = (buying, margin, extraCosts) => {
-//     const breakEven =
-//         Number(buying) +
-//         Number(extraCosts.packaging) +
-//         Number(extraCosts.labeling) +
-//         Number(extraCosts.rto) +
-//         Number(extraCosts.returnCost) +
-//         Number(extraCosts.advertisementCost) +
-//         Number(extraCosts.delivery);
+export const createQRCodesBulk = async ({
+    stockId,
+    product,
+    sizeKey,
+    startFrom,
+    quantity
+}) => {
 
-//     const withGST = breakEven * (1 + extraCosts.gst / 100);
+    const promises = [];
 
-//     return withGST * (1 + margin / 100);
-// };
+    for (let i = 1; i <= quantity; i++) {
+        const unitNo = startFrom + i;
+
+        const qrData = {
+            stockId,
+            productName: product.productName,
+            productId: product.productId,
+            catalogId: product.catalogId,
+
+            category: product.category || "",
+            subCategory: product.subCategory || "",
+            productType: product.productType || "",
+
+            size: sizeKey,
+            color: product.color || "",
+
+            unitNo,
+            uniqueId: `${product.productId}-${sizeKey}-${stockId}-${unitNo}`,
+
+            sellingPrice: product.sizes[sizeKey].sellingPrice || 0,
+
+            status: "available",
+            printed: false, // 🔥 KEY FLAG
+
+            createdAt: serverTimestamp()
+        };
+
+        promises.push(addDoc(collection(db, "qrcodes"), qrData));
+    }
+
+    await Promise.all(promises);
+};
 
 const getSellingPrice = (buying, margin = 0, extraCosts = {}) => {
     const base = Number(buying) || 0;
@@ -229,6 +257,75 @@ const StockInventory = ({ user }) => {
     };
 
     // Save to Firestore
+    // const handleSave = async () => {
+    //     try {
+    //         if (!user.uid) {
+    //             alert("User not logged in!");
+    //             return;
+    //         }
+
+    //         const sizeObject = {};
+    //         sizes.forEach((s) => {
+    //             if (s.size && s.qty > 0) {
+    //                 sizeObject[s.size] = {
+    //                     qty: s.qty,
+    //                     initialQty: s.qty,
+    //                     buyingPrice: s.buyingPrice,
+    //                     margin: s.margin,
+    //                     extraCosts: s.extraCosts,
+    //                     sellingPrice: getSellingPrice(
+    //                         s.buyingPrice,
+    //                         s.margin,
+    //                         s.extraCosts
+    //                     )
+    //                 };
+    //             }
+    //         });
+
+    //         if (Object.keys(sizeObject).length === 0) {
+    //             alert("Add at least one valid size with quantity");
+    //             return;
+    //         }
+
+    //         const finalColor = color === "custom" ? customColor.trim() : color;
+
+    //         if (!category || !subCategory || !productType || !finalColor) {
+    //             alert("All fields including valid color are required");
+    //             return;
+    //         }
+
+    //         const productName = `${category}-${subCategory}-${productType}-${finalColor}`;
+    //         // ✅ Generate IDs properly
+    //         const { catalogId, productId } = generateCatalogId(productName, finalColor, user.uid);
+    //         setCatalogId(catalogId); // Set catalogId state to display in input
+
+    //         await addDoc(collection(db, "stocks"), {
+    //             category,
+    //             subCategory,
+    //             productType,
+    //             color,
+    //             productName,
+    //             productId,
+    //             catalogId,
+    //             sizes: sizeObject,
+    //             remarks,
+    //             userId: user.uid,
+    //             createdBy: user,
+    //             createdAt: serverTimestamp()
+    //         });
+
+    //         alert("Stock Saved!");
+    //         setCategory("");
+    //         setSubCategory("");
+    //         setProductType("");
+    //         setColor("");
+    //         setCustomColor("");
+
+    //     } catch (err) {
+    //         alert(err.message);
+    //     }
+    // };
+
     const handleSave = async () => {
         try {
             if (!user.uid) {
@@ -237,6 +334,7 @@ const StockInventory = ({ user }) => {
             }
 
             const sizeObject = {};
+
             sizes.forEach((s) => {
                 if (s.size && s.qty > 0) {
                     sizeObject[s.size] = {
@@ -255,27 +353,20 @@ const StockInventory = ({ user }) => {
             });
 
             if (Object.keys(sizeObject).length === 0) {
-                alert("Add at least one valid size with quantity");
+                alert("Add at least one valid size");
                 return;
             }
 
             const finalColor = color === "custom" ? customColor.trim() : color;
 
-            if (!category || !subCategory || !productType || !finalColor) {
-                alert("All fields including valid color are required");
-                return;
-            }
-
             const productName = `${category}-${subCategory}-${productType}-${finalColor}`;
-            // ✅ Generate IDs properly
             const { catalogId, productId } = generateCatalogId(productName, finalColor, user.uid);
-            setCatalogId(catalogId); // Set catalogId state to display in input
 
-            await addDoc(collection(db, "stocks"), {
+            const docRef = await addDoc(collection(db, "stocks"), {
                 category,
                 subCategory,
                 productType,
-                color,
+                color: finalColor,
                 productName,
                 productId,
                 catalogId,
@@ -286,13 +377,32 @@ const StockInventory = ({ user }) => {
                 createdAt: serverTimestamp()
             });
 
-            alert("Stock Saved!");
-            setCategory("");
-            setSubCategory("");
-            setProductType("");
-            setColor("");
-            setCustomColor("");
+            // 🔥 CREATE QR FOR EACH SIZE
+            for (const sizeKey of Object.keys(sizeObject)) {
+                const sizeData = sizeObject[sizeKey];
 
+                await createQRCodesBulk({
+                    stockId: docRef.id,
+                    product: {
+                        ...sizeObject,
+                        ...{
+                            productName,
+                            productId,
+                            catalogId,
+                            category,
+                            subCategory,
+                            productType,
+                            color: finalColor,
+                            sizes: sizeObject
+                        }
+                    },
+                    sizeKey,
+                    startFrom: 0,
+                    quantity: sizeData.qty
+                });
+            }
+
+            alert("✅ Stock + QR Created!");
         } catch (err) {
             alert(err.message);
         }
@@ -458,7 +568,11 @@ const StockInventory = ({ user }) => {
                 if (!existingDocs.empty) {
                     const existingDoc = existingDocs.docs[0];
                     const existingData = existingDoc.data();
-
+                    const qrQuery = query(
+                        collection(db, "qrcodes"),
+                        where("stockId", "==", existingData.id),
+                        where("size", "==", existingData.sizes)
+                    );
                     const mergedSizes = { ...existingData.sizes };
 
                     Object.keys(sizeObject).forEach((size) => {
@@ -471,6 +585,28 @@ const StockInventory = ({ user }) => {
                             mergedSizes[size] = sizeObject[size];
                         }
                     });
+
+                    for (const size of Object.keys(sizeObject)) {
+
+
+                        const qrSnapshot = await getDocs(qrQuery);
+
+                        const existingCount = qrSnapshot.size;
+                        const newQty = sizeObject[size].qty;
+
+                        if (newQty > 0) {
+                            await createQRCodesBulk({
+                                stockId: existingDoc.id,
+                                product: {
+                                    ...existingData,
+                                    sizes: mergedSizes
+                                },
+                                sizeKey: size,
+                                startFrom: existingCount,
+                                quantity: newQty
+                            });
+                        }
+                    }
 
                     batch.update(existingDoc.ref, {
                         sizes: mergedSizes,
@@ -494,7 +630,27 @@ const StockInventory = ({ user }) => {
                         createdBy: user,
                         createdAt: serverTimestamp()
                     });
+                    for (const sizeKey of Object.keys(sizeObject)) {
+                        await createQRCodesBulk({
+                            stockId: docRef.id,
+                            product: {
+                                productName,
+                                productId,
+                                catalogId,
+                                category: first.category,
+                                subCategory: first.subCategory,
+                                productType: first.productType,
+                                color: first.color,
+                                sizes: sizeObject
+                            },
+                            sizeKey,
+                            startFrom: 0,
+                            quantity: sizeObject[sizeKey].qty
+                        });
+                    }
                 }
+
+
 
                 // ✅ Update progress
                 processed++;

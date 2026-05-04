@@ -6,7 +6,7 @@ import { updateDoc, doc, getDoc } from "firebase/firestore";
 import { sendEmailVerification } from "firebase/auth";
 import { db } from "../firebase";
 
-const Login = () => {
+const Login = ({ setUser }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate(); // ✅ correct
@@ -74,6 +74,7 @@ const Login = () => {
       const { govId, ...safeData } = userData;
 
       localStorage.setItem("user", JSON.stringify(safeData));
+      setUser(safeData);
 
       // ✅ Update login info
       await updateDoc(userRef, {
