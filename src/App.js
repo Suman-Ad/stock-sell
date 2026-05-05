@@ -17,6 +17,7 @@ import AdminRoute from './components/AdminRoute';
 import SellProduct from './pages/SellProduct';
 import Dashboard from './pages/Dashboard';
 import SalesHistory from './pages/SalesHistory';
+import Profile from './pages/Profile'
 
 function App() {
   const [user, setUser] = useState(null);
@@ -94,12 +95,13 @@ function App() {
 
         {/* Protected / App Routes */}
         <Route element={<Layout user={user} />}>
+          <Route path="/admin" element={<AdminRoute><AdminDashboard user={user} /></AdminRoute>} />
           <Route path="/stock-inventory" element={<StockInventory user={user} />} />
           <Route path="/stock-list" element={<StockList user={user} />} />
           <Route path="/sell-product" element={<SellProduct user={user} />} />
           <Route path="/dashboard" element={<Dashboard user={user} />} />
           <Route path="/sales-history" element={<SalesHistory user={user} />} />
-          <Route path="/admin" element={<AdminRoute><AdminDashboard user={user} /></AdminRoute>} />
+          <Route path="/profile" element={<Profile user={user} />} />
         </Route>
 
       </Routes>

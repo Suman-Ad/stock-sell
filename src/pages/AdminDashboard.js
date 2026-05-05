@@ -587,34 +587,195 @@ const AdminDashboard = ({ user }) => {
         <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>Next</button>
       </div>
 
-      {/* 🎨 CSS */}
       <style>{`
-        .container { padding:20px; background:#f3f4f6; font-family:sans-serif }
+/* 🌌 ROOT */
+.container {
+  padding: 20px;
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  min-height: 100vh;
+  color: #e2e8f0;
+  font-family: 'Inter', sans-serif;
+}
 
-        .analytics { display:flex; gap:10px; margin-bottom:15px }
-        .card { flex:1; background:#fff; padding:12px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.05) }
+/* 📊 ANALYTICS */
+.analytics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
 
-        .controls { display:flex; gap:10px; margin-bottom:15px }
-        input, select { padding:8px; border:1px solid #ccc; border-radius:6px }
+.card {
+  background: #1e293b;
+  padding: 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  border: 1px solid #334155;
+  transition: 0.3s;
+}
 
-        .layout { display:flex; gap:15px }
+.card:hover {
+  transform: translateY(-3px);
+  background: #334155;
+}
 
-        .grid { flex:1; display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px }
+/* 🔍 CONTROLS */
+.controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
 
-        .user-card { background:#fff; padding:12px; border-radius:10px; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.05) }
-        .user-card:hover { transform:translateY(-2px) }
+.controls input,
+.controls select {
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  background: #020617;
+  color: #fff;
+}
 
-        .badge { padding:3px 6px; color:#fff; border-radius:5px; font-size:11px }
+.controls input::placeholder {
+  color: #94a3b8;
+}
 
-        .details { width:300px; background:#fff; padding:15px; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.05) }
+/* 📦 LAYOUT */
+.layout {
+  display: flex;
+  gap: 15px;
+}
 
-        .actions { display:flex; flex-direction:column; gap:6px; margin-top:10px }
+/* 👤 USER GRID */
+.grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
 
-        button { padding:6px; border:none; border-radius:6px; background:#4f46e5; color:#fff; cursor:pointer }
-        .danger { background:#dc2626 }
+/* 🧑 USER CARD */
+.user-card {
+  background: #1e293b;
+  padding: 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 1px solid #334155;
+  transition: 0.3s;
+  position: relative;
+}
 
-        .pagination { margin-top:15px; display:flex; justify-content:center; gap:10px }
-      `}</style>
+.user-card:hover {
+  transform: translateY(-4px);
+  background: #334155;
+}
+
+.user-card h4 {
+  margin-bottom: 5px;
+  font-size: 15px;
+}
+
+.user-card p {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* 🏷 ROLE BADGE */
+.badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  margin-top: 5px;
+}
+
+/* 📄 DETAIL PANEL */
+.details {
+  width: 320px;
+  background: #020617;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #334155;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+/* 🧾 TEXT */
+.details p {
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+/* ✏️ FORM */
+.details input,
+.details textarea {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #334155;
+  background: #020617;
+  color: #fff;
+}
+
+/* ⚙️ ACTION BUTTONS */
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+button {
+  padding: 8px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  transition: 0.2s;
+}
+
+button:hover {
+  transform: scale(1.03);
+  opacity: 0.95;
+}
+
+button.secondary {
+  background: #475569;
+}
+
+button.danger {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+/* 📁 PAGINATION */
+.pagination {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+}
+
+.pagination button {
+  padding: 6px 12px;
+}
+
+/* 📱 RESPONSIVE */
+@media (max-width: 900px) {
+  .layout {
+    flex-direction: column;
+  }
+
+  .details {
+    width: 100%;
+  }
+}
+`}</style>
 
     </div>
   );

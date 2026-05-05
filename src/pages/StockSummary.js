@@ -1,4 +1,5 @@
 import React from "react";
+import "../assets/StockSummery.css";
 
 const StockSummary = ({ stocks }) => {
 
@@ -42,23 +43,42 @@ const StockSummary = ({ stocks }) => {
     });
 
     return (
-        <div style={{
-            padding: "15px",
-            background: "#111",
-            color: "#fff",
-            borderRadius: "10px",
-            marginBottom: "20px"
-        }}>
-            <h3>📊 Inventory Summary</h3>
+        <div className="summary-container">
+            <h3 className="summary-title">📊 Inventory Summary</h3>
 
-            <p>Total Products: {totalItems}</p>
-            <p>Total Quantity: {totalQty}</p>
-            <p>Total Investment: ₹{totalInvestment.toFixed(0)}</p>
-            <p>Total Extra Cost: ₹{totalExtraCost.toFixed(0)}</p>
-            <p>Total Selling Value: ₹{totalSelling.toFixed(0)}</p>
-            <p style={{ color: totalProfit < 0 ? "red" : "lightgreen" }}>
-                Total Profit: ₹{totalProfit.toFixed(0)}
-            </p>
+            <div className="summary-grid">
+
+                <div className="summary-card">
+                    <span>Total Products</span>
+                    <h2>{totalItems}</h2>
+                </div>
+
+                <div className="summary-card">
+                    <span>Total Quantity</span>
+                    <h2>{totalQty}</h2>
+                </div>
+
+                <div className="summary-card">
+                    <span>Total Investment</span>
+                    <h2>₹{totalInvestment.toFixed(0)}</h2>
+                </div>
+
+                <div className="summary-card">
+                    <span>Total Extra Cost</span>
+                    <h2>₹{totalExtraCost.toFixed(0)}</h2>
+                </div>
+
+                <div className="summary-card">
+                    <span>Total Selling</span>
+                    <h2>₹{totalSelling.toFixed(0)}</h2>
+                </div>
+
+                <div className={`summary-card ${totalProfit < 0 ? "loss" : "profit"}`}>
+                    <span>Total Profit</span>
+                    <h2>₹{totalProfit.toFixed(0)}</h2>
+                </div>
+
+            </div>
         </div>
     );
 };

@@ -11,6 +11,7 @@ const Login = ({ setUser }) => {
   const [password, setPassword] = useState("");
   const navigate = useNavigate(); // ✅ correct
   const [verificationSent, setVerificationSent] = useState(false);
+  const [loging, setLoging] = useState(false);
 
   const resendVerification = async () => {
     if (auth.currentUser) {
@@ -62,6 +63,8 @@ const Login = ({ setUser }) => {
         return;
       }
 
+      setLoging(true);
+
       // ✅ Merge data
       const userData = {
         uid: user.uid,
@@ -71,7 +74,7 @@ const Login = ({ setUser }) => {
       };
 
       // ✅ Remove sensitive data
-      const { govId, ...safeData } = userData;
+      const { govId, gstNo, ...safeData } = userData;
 
       localStorage.setItem("user", JSON.stringify(safeData));
       setUser(safeData);
@@ -82,6 +85,7 @@ const Login = ({ setUser }) => {
         lastLogin: new Date(),
       });
 
+      setLoging(false);
       alert("Login Successful!");
       navigate("/dashboard");
 
@@ -100,6 +104,7 @@ const Login = ({ setUser }) => {
           type="email"
           placeholder="Email"
           onChange={(e) => setEmail(e.target.value)}
+          disabled={loging}
         />
         <br /><br />
 
@@ -107,10 +112,11 @@ const Login = ({ setUser }) => {
           type="password"
           placeholder="Password"
           onChange={(e) => setPassword(e.target.value)}
+          disabled={loging}
         />
         <br /><br />
 
-        <button onClick={handleLogin}>Login</button>
+        <button onClick={handleLogin}>{loging ? "Loging..." : "Login"}</button>
 
         {verificationSent && (
           <div style={{ marginTop: "20px" }}>

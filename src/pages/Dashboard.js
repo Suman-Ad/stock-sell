@@ -4,6 +4,7 @@ import { collection, query, where, onSnapshot } from "firebase/firestore";
 import useUserRole from "../hooks/useUserRole";
 import SellProduct from "./SellProduct";
 import { useNavigate } from "react-router-dom";
+import "../assets/Dashboard.css";
 
 
 const getDate = (createdAt) => {
@@ -43,7 +44,10 @@ const Dashboard = ({ user }) => {
         }
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            setSales(snapshot.docs.map(doc => doc.data()));
+            setSales(snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            })));
         });
 
         return () => unsubscribe();
@@ -55,8 +59,9 @@ const Dashboard = ({ user }) => {
         const now = new Date();
 
         return sales.filter((s) => {
-            const saleDate = getDate(s.createdAt);
-            if (!saleDate || isNaN(saleDate)) return true;
+            const saleDate = getDate(s.soldAt);
+
+            if (!saleDate || isNaN(saleDate.getTime())) return false;
 
             if (filter === "today") {
                 return saleDate.toDateString() === now.toDateString();
@@ -99,18 +104,45 @@ const Dashboard = ({ user }) => {
 
     const profitColor = totalProfit >= 0 ? "#16a34a" : "#dc2626";
 
+    const getDailyProfit = () => {
+        const map = {};
+
+        filteredSales.forEach((s) => {
+            const date = getDate(s.soldAt);
+            if (!date) return;
+
+            const key = date.toISOString().split("T")[0];
+
+            const profit = (s.sellingPrice || 0) - (s.buyingPrice || 0);
+
+            map[key] = (map[key] || 0) + profit;
+        });
+
+        return Object.entries(map)
+            .sort((a, b) => new Date(a[0]) - new Date(b[0]))
+            .slice(-7); // last 7 days
+    };
+
+    const dailyProfitData = getDailyProfit();
+
+    const getTopProducts = () => {
+        const map = {};
+
+        filteredSales.forEach((s) => {
+            const name = s.productName || "Unknown";
+            map[name] = (map[name] || 0) + 1;
+        });
+
+        return Object.entries(map)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5);
+    };
 
     return (
-        <div style={{ padding: "20px", background: "#f9fafb", minHeight: "100vh" }}>
+        <div className="dashboard-container">
 
             {/* 🔹 Welcome Section */}
-            <div style={{
-                background: "#fff",
-                padding: "20px",
-                borderRadius: "12px",
-                boxShadow: "0 4px 10px rgba(0,0,0,0.05)",
-                marginBottom: "20px"
-            }}>
+            <div className="dashboard-card welcome-card" >
                 <h2>👋 Welcome, {user?.name || "User"}!</h2>
                 <p style={{ margin: "5px 0", color: "#555" }}>
                     📧 {user?.email}
@@ -123,49 +155,45 @@ const Dashboard = ({ user }) => {
                 </p>
             </div>
 
-            <div>
-                <button onClick={() => navigate("/sell-product")}>
+            <div className="dashboard-actions" >
+                <button className="btn primary" onClick={() => navigate("/sell-product")}>
                     Sell Product
                 </button>
-                <p onClick={() => navigate("/stock-list")}
+                <p className="btn" onClick={() => navigate("/stock-list")}
                     style={{ cursor: "pointer" }}>Stock Inventory</p>
 
-                <p onClick={() => navigate("/sales-history")}
+                <p className="btn" onClick={() => navigate("/sales-history")}
                     style={{ cursor: "pointer" }}>Sales History</p>
                 {(user?.role === "superadmin" || user?.role === "admin") &&
                     (
-                        <p onClick={() => navigate("/admin")}
+                        <p className="btn danger" onClick={() => navigate("/admin")}
                             style={{ cursor: "pointer" }}>Admin</p>
                     )}
             </div>
 
             {/* 🔹 Stats Cards */}
-            <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: "20px"
-            }}>
+            <div className="dashboard-grid" >
 
                 {/* Total Sales */}
-                <div style={cardStyle}>
+                <div className="stat-card blue">
                     <h4>📦 Total Sales</h4>
                     <h2>{totalSales}</h2>
                 </div>
 
                 {/* Revenue */}
-                <div style={cardStyle}>
+                <div className="stat-card green">
                     <h4>💰 Revenue</h4>
                     <h2>₹{totalRevenue.toFixed(2)}</h2>
                 </div>
 
                 {/* Cost */}
-                <div style={cardStyle}>
+                <div className="stat-card orange">
                     <h4>💸 Cost</h4>
                     <h2>₹{totalCost.toFixed(2)}</h2>
                 </div>
 
                 {/* Profit */}
-                <div style={cardStyle}>
+                <div className="stat-card red">
                     <h4>📈 Profit</h4>
                     <h2 style={{ color: profitColor }}>
                         ₹{totalProfit.toFixed(2)}
@@ -174,7 +202,7 @@ const Dashboard = ({ user }) => {
 
             </div>
 
-            <div style={{ marginBottom: "20px" }}>
+            <div className="filter-bar">
                 {["all", "today", "week", "month"].map((f) => (
                     <button
                         key={f}
@@ -194,7 +222,7 @@ const Dashboard = ({ user }) => {
                 ))}
             </div>
 
-            <div style={cardStyle}>
+            <div className="dashboard-card" >
                 <h4>📊 Sales Trend</h4>
                 <div style={{ display: "flex", alignItems: "flex-end", height: "150px", gap: "5px" }}>
                     {filteredSales.slice(-10).map((s, i) => (
@@ -211,8 +239,33 @@ const Dashboard = ({ user }) => {
                     ))}
                 </div>
             </div>
+            <div className="dashboard-card" >
+                {dailyProfitData.map(([date, profit], i) => (
+                    <div key={i} style={{ textAlign: "center" }}>
+                        <div
+                            style={{
+                                width: "30px",
+                                height: `${Math.max(profit / 10, 5)}px`,
+                                background: profit >= 0 ? "#16a34a" : "#dc2626",
+                                borderRadius: "4px"
+                            }}
+                            title={`${date} → ₹${profit}`}
+                        />
+                        <div style={{ fontSize: "10px", marginTop: "4px" }}>
+                            {date.slice(5)}
+                        </div>
+                    </div>
+                ))}
+            </div>
 
-            <div style={{ ...cardStyle, marginTop: "20px", textAlign: "left" }}>
+            <div className="dashboard-card" >
+                <h4>🔥 Top Products</h4>
+                {getTopProducts().map(([name, count], i) => (
+                    <p key={i}>{name} - {count} sold</p>
+                ))}
+            </div>
+
+            <div className="dashboard-table">
                 <h4>🧾 Recent Sales</h4>
 
                 <table style={{ width: "100%", marginTop: "10px" }}>
@@ -229,7 +282,7 @@ const Dashboard = ({ user }) => {
                             const profit = (s.sellingPrice || 0) - (s.buyingPrice || 0);
                             return (
                                 <tr key={i} style={{ borderBottom: "1px solid #eee" }}>
-                                    <td>{s.itemName || "N/A"}</td>
+                                    <td>{s.productName || "N/A"}</td>
                                     <td>₹{s.sellingPrice}</td>
                                     <td>₹{s.buyingPrice}</td>
                                     <td style={{ color: profit >= 0 ? "green" : "red" }}>
@@ -243,15 +296,6 @@ const Dashboard = ({ user }) => {
             </div>
         </div>
     );
-};
-
-// 🔹 Reusable Card Style
-const cardStyle = {
-    background: "#fff",
-    padding: "20px",
-    borderRadius: "12px",
-    boxShadow: "0 4px 10px rgba(0,0,0,0.05)",
-    textAlign: "center"
 };
 
 export default Dashboard;

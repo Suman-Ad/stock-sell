@@ -1,0 +1,118 @@
+/* 🌌 Base Layout */
+.layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    color: #fff;
+}
+
+/* 🔷 HEADER */
+.layout-header {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    padding: 12px 20px;
+
+    background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+/* 🏷 Logo */
+.logo {
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #38bdf8;
+    transition: 0.3s;
+}
+
+.logo:hover {
+    color: #0ea5e9;
+}
+
+/* 👤 Right Section */
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* Profile Link */
+.profile-link {
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 8px;
+    transition: 0.3s;
+    color: #cbd5f5;
+}
+
+.profile-link:hover {
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+}
+
+/* 🚪 Logout Button */
+.logout-btn {
+    background: #ef4444;
+    border: none;
+    padding: 6px 14px;
+    color: #fff;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.logout-btn:hover {
+    background: #dc2626;
+}
+
+/* 🔷 MAIN */
+.layout-main {
+    flex: 1;
+    padding: 20px;
+}
+
+/* 🔷 FOOTER */
+.layout-footer {
+    background: rgba(0,0,0,0.3);
+    color: #cbd5f5;
+    text-align: center;
+    padding: 10px;
+    font-size: 13px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+/* 📱 Responsive */
+@media (max-width: 600px) {
+    .layout-header {
+        padding: 10px;
+    }
+
+    .logo {
+        font-size: 16px;
+    }
+
+    .header-right {
+        gap: 10px;
+    }
+
+    .profile-link {
+        font-size: 13px;
+    }
+
+    .logout-btn {
+        padding: 5px 10px;
+        font-size: 12px;
+    }
+
+    .layout-main {
+        padding: 10px;
+    }
+}

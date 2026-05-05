@@ -1,0 +1,201 @@
+/* PAGE */
+.stock-page {
+  padding: 20px;
+  color: #e5e7eb;
+}
+
+/* BUTTONS */
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  transition: 0.2s;
+}
+
+button:hover {
+  opacity: 0.85;
+}
+
+/* SEARCH */
+input {
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #444;
+  background: #1f2937;
+  color: #fff;
+}
+
+/* TABLE */
+.table-wrapper {
+  overflow-x: auto;
+  margin-top: 10px;
+}
+
+.stock-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1200px;
+}
+
+.stock-table th {
+  background: #111827;
+  color: #fff;
+  padding: 10px;
+  position: sticky;
+  top: 0;
+}
+
+.stock-table td {
+  background: #1f2937;
+  padding: 8px;
+  border-bottom: 1px solid #374151;
+}
+
+.stock-table tr:hover td {
+  background: #2d3748;
+}
+
+/* SIZE BOX */
+.size-box {
+  border: 1px solid #374151;
+  border-radius: 6px;
+  padding: 6px;
+  margin-bottom: 6px;
+  background: #111827;
+}
+
+/* MODAL */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  margin-top: 65px;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+.modal-box {
+  width: 95%;
+  max-width: 1200px;
+  background: #111827;
+  border-radius: 10px;
+  overflow: hidden;
+  height: 99%;
+}
+
+.modal-header {
+  padding: 10px;
+  background: #1f2937;
+  display: flex;
+  justify-content: space-between;
+  height: fit-content;
+}
+
+.modal-content {
+  padding: 15px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* QR BOX */
+.qr-box {
+  border: 1px solid #374151;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+/* QR CARD */
+.qr-card {
+  width: 120px;
+  padding: 6px;
+  text-align: center;
+  font-size: 10px;
+  border-radius: 6px;
+  border: 1px solid #555;
+  background: #1f2937;
+}
+
+.qr-card.new {
+  border: 2px solid #22c55e;
+  background: #052e16;
+}
+
+/* QR GRID */
+.qr-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 200px;
+  overflow: auto;
+}
+
+/* QR POPUP */
+.qr-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.qr-modal {
+  background: #111827;
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+/* PRINT MODAL */
+.print-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.9);
+  z-index: 1000;
+}
+
+.print-modal {
+  background: #fff;
+  margin: 20px auto;
+  padding: 20px;
+  width: 90%;
+  max-height: 90%;
+  overflow-y: auto;
+}
+
+/* PRINT AREA */
+.print-area {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* PRINT CARD */
+.print-card {
+  width: 220px;
+  border: 1px solid #000;
+  padding: 5px;
+  text-align: center;
+  font-size: 10px;
+}
+
+/* STATUS COLORS */
+.profit {
+  color: #22c55e;
+  font-weight: bold;
+}
+
+.loss {
+  color: #ef4444;
+  font-weight: bold;
+}
+
+/* SMALL TEXT */
+.small-text {
+  font-size: 10px;
+  color: #9ca3af;
+}

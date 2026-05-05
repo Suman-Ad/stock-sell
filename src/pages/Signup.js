@@ -1,23 +1,26 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { auth, db } from "../firebase";
 import {
     createUserWithEmailAndPassword,
     sendEmailVerification
 } from "firebase/auth";
 import { setDoc, doc, serverTimestamp } from "firebase/firestore";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useAsyncError } from "react-router-dom";
 
 
 const Signup = () => {
     const [form, setForm] = useState({
         name: "",
         email: "",
+        mobile: "",
         password: "",
         shopName: "",
         address: "",
         pin: "",
-        govId: ""
+        govId: "",
+        gstNo: ""
     });
+    const [registering, setRegistering] = useState(false);
 
     const navigate = useNavigate();
 
@@ -65,6 +68,8 @@ const Signup = () => {
         try {
             if (!validate()) return;
 
+            setRegistering(true);
+
             // 1️⃣ Create Auth user
             const userCredential = await createUserWithEmailAndPassword(
                 auth,
@@ -86,10 +91,12 @@ const Signup = () => {
             await setDoc(doc(db, "users", user.uid), {
                 name: form.name,
                 email: form.email,
+                mobile: form.mobile,
                 shopName: form.shopName,
                 address: form.address,
                 pin: form.pin,
                 govId: form.govId,
+                gstNo: form.gstNo,
 
                 role: "user",
                 isActive: false,
@@ -107,6 +114,7 @@ const Signup = () => {
             });
 
             alert("Verification email sent! Please verify before login.");
+            setRegistering(false);
 
             navigate("/login");
 
@@ -116,72 +124,91 @@ const Signup = () => {
     };
 
     return (
-        <div style={{ textAlign: "center", marginTop: "30px" }}>
-            <h2>Signup</h2>
+        <div className="login-container">
+            <div className="login-box">
+                <h2>Signup</h2>
 
-            <input
-                type="text"
-                placeholder="Full Name"
-                value={form.name}
-                onChange={(e) => handleChange("name", e.target.value)}
-            />
-            <br /><br />
+                <input
+                    type="text"
+                    placeholder="Full Name"
+                    value={form.name}
+                    onChange={(e) => handleChange("name", e.target.value)}
+                />
+                <br /><br />
 
-            <input
-                type="email"
-                placeholder="Email"
-                value={form.email}
-                onChange={(e) => handleChange("email", e.target.value)}
-            />
-            <br /><br />
+                <input
+                    type="email"
+                    placeholder="Email"
+                    value={form.email}
+                    onChange={(e) => handleChange("email", e.target.value)}
+                />
+                <br /><br />
 
-            <input
-                type="password"
-                placeholder="Password"
-                value={form.password}
-                onChange={(e) => handleChange("password", e.target.value)}
-            />
-            <br /><br />
+                <input
+                    type="number"
+                    placeholder="Mobile No"
+                    value={form.mobile}
+                    onChange={(e) => handleChange("mobile", e.target.value)}
+                />
+                <br /><br />
 
-            <input
-                type="text"
-                placeholder="Shop Name"
-                value={form.shopName}
-                onChange={(e) => handleChange("shopName", e.target.value)}
-            />
-            <br /><br />
+                <input
+                    type="password"
+                    placeholder="Password"
+                    value={form.password}
+                    onChange={(e) => handleChange("password", e.target.value)}
+                />
+                <br /><br />
 
-            <textarea
-                placeholder="Address"
-                value={form.address}
-                onChange={(e) => handleChange("address", e.target.value)}
-            />
-            <br /><br />
+                <input
+                    type="text"
+                    placeholder="Shop Name"
+                    value={form.shopName}
+                    onChange={(e) => handleChange("shopName", e.target.value)}
+                />
+                <br /><br />
 
-            <input
-                type="text"
-                placeholder="PIN Code"
-                value={form.pin}
-                onChange={(e) => handleChange("pin", e.target.value)}
-            />
-            <br /><br />
+                <textarea
+                    placeholder="Address"
+                    value={form.address}
+                    onChange={(e) => handleChange("address", e.target.value)}
+                />
+                <br /><br />
 
-            <input
-                type="text"
-                placeholder="Government ID Number"
-                value={form.govId}
-                onChange={(e) => handleChange("govId", e.target.value)}
-            />
-            <br /><br />
+                <input
+                    type="text"
+                    placeholder="PIN Code"
+                    value={form.pin}
+                    onChange={(e) => handleChange("pin", e.target.value)}
+                />
+                <br /><br />
 
-            <button onClick={handleSignup}>Register</button>
+                <input
+                    type="text"
+                    placeholder="Government ID Number"
+                    value={form.govId}
+                    onChange={(e) => handleChange("govId", e.target.value)}
+                />
+                <br /><br />
 
-            <br /><br />
+                <input
+                    type="text"
+                    placeholder="Goods & Service Tax No"
+                    value={form.gstNo}
+                    onChange={(e) => handleChange("gstNo", e.target.value)}
+                />
+                <br /><br />
 
-            <p>
-                Already have an account? <Link to="/login">Login</Link>
-            </p>
+                <button onClick={handleSignup}>{registering ? "Registering.." : "Register"}</button>
+
+                <br /><br />
+
+                <p>
+                    Already have an account? <Link to="/login">Login</Link>
+                </p>
+            </div>
         </div>
+
     );
 };
 

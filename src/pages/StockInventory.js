@@ -4,6 +4,7 @@ import { collection, addDoc, serverTimestamp, doc, query, where, getDocs } from 
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { writeBatch } from "firebase/firestore";
+import "../assets/StockInventory.css";
 
 const categoryMap = {
     Men: ["T-Shirt", "Shirt", "Pant", "Panjabi"],
@@ -92,6 +93,7 @@ const StockInventory = ({ user }) => {
     const [uploadProgress, setUploadProgress] = useState(0);
     const [processedCount, setProcessedCount] = useState(0);
     const [totalCount, setTotalCount] = useState(0);
+    const [isSaving, setIsSaving] = useState(false);
 
     const fileInputRef = useRef(null);
     const resetFileInput = () => {
@@ -273,81 +275,14 @@ const StockInventory = ({ user }) => {
     };
 
     // Save to Firestore
-    // const handleSave = async () => {
-    //     try {
-    //         if (!user.uid) {
-    //             alert("User not logged in!");
-    //             return;
-    //         }
-
-    //         const sizeObject = {};
-    //         sizes.forEach((s) => {
-    //             if (s.size && s.qty > 0) {
-    //                 sizeObject[s.size] = {
-    //                     qty: s.qty,
-    //                     initialQty: s.qty,
-    //                     buyingPrice: s.buyingPrice,
-    //                     margin: s.margin,
-    //                     extraCosts: s.extraCosts,
-    //                     sellingPrice: getSellingPrice(
-    //                         s.buyingPrice,
-    //                         s.margin,
-    //                         s.extraCosts
-    //                     )
-    //                 };
-    //             }
-    //         });
-
-    //         if (Object.keys(sizeObject).length === 0) {
-    //             alert("Add at least one valid size with quantity");
-    //             return;
-    //         }
-
-    //         const finalColor = color === "custom" ? customColor.trim() : color;
-
-    //         if (!category || !subCategory || !productType || !finalColor) {
-    //             alert("All fields including valid color are required");
-    //             return;
-    //         }
-
-    //         const productName = `${category}-${subCategory}-${productType}-${finalColor}`;
-    //         // ✅ Generate IDs properly
-    //         const { catalogId, productId } = generateCatalogId(productName, finalColor, user.uid);
-    //         setCatalogId(catalogId); // Set catalogId state to display in input
-
-    //         await addDoc(collection(db, "stocks"), {
-    //             category,
-    //             subCategory,
-    //             productType,
-    //             color,
-    //             productName,
-    //             productId,
-    //             catalogId,
-    //             sizes: sizeObject,
-    //             remarks,
-    //             userId: user.uid,
-    //             createdBy: user,
-    //             createdAt: serverTimestamp()
-    //         });
-
-    //         alert("Stock Saved!");
-    //         setCategory("");
-    //         setSubCategory("");
-    //         setProductType("");
-    //         setColor("");
-    //         setCustomColor("");
-
-    //     } catch (err) {
-    //         alert(err.message);
-    //     }
-    // };
-
     const handleSave = async () => {
         try {
             if (!user.uid) {
                 alert("User not logged in!");
                 return;
             }
+
+            setIsSaving(true);
 
             const sizeObject = {};
 
@@ -417,7 +352,7 @@ const StockInventory = ({ user }) => {
                     quantity: sizeData.qty
                 });
             }
-
+            setIsSaving(false);
             alert("✅ Stock + QR Created!");
         } catch (err) {
             alert(err.message);
@@ -691,25 +626,32 @@ const StockInventory = ({ user }) => {
     };
 
     return (
-        <div style={{ padding: "20px" }}>
-            <div style={{
-                marginBottom: "20px",
-                padding: "15px",
-                backgroundColor: "#f0f0f0",
-                borderRadius: "5px",
-            }}>
-                <h2>Stock Inventory</h2>
-                <h2>Welcome {user?.name}</h2>
-                {/* <p>Role: {userData.role}</p> */}
-                {/* <p>Shop: {userData.shopName}</p> */}
+        <div className="stock-container">
 
-                <input type="file" accept=".xlsx, .xls" onChange={handleExcelUpload} ref={fileInputRef} />
-                <button onClick={downloadTemplate}>Download Template</button>
+            {/* 🔹 Header */}
+            <div className="stock-card">
+                <h2>Stock Inventory</h2>
+                <p>Welcome <b>{user?.name}</b></p>
+            </div>
+
+            {/* 🔹 Upload Section */}
+            <div className="stock-card upload-box">
+                <input
+                    type="file"
+                    accept=".xlsx, .xls"
+                    onChange={handleExcelUpload}
+                    ref={fileInputRef}
+                />
+
+                <button className="btn secondary" onClick={downloadTemplate}>
+                    Download Template
+                </button>
+
                 {previewData.length > 0 && (
-                    <div style={{ marginTop: "20px", background: "#fff", padding: "10px" }}>
+                    <div className="stock-card">
                         <h3>Preview Data ({previewData.length} rows)</h3>
 
-                        <table border="1">
+                        <table className="stock-table">
                             <thead>
                                 <tr>
                                     {Object.keys(previewData[0]).map((key) => (
@@ -730,270 +672,188 @@ const StockInventory = ({ user }) => {
                         </table>
 
                         {loading && (
-                            <div style={{ marginTop: "15px" }}>
-                                <div style={{
-                                    height: "20px",
-                                    width: "100%",
-                                    background: "#ddd",
-                                    borderRadius: "10px",
-                                    overflow: "hidden"
-                                }}>
-                                    <div style={{
-                                        height: "100%",
-                                        width: `${uploadProgress}%`,
-                                        background: "#4caf50",
-                                        transition: "width 0.3s"
-                                    }} />
+                            <div>
+                                <div className="progress-bar">
+                                    <div
+                                        className="progress-fill"
+                                        style={{ width: `${uploadProgress}%` }}
+                                    />
                                 </div>
 
-                                <p style={{ marginTop: "8px" }}>
-                                    {uploadProgress}% Completed
-                                </p>
-
-                                <p>
-                                    ✅ Processed: <b>{processedCount}</b> / {totalCount}
-                                </p>
-
-                                <p>
-                                    ⏳ Pending: <b>{totalCount - processedCount}</b>
-                                </p>
+                                <p>{uploadProgress}% Completed</p>
+                                <p>Processed: {processedCount} / {totalCount}</p>
                             </div>
                         )}
 
-                        <button onClick={confirmUpload} disabled={loading}>
-                            {loading ? "Uploading..." : "✅ Confirm Upload"}
+                        <button className="btn success" onClick={confirmUpload}>
+                            Confirm Upload
                         </button>
 
-                        <button onClick={() => { setPreviewData([]); resetFileInput(); }}>
-                            ❌ Cancel
+                        <button className="btn danger"
+                            onClick={() => { setPreviewData([]); resetFileInput(); }}>
+                            Cancel
                         </button>
-
                     </div>
                 )}
-
-                <div style={{ marginBottom: "20px", padding: "15px", backgroundColor: "#f0f0f0", borderRadius: "5px", display: "flex", flexDirection: "row", gap: "15px", flexWrap: "wrap" }}>
-                    <h4>Category</h4>
-
-                    <select
-                        value={category}
-                        onChange={(e) => {
-                            setCategory(e.target.value);
-                            setSubCategory(""); // reset subcategory
-                        }}
-                    >
-                        <option value="">Select Category</option>
-                        {Object.keys(categoryMap).map((cat) => (
-                            <option key={cat} value={cat}>
-                                {cat}
-                            </option>
-                        ))}
-                    </select>
-
-                    <h4>Sub Category</h4>
-
-                    <select
-                        value={subCategory}
-                        onChange={(e) => setSubCategory(e.target.value)}
-                        disabled={!category}
-                    >
-                        <option value="">Select SubCategory</option>
-                        {(categoryMap[category] || []).map((sub) => (
-                            <option key={sub} value={sub}>
-                                {sub}
-                            </option>
-                        ))}
-                    </select>
-
-                    <h4>Product Type</h4>
-
-                    <select
-                        value={productType}
-                        onChange={(e) => setProductType(e.target.value)}
-                        disabled={!subCategory}
-                    >
-                        <option value="">Select Product Type</option>
-                        {productTypes.map((type) => (
-                            <option key={type} value={type}>
-                                {type}
-                            </option>
-                        ))}
-                    </select>
-
-                    <h4>Color</h4>
-
-                    <select
-                        value={color}
-                        onChange={(e) => {
-                            setColor(e.target.value);
-                            setCustomColor("");
-                        }}
-                    >
-                        <option value="">Select Color</option>
-                        {colorOptions.map((c) => (
-                            <option key={c} value={c}>
-                                {c}
-                            </option>
-                        ))}
-                        <option value="custom">Other</option>
-                    </select>
-
-                    {color === "custom" && (
-                        <input
-                            placeholder="Enter Custom Color"
-                            value={customColor}
-                            onChange={(e) => setCustomColor(e.target.value)}
-                        />
-                    )}
-                </div>
-
-                <div style={{ marginBottom: "20px", padding: "15px", backgroundColor: "#f0f0f0", borderRadius: "5px" }}>
-                    <h4>Generated Catalog ID:</h4>
-                    <input
-                        placeholder="Catalog ID"
-                        value={catalogId}
-                        readOnly
-                    />
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap" }}>
-
-                    <div style={{
-                        marginBottom: "20px",
-                        padding: "15px",
-                        backgroundColor: "#f0f0f0",
-                        borderRadius: "5px",
-                        overflow: "auto",
-                        maxHeight: "480px",
-                        flex: "1 1 480px"
-                    }}>
-                        <h4>Sizes - Quantity - Prices - Margin%</h4>
-                        <div style={{ overflowY: "auto", maxHeight: "300px" }}>
-                            {sizes.map((s, index) => {
-                                const selling = getSellingPrice(s.buyingPrice, s.margin, s.extraCosts);
-                                const profit = s.buyingPrice ? Number(((s.buyingPrice * s.margin) / 100).toFixed(0)) : 0;
-
-                                return (
-                                    <div key={index} style={{ display: window.innerWidth > 500 ? "flex" : "grid", gap: "10px", marginBottom: "8px", alignItems: "center" }}>
-                                        <div style={{ marginBottom: "20px", padding: "15px", background: "#f9f9f9" }}>
-                                            <div style={{ background: "#fff", padding: "4px 4px", whiteSpace: "nowrap" }}>
-                                                <span>Selling Price:-₹{selling.toFixed(2)}<small>/unit</small></span>
-                                                <br />
-                                                <span style={{ color: "green" }}>
-                                                    Profit:-₹{profit.toFixed(2)}<small>/unit</small>
-                                                </span>
-                                            </div>
-                                            <div>
-                                                <label style={{ fontSize: "10px", color: "gray" }}>Size</label><br />
-                                                <input
-                                                    placeholder="Size"
-                                                    value={s.size}
-                                                    onChange={(e) =>
-                                                        handleSizeNameChange(index, e.target.value)
-                                                    }
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label style={{ fontSize: "10px", color: "gray" }}>Qty</label><br />
-                                                <input
-                                                    type="number"
-                                                    placeholder="Qty"
-                                                    value={s.qty}
-                                                    onChange={(e) =>
-                                                        handleSizeChange(index, e.target.value)
-                                                    }
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label style={{ fontSize: "10px", color: "gray" }}>Buying ₹</label><br />
-                                                <input
-                                                    type="number"
-                                                    placeholder="Buying ₹"
-                                                    value={s.buyingPrice}
-                                                    onChange={(e) =>
-                                                        handleBuyingPriceChange(index, e.target.value)
-                                                    }
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label style={{ fontSize: "10px", color: "gray" }}>Margin %</label><br />
-                                                <input
-                                                    type="number"
-                                                    placeholder="Margin %"
-                                                    value={s.margin}
-                                                    onChange={(e) =>
-                                                        handleMarginChange(index, e.target.value)
-                                                    }
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div style={{ marginBottom: "20px", padding: "15px", background: "#f9f9f9" }}>
-                                            <h4>Extra Costs (Per Item)</h4>
-
-                                            <div style={{ display: "grid", gap: "5px", flexWrap: "wrap", gridTemplateColumns: "repeat(4, 1fr)", }}>
-                                                {Object.keys(s.extraCosts).map((key) => (
-                                                    <div key={key} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                                                        <span style={{ fontSize: "10px", color: "gray" }}>{key.toUpperCase()}</span><br />
-                                                        <input
-                                                            key={key}
-                                                            type="number"
-                                                            placeholder={key}
-                                                            value={s.extraCosts[key]}
-                                                            onChange={(e) =>
-                                                                handleExtraCostChange(index, key, e.target.value)
-                                                            }
-                                                            style={{ width: "70px" }}
-                                                        />
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        <button onClick={addSizeRow}>+ Add Size</button>
-
-                        <br /><br />
-
-                        <textarea
-                            placeholder="Remarks / Description"
-                            value={remarks}
-                            onChange={(e) => setRemarks(e.target.value)}
-                        />
-
-                        <br /><br />
-                    </div>
-
-                    <div style={{
-                        // marginTop: "20px",
-                        padding: "15px",
-                        background: "#f5f5f5",
-                        borderRadius: "8px"
-                    }}>
-                        <h4>📊 Live Summary</h4>
-
-                        <p>Total Quantity: <b>{totalQty}</b></p>
-                        <p>Avg Selling Price:
-                            <b>
-                                ₹{totalQty ? (totalSellingValue / totalQty).toFixed(2) : 0}
-                            </b>
-                        </p>
-                        <p>Total Investment: <b>₹{totalInvestment.toFixed(2)}</b></p>
-                        <p>Total Extra Cost: <b>₹{totalExtraCost.toFixed(2) || 0}</b></p>
-                        <p>Total Selling Value: <b>₹{totalSellingValue.toFixed(2)}</b></p>
-                        <p style={{ color: "green" }}>
-                            Total Profit: <b>₹{totalProfit.toFixed(2)}</b>
-                        </p>
-                    </div>
-                </div>
-
-                <button onClick={handleSave}>Save Stock</button>
             </div>
+
+            {/* 🔹 Product Info */}
+            <div className="stock-card stock-grid">
+
+                <select value={category}
+                    onChange={(e) => {
+                        setCategory(e.target.value);
+                        setSubCategory("");
+                    }}>
+                    <option value="">Category</option>
+                    {Object.keys(categoryMap).map(cat => (
+                        <option key={cat}>{cat}</option>
+                    ))}
+                </select>
+
+                <select value={subCategory}
+                    onChange={(e) => setSubCategory(e.target.value)}>
+                    <option value="">Sub Category</option>
+                    {(categoryMap[category] || []).map(sub => (
+                        <option key={sub}>{sub}</option>
+                    ))}
+                </select>
+
+                <select value={productType}
+                    onChange={(e) => setProductType(e.target.value)}>
+                    <option value="">Product Type</option>
+                    {productTypes.map(type => (
+                        <option key={type}>{type}</option>
+                    ))}
+                </select>
+
+                <select value={color}
+                    onChange={(e) => setColor(e.target.value)}>
+                    <option value="">Color</option>
+                    {colorOptions.map(c => (
+                        <option key={c}>{c}</option>
+                    ))}
+                    <option value="custom">Other</option>
+                </select>
+
+                {color === "custom" && (
+                    <input
+                        placeholder="Custom Color"
+                        value={customColor}
+                        onChange={(e) => setCustomColor(e.target.value)}
+                    />
+                )}
+            </div>
+
+            {/* 🔹 Sizes */}
+            <div className="stock-card">
+
+                <h4>Sizes & Pricing</h4>
+
+                {sizes.map((s, index) => {
+                    const selling = getSellingPrice(s.buyingPrice, s.margin, s.extraCosts);
+                    const profit = (s.buyingPrice * s.margin) / 100;
+
+                    return (
+                        <div className="size-row" key={index}>
+
+                            {/* LEFT */}
+                            <div className="stock-grid">
+
+                                <div className="input-group">
+                                    <label>Size</label>
+                                    <input
+                                        value={s.size}
+                                        onChange={(e) => handleSizeNameChange(index, e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="input-group">
+                                    <label>Qty</label>
+                                    <input
+                                        type="number"
+                                        value={s.qty}
+                                        onChange={(e) => handleSizeChange(index, e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="input-group">
+                                    <label>Buying Price (₹)</label>
+                                    <input
+                                        type="number"
+                                        value={s.buyingPrice}
+                                        onChange={(e) => handleBuyingPriceChange(index, e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="input-group">
+                                    <label>Margin (%)</label>
+                                    <input
+                                        type="number"
+                                        value={s.margin}
+                                        onChange={(e) => handleMarginChange(index, e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* PRICE BOX */}
+                            <div className="summary-card">
+                                <p>Selling: ₹{selling}</p>
+                                <p className={profit >= 0 ? "profit" : "loss"}>
+                                    Profit: ₹{profit}
+                                </p>
+                            </div>
+
+                            {/* EXTRA COST */}
+                            <div className="extra-cost-grid">
+                                {Object.keys(s.extraCosts).map((key) => (
+                                    <div className="input-group">
+                                        <label>{key.toUpperCase()}</label>
+                                        <input
+                                            type="number"
+                                            value={s.extraCosts[key]}
+                                            onChange={(e) =>
+                                                handleExtraCostChange(index, key, e.target.value)
+                                            }
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+
+                        </div>
+                    );
+                })}
+
+                <button className="btn secondary" onClick={addSizeRow}>
+                    + Add Size
+                </button>
+
+                <textarea
+                    placeholder="Remarks"
+                    value={remarks}
+                    onChange={(e) => setRemarks(e.target.value)}
+                />
+            </div>
+
+            {/* 🔹 Summary */}
+            <div className="summary-card">
+                <h4>Summary</h4>
+
+                <p>Total Qty: <b>{totalQty}</b></p>
+                <p>Investment: <b>₹{totalInvestment}</b></p>
+                <p>Extra Cost: <b>₹{totalExtraCost}</b></p>
+                <p>Selling: <b>₹{totalSellingValue}</b></p>
+
+                <p className="profit">
+                    Profit: ₹{totalProfit}
+                </p>
+            </div>
+
+            {/* 🔹 Save */}
+            <button className="btn primary" onClick={handleSave}>
+                {isSaving ? "Saving..." : "Save Stock"}
+            </button>
+
         </div>
     );
 };

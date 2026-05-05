@@ -1,0 +1,144 @@
+/* 🌌 Background */
+.profile-container {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    padding: 20px;
+}
+
+/* 📦 Card */
+.profile-box {
+    width: 100%;
+    max-width: 500px;
+    background: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(18px);
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    color: #fff;
+    text-align: center;
+    transition: 0.3s;
+}
+
+/* 🧠 Title */
+.profile-box h2 {
+    margin-bottom: 20px;
+    font-size: 26px;
+    font-weight: 600;
+}
+
+/* 🖼 Profile Image */
+.profile-box img {
+    border-radius: 50%;
+    border: 3px solid #38bdf8;
+    padding: 3px;
+    transition: 0.3s;
+}
+
+.profile-box img:hover {
+    transform: scale(1.05);
+}
+
+/* 📂 File Upload */
+.profile-box input[type="file"] {
+    margin-top: 10px;
+    color: #cbd5f5;
+}
+
+/* ✏️ Inputs */
+.profile-box input,
+.profile-box textarea {
+    width: 100%;
+    padding: 12px 14px;
+    margin-top: 10px;
+    border-radius: 10px;
+    border: none;
+    outline: none;
+    font-size: 14px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    transition: 0.2s;
+}
+
+/* Disabled fields */
+.profile-box input:disabled,
+.profile-box textarea:disabled {
+    opacity: 0.6;
+}
+
+/* Focus effect */
+.profile-box input:focus,
+.profile-box textarea:focus {
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 0 0 2px #38bdf8;
+}
+
+/* 📝 Textarea */
+.profile-box textarea {
+    min-height: 70px;
+    resize: none;
+}
+
+/* 📊 Subscription */
+.profile-box h4 {
+    margin-top: 20px;
+    margin-bottom: 5px;
+    font-weight: 500;
+    color: #38bdf8;
+}
+
+.profile-box p {
+    margin: 2px 0;
+    font-size: 14px;
+    color: #cbd5f5;
+}
+
+/* 🔘 Buttons */
+.profile-box button {
+    margin: 5px;
+    padding: 10px 18px;
+    border-radius: 10px;
+    border: none;
+    font-weight: 500;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+/* Primary */
+.profile-box button:first-of-type {
+    background: #38bdf8;
+    color: #0f172a;
+}
+
+.profile-box button:first-of-type:hover {
+    background: #0ea5e9;
+}
+
+/* Secondary */
+.profile-box button:last-of-type {
+    background: #334155;
+    color: #fff;
+}
+
+.profile-box button:last-of-type:hover {
+    background: #475569;
+}
+
+/* 🔐 Password Section */
+.profile-box input[type="password"] {
+    margin-top: 10px;
+}
+
+/* 📱 Responsive */
+@media (max-width: 600px) {
+    .profile-box {
+        padding: 20px;
+        border-radius: 15px;
+    }
+
+    .profile-box h2 {
+        font-size: 22px;
+    }
+}

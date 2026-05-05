@@ -5,6 +5,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { Outlet } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
+import "../assets/Layout.css";
 
 const Layout = ({ user }) => {
     const [userName, setUserName] = useState("");
@@ -50,54 +51,35 @@ const Layout = ({ user }) => {
     }, []);
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+        <div className="layout">
 
             {/* 🔷 HEADER */}
-            <header style={{
-                background: "#111",
-                color: "#fff",
-                padding: "10px 20px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                position: "sticky",
-                top:0,
-            }}>
-                <h3 onClick={() => navigate("/dashboard")}
-                    style={{ cursor:"pointer" }}>{shopName}</h3>
+            <header className="layout-header">
+                <h3 className="logo" onClick={() => navigate("/dashboard")}>
+                    {shopName}
+                </h3>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-                    <span onClick={() => navigate("/profile")} >👤 {userName}</span>
-
-                    <button
-                        onClick={handleLogout}
-                        style={{
-                            background: "#ff4d4d",
-                            border: "none",
-                            padding: "6px 12px",
-                            color: "#fff",
-                            cursor: "pointer",
-                            borderRadius: "5px"
-                        }}
+                <div className="header-right">
+                    <span
+                        className="profile-link"
+                        onClick={() => navigate("/profile")}
                     >
+                        👤 {userName}
+                    </span>
+
+                    <button className="logout-btn" onClick={handleLogout}>
                         Logout
                     </button>
                 </div>
             </header>
-            {/* 🔷 MAIN CONTENT */}
-            <main style={{ flex: 1, padding: "20px" }}>
+
+            {/* 🔷 MAIN */}
+            <main className="layout-main">
                 <Outlet />
             </main>
 
             {/* 🔷 FOOTER */}
-            <footer style={{
-                background: "#222",
-                color: "#aaa",
-                textAlign: "center",
-                padding: "10px",
-                // position: "sticky",
-                // bottom:0,
-            }}>
+            <footer className="layout-footer">
                 © {new Date().getFullYear()} Inventory App | Developed by You 🚀
             </footer>
 

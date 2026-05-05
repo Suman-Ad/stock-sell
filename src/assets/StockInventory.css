@@ -1,0 +1,244 @@
+/* 🌌 Main Layout */
+.stock-container {
+    padding: 20px;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    color: #fff;
+}
+
+/* 📦 Card */
+.stock-card {
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(18px);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+}
+
+/* 🧠 Headings */
+.stock-card h2,
+.stock-card h3,
+.stock-card h4 {
+    margin-bottom: 10px;
+}
+
+/* 📊 Grid */
+.stock-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+}
+
+/* Inputs */
+.stock-card input,
+.stock-card select,
+.stock-card textarea {
+    width: 100%;
+    padding: 10px;
+    border-radius: 10px;
+    border: none;
+    outline: none;
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font-size: 13px;
+}
+
+/* Focus */
+.stock-card input:focus,
+.stock-card select:focus,
+.stock-card textarea:focus {
+    background: rgba(255,255,255,0.15);
+    box-shadow: 0 0 0 2px #38bdf8;
+}
+
+/* 🧾 Table */
+.stock-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.stock-table th {
+    background: rgba(255,255,255,0.08);
+    padding: 10px;
+    text-align: left;
+}
+
+.stock-table td {
+    padding: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.stock-table tr:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+/* 🔘 Buttons */
+.btn {
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    transition: 0.3s;
+    font-size: 13px;
+}
+
+/* Variants */
+.btn.primary {
+    background: #38bdf8;
+    color: #0f172a;
+}
+
+.btn.primary:hover {
+    background: #0ea5e9;
+}
+
+.btn.success {
+    background: #22c55e;
+    color: #052e16;
+}
+
+.btn.success:hover {
+    background: #16a34a;
+}
+
+.btn.danger {
+    background: #ef4444;
+    color: #fff;
+}
+
+.btn.danger:hover {
+    background: #dc2626;
+}
+
+.btn.secondary {
+    background: #334155;
+    color: #fff;
+}
+
+/* 📊 Progress Bar */
+.progress-bar {
+    height: 18px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: #22c55e;
+    transition: width 0.3s;
+}
+
+/* 📦 Size Rows */
+.size-row {
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 10px;
+}
+
+/* 📊 Extra Costs Grid */
+.extra-cost-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+    gap: 6px;
+}
+
+/* 📊 Summary */
+.summary-card {
+    background: rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 15px;
+    min-width: 250px;
+}
+
+.summary-card p {
+    margin: 5px 0;
+}
+
+.summary-card b {
+    color: #38bdf8;
+}
+
+/* 📈 Profit Highlight */
+.profit {
+    color: #22c55e;
+}
+
+/* 📉 Loss */
+.loss {
+    color: #ef4444;
+}
+
+/* 📂 Upload Box */
+.upload-box {
+    border: 2px dashed rgba(255,255,255,0.2);
+    padding: 20px;
+    text-align: center;
+    border-radius: 12px;
+}
+
+/* Hover */
+.upload-box:hover {
+    border-color: #38bdf8;
+}
+
+/* 🔽 Dropdown Fix */
+.stock-container select {
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #333;
+  background: #1f2937;   /* dark bg */
+  color: #fff;           /* text visible */
+  font-size: 14px;
+  outline: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.stock-container select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.3);
+}
+
+/* Dropdown options (important) */
+.stock-container select option {
+  background: #111827;
+  color: #fff;
+}
+
+/* Input Group */
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Labels */
+.input-group label {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+/* Inputs */
+.input-group input {
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #333;
+  background: #111827;
+  color: #fff;
+}
+
+/* 📱 Responsive */
+@media (max-width: 600px) {
+    .stock-container {
+        padding: 10px;
+    }
+
+    .stock-grid {
+        grid-template-columns: 1fr;
+    }
+}

@@ -17,6 +17,7 @@ import StockSummary from "./StockSummary";
 import { QRCodeCanvas } from "qrcode.react";
 import useUserRole from "../hooks/useUserRole";
 import StockInventory from "./StockInventory";
+import "../assets/StockList.css";
 
 const createQRCodes = async (item, sizeKey, quantity) => {
     const batch = writeBatch(db);
@@ -143,18 +144,15 @@ const StockList = ({ user }) => {
     };
 
     // Delete stock
-    const handleDelete = async (id) => {
+    const handleDelete = async (item) => {
         if (!window.confirm("Delete this item?")) return;
 
-        try {
-            if (user.uid !== id.userId) {
-                alert("You are not authorized");
-                return
-            };
-            await deleteDoc(doc(db, "stocks", id.id));
-        } catch (err) {
-            alert(err.message);
+        if (user.uid !== item.userId) {
+            alert("You are not authorized");
+            return;
         }
+
+        await deleteDoc(doc(db, "stocks", item.id));
     };
 
     const getTotalQty = (sizes) => {
@@ -311,17 +309,11 @@ const StockList = ({ user }) => {
     };
 
     const getSoldCount = (item, size) => {
-        const prefix = `${item.productId}-${size}-${item.id}-`;
-
-        let count = 0;
-
-        soldIds.forEach(id => {
-            if (id.startsWith(prefix)) {
-                count++;
-            }
-        });
-
-        return count;
+        return qrData.filter(qr =>
+            qr.stockId === item.id &&
+            qr.size === size &&
+            qr.status === "sold"
+        ).length;
     };
 
     const handleQtyChange = async (item, sizeKey, newQty) => {
@@ -419,7 +411,7 @@ const StockList = ({ user }) => {
 
 
     return (
-        <div style={{ padding: "20px" }}>
+        <div className="stock-page" >
             <StockSummary stocks={stocks} />
             <>
                 <button onClick={() => setShowInventory(true)}>
@@ -427,17 +419,17 @@ const StockList = ({ user }) => {
                 </button>
 
                 {user && showInventory && (
-                    <div style={styles.overlay}>
-                        <div style={styles.modal}>
+                    <div className="modal-overlay">
+                        <div className="modal-box">
 
                             {/* Header */}
-                            <div style={styles.header}>
+                            <div className="modal-header">
                                 <h3>Add New Items</h3>
-                                <button onClick={() => setShowInventory(false)}>❌</button>
+                                <button className="close-btn" onClick={() => setShowInventory(false)}>❌</button>
                             </div>
 
                             {/* Content */}
-                            <div style={styles.content}>
+                            <div className="modal-content" >
                                 <StockInventory user={user} />
                             </div>
 
@@ -453,302 +445,289 @@ const StockList = ({ user }) => {
                 onChange={(e) => setSearchId(e.target.value.toUpperCase())}
                 style={{ marginBottom: "15px", padding: "8px", width: "250px" }}
             />
+            <div className="table-wrapper">
+                <table className="stock-table" border="1" cellPadding="10" style={{ borderCollapse: "collapse", overflowX: "auto", display: "block", width: "100%" }}>
+                    <thead>
+                        <tr>
+                            {isAdmin && (
+                                <th>Shop Name</th>
+                            )}
+                            {isAdmin && (
+                                <th>Proprietor Name</th>
+                            )}
+                            <th>Product Name</th>
+                            <th>Product ID</th>
+                            <th>Catalog ID</th>
+                            <th>Sizes - Quantity - Prices - Margin%</th>
+                            <th>Total Qty</th>
+                            <th>Total Investment</th>
+                            <th>Total Extra Cost</th>
+                            <th>Avg Selling Price</th>
+                            <th>Total Selling Value</th>
+                            <th>Profit</th>
+                            <th>QR Codes</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
 
-            <table border="1" cellPadding="10" style={{ borderCollapse: "collapse", overflowX: "auto", display: "block", width: "100%" }}>
-                <thead>
-                    <tr>
-                        {isAdmin && (
-                            <th>Shop Name</th>
-                        )}
-                        {isAdmin && (
-                            <th>Proprietor Name</th>
-                        )}
-                        <th>Product Name</th>
-                        <th>Product ID</th>
-                        <th>Catalog ID</th>
-                        <th>Sizes - Quantity - Prices - Margin%</th>
-                        <th>Total Qty</th>
-                        <th>Total Investment</th>
-                        <th>Total Extra Cost</th>
-                        <th>Avg Selling Price</th>
-                        <th>Total Selling Value</th>
-                        <th>Profit</th>
-                        <th>QR Codes</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
+                    <tbody>
+                        {filteredStocks.map((item) => {
+                            const totalQty = getTotalQty(item.sizes);
+                            const totalInvestment = getTotalInvestment(item.sizes);
+                            const totalExtraCost = getTotalExtraCost(item.sizes);
+                            const totalSelling = getTotalSellingValue(item.sizes);
+                            const profit = getTotalProfit(item.sizes);
+                            const avgSelling = getAvgSellingPrice(item.sizes);
+                            const qrCodes = getItemQR(item);
 
-                <tbody>
-                    {filteredStocks.map((item) => {
-                        const totalQty = getTotalQty(item.sizes);
-                        const totalInvestment = getTotalInvestment(item.sizes);
-                        const totalExtraCost = getTotalExtraCost(item.sizes);
-                        const totalSelling = getTotalSellingValue(item.sizes);
-                        const profit = getTotalProfit(item.sizes);
-                        const avgSelling = getAvgSellingPrice(item.sizes);
-                        const qrCodes = getItemQR(item);
+                            return (
+                                <tr key={item.id}>
+                                    {isAdmin && (
+                                        <td>{item.createdBy?.shopName || "N/A"}</td>
+                                    )}
+                                    {isAdmin && (
+                                        <td>{item.createdBy?.name || "N/A"}</td>
+                                    )}
+                                    <td>{item.productName}</td>
+                                    <td>{item.productId}</td>
+                                    <td>{item.catalogId}</td>
 
-                        return (
-                            <tr key={item.id}>
-                                {isAdmin && (
-                                    <td>{item.createdBy?.shopName || "N/A"}</td>
-                                )}
-                                {isAdmin && (
-                                    <td>{item.createdBy?.name || "N/A"}</td>
-                                )}
-                                <td>{item.productName}</td>
-                                <td>{item.productId}</td>
-                                <td>{item.catalogId}</td>
-
-                                <td>
-                                    <div style={{ overflowY: "auto", maxHeight: "365px" }} >
-                                        {Object.entries(item.sizes || {}).map(([size, data]) => {
-                                            const soldCount = getSoldCount(item, size);
-                                            const total = data.initialQty ?? 0;
-                                            const available = data.qty ?? 0;
-                                            const removedCount = qrData.reduce((count, qr) => {
-                                                if (
-                                                    qr.stockId === item.id &&
-                                                    qr.size === size &&
-                                                    qr.status === "removed"
-                                                ) {
-                                                    return count + 1;
-                                                }
-                                                return count;
-                                            }, 0);
-                                            return (
-                                                <div key={size} style={{ marginBottom: "8px", alignItems: "center", gap: "5px", border: "1px solid #0b1d25", padding: "5px", borderRadius: "5px" }}>
-                                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "5px" }}>
-                                                        <label>Size:- {size}</label>
-                                                        <span style={{ marginLeft: "8px" }}>
-                                                            ₹{(data.sellingPrice || 0).toFixed(2)}<small>/Unit</small>
-                                                        </span>
-                                                        {data.sellingPrice <
-                                                            data.buyingPrice && (
-                                                                <span style={{ color: "red", fontSize: "10px" }}>
-                                                                    ⚠ Loss
-                                                                </span>
-                                                            )}
-                                                        <button
-                                                            onClick={async () => {
-                                                                const updatedSizes = { ...item.sizes };
-                                                                delete updatedSizes[size];
-
-                                                                if (Object.keys(updatedSizes).length === 0) {
-                                                                    alert("At least one size required");
-                                                                    return;
-                                                                }
-                                                                if (user.uid !== item.userId) {
-                                                                    alert("You are not authorizes");
-                                                                    return
-                                                                }
-                                                                await updateDoc(doc(db, "stocks", item.id), {
-                                                                    sizes: updatedSizes
-                                                                });
-                                                            }}
-                                                            style={{ marginLeft: "5px" }}
-                                                        >
-                                                            ❌
-                                                        </button>
-                                                    </div>
-
-                                                    <div style={{ fontSize: "10px", color: "gray" }}>
-                                                        Sold: {soldCount} | Available: {available} | Total: {total} | Removed: {removedCount}
-                                                    </div>
-                                                    <div key={size} style={{ marginBottom: "8px", display: "flex", alignItems: "center", gap: "5px" }}>
-
-                                                        <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
-                                                            <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Qty:-
-                                                                <button
-                                                                    onClick={() => handleReduceStock(item, size, 1)}
-                                                                >
-                                                                    ➖
-                                                                </button>
-                                                                <input
-                                                                    type="number"
-                                                                    value={data.qty}
-                                                                    readOnly
-                                                                    style={{ width: "60px", marginLeft: "5px", background: "#eee" }}
-                                                                />
-                                                                <button
-                                                                    onClick={() => handleAddStock(item, size, 1)}
-                                                                >
-                                                                    ➕
-                                                                </button>
-                                                            </legend>
-                                                            <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Buy:-
-                                                                <input
-                                                                    type="number"
-                                                                    value={data.buyingPrice}
-                                                                    placeholder="Buy"
-                                                                    style={{ width: "70px", marginLeft: "5px" }}
-                                                                    onChange={(e) =>
-                                                                        handleSizeUpdate(item, size, "buyingPrice", e.target.value)
-                                                                    }
-                                                                />
-                                                            </legend>
-                                                            <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Margin%:-
-                                                                <input
-                                                                    type="number"
-                                                                    value={data.margin}
-                                                                    placeholder="%"
-                                                                    style={{ width: "60px", marginLeft: "5px" }}
-                                                                    onChange={(e) =>
-                                                                        handleSizeUpdate(item, size, "margin", e.target.value)
-                                                                    }
-                                                                />
-                                                            </legend>
-                                                        </div>
-                                                        <div style={{
-                                                            display: "grid",
-                                                            gridTemplateColumns: "repeat(4, 1fr)", // ✅ 5 columns
-                                                            gap: "6px",
-                                                            marginTop: "6px",
-                                                            borderTop: "1px dashed #ccc",
-                                                            paddingTop: "6px",
-                                                            width: "100%"
-                                                        }}>
-                                                            {["packaging", "labeling", "rto", "returnCost", "advertisementCost", "delivery", "others", "gst"].map((key) => (
-                                                                <div key={key} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                                                                    <legend key={key} style={{ fontSize: "10px", color: "gray" }}>{key.toUpperCase()}</legend>
-                                                                    <input
-                                                                        key={key}
-                                                                        type="number"
-                                                                        placeholder={key}
-                                                                        value={data.extraCosts?.[key] || 0}
-                                                                        style={{ width: "65px", fontSize: "10px" }}
-                                                                        onChange={(e) => {
-                                                                            const updatedSizes = { ...item.sizes };
-
-                                                                            if (!updatedSizes[size].extraCosts) {
-                                                                                updatedSizes[size].extraCosts = {};
-                                                                            }
-
-                                                                            updatedSizes[size].extraCosts[key] = Number(e.target.value);
-
-                                                                            // 🔥 recalc instantly
-                                                                            updatedSizes[size].sellingPrice = getSellingPrice(
-                                                                                updatedSizes[size].buyingPrice,
-                                                                                updatedSizes[size].margin,
-                                                                                updatedSizes[size].extraCosts
-                                                                            );
-
-                                                                            updateDoc(doc(db, "stocks", item.id), {
-                                                                                sizes: updatedSizes
-                                                                            });
-                                                                        }}
-                                                                    />
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )
-                                        })}
-                                    </div>
-                                </td>
-
-                                <td>{totalQty}</td>
-                                <td>₹{totalInvestment.toFixed(2)}</td>
-                                <td>₹{totalExtraCost.toFixed(2)}</td>
-                                <td>₹{avgSelling.toFixed(2)}</td>
-                                <td>₹{totalSelling.toFixed(2)}</td>
-                                <td style={{
-                                    color: profit < 0 ? "red" : "green",
-                                    fontWeight: "bold"
-                                }}>
-                                    ₹{profit.toFixed(2)}
-                                </td>
-                                <td>
-                                    <div key={item.catalogId} style={{
-                                        border: "1px solid #ccc",
-                                        marginBottom: "20px",
-                                        padding: "10px",
-                                        height: "inherit",
-                                    }}>
-                                        <button onClick={() => toggleQR(item.catalogId)}>
-                                            {showQR[item.catalogId] ? "Hide QR" : "Show QR"}
-                                        </button>
-
-                                        {showQR[item.catalogId] && (
-                                            <div style={{
-                                                display: "flex",
-                                                flexWrap: "wrap",
-                                                gap: "10px"
-                                            }}>
-                                                <p><b>Catalog ID:</b> {item.catalogId}</p>
-                                                <p><b>Count:</b> {qrCodes.length}</p>
-                                                <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "4px", overflow: "auto", maxHeight: "190px" }}>
-                                                    {qrCodes.map((qr, index) => {
-                                                        const qrObj = qr;
-                                                        const isNew = !qr.printed;
-
-                                                        return (
-                                                            <div key={qr.id} style={{
-                                                                width: "120px",
-                                                                border: isNew ? "2px solid green" : "1px solid #000",
-                                                                padding: "5px",
-                                                                textAlign: "center",
-                                                                fontSize: "10px",
-                                                                borderRadius: "6px",
-                                                                // overflow: "hidden",
-                                                                background: isNew ? "#eaffea" : "#fff",
-                                                            }}
-                                                                onClick={() => setQrPopup({ open: true, value: JSON.stringify(qr) })}
-                                                            >
-                                                                <QRCodeCanvas value={JSON.stringify(qr)} size={100} />
-                                                                {!qr.printed && (
-                                                                    <div style={{ color: "green", fontWeight: "bold" }}>
-                                                                        NEW
-                                                                    </div>
+                                    <td>
+                                        <div style={{ overflowY: "auto", maxHeight: "365px" }} >
+                                            {Object.entries(item.sizes || {}).map(([size, data]) => {
+                                                const soldCount = getSoldCount(item, size);
+                                                const total = data.initialQty ?? 0;
+                                                const available = data.qty ?? 0;
+                                                const removedCount = qrData.reduce((count, qr) => {
+                                                    if (
+                                                        qr.stockId === item.id &&
+                                                        qr.size === size &&
+                                                        qr.status === "removed"
+                                                    ) {
+                                                        return count + 1;
+                                                    }
+                                                    return count;
+                                                }, 0);
+                                                return (
+                                                    <div key={size} style={{ marginBottom: "8px", alignItems: "center", gap: "5px", border: "1px solid #0b1d25", padding: "5px", borderRadius: "5px" }}>
+                                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "5px" }}>
+                                                            <label>Size:- {size}</label>
+                                                            <span style={{ marginLeft: "8px" }}>
+                                                                ₹{(data.sellingPrice || 0).toFixed(2)}<small>/Unit</small>
+                                                            </span>
+                                                            {data.sellingPrice <
+                                                                data.buyingPrice && (
+                                                                    <span style={{ color: "red", fontSize: "10px" }}>
+                                                                        ⚠ Loss
+                                                                    </span>
                                                                 )}
+                                                            <button
+                                                                onClick={async () => {
+                                                                    const updatedSizes = { ...item.sizes };
+                                                                    delete updatedSizes[size];
 
-                                                                <div style={{ fontWeight: "bold" }}>
-                                                                    {qrObj.productType}
-                                                                </div>
+                                                                    if (Object.keys(updatedSizes).length === 0) {
+                                                                        alert("At least one size required");
+                                                                        return;
+                                                                    }
+                                                                    if (user.uid !== item.userId) {
+                                                                        alert("You are not authorizes");
+                                                                        return
+                                                                    }
+                                                                    await updateDoc(doc(db, "stocks", item.id), {
+                                                                        sizes: updatedSizes
+                                                                    });
+                                                                }}
+                                                                style={{ marginLeft: "5px" }}
+                                                            >
+                                                                ❌
+                                                            </button>
+                                                        </div>
 
-                                                                <div>{qrObj.color}</div>
+                                                        <div style={{ fontSize: "10px", color: "gray" }}>
+                                                            Sold: {soldCount} | Available: {available} | Total: {total} | Removed: {removedCount}
+                                                        </div>
+                                                        <div key={size} style={{ marginBottom: "8px", display: "flex", alignItems: "center", gap: "5px" }}>
 
-                                                                <div style={{ fontWeight: "bold" }}>
-                                                                    Size: {qrObj.size}
-                                                                </div>
-
-                                                                <div>₹{qrObj.sellingPrice}</div>
-
-                                                                <div style={{ fontSize: "8px" }}>
-                                                                    {qrObj.catalogId}
-                                                                </div>
+                                                            <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
+                                                                <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Qty:-
+                                                                    <button
+                                                                        onClick={() => handleReduceStock(item, size, 1)}
+                                                                    >
+                                                                        ➖
+                                                                    </button>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={data.qty}
+                                                                        readOnly
+                                                                        style={{ width: "60px", marginLeft: "5px", background: "#eee" }}
+                                                                    />
+                                                                    <button
+                                                                        onClick={() => handleAddStock(item, size, 1)}
+                                                                    >
+                                                                        ➕
+                                                                    </button>
+                                                                </legend>
+                                                                <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Buy:-
+                                                                    <input
+                                                                        type="number"
+                                                                        value={data.buyingPrice}
+                                                                        placeholder="Buy"
+                                                                        style={{ width: "70px", marginLeft: "5px" }}
+                                                                        onChange={(e) =>
+                                                                            handleSizeUpdate(item, size, "buyingPrice", e.target.value)
+                                                                        }
+                                                                    />
+                                                                </legend>
+                                                                <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Margin%:-
+                                                                    <input
+                                                                        type="number"
+                                                                        value={data.margin}
+                                                                        placeholder="%"
+                                                                        style={{ width: "60px", marginLeft: "5px" }}
+                                                                        onChange={(e) =>
+                                                                            handleSizeUpdate(item, size, "margin", e.target.value)
+                                                                        }
+                                                                    />
+                                                                </legend>
                                                             </div>
+                                                            <div style={{
+                                                                display: "grid",
+                                                                gridTemplateColumns: "repeat(4, 1fr)", // ✅ 5 columns
+                                                                gap: "6px",
+                                                                marginTop: "6px",
+                                                                borderTop: "1px dashed #ccc",
+                                                                paddingTop: "6px",
+                                                                width: "100%"
+                                                            }}>
+                                                                {["packaging", "labeling", "rto", "returnCost", "advertisementCost", "delivery", "others", "gst"].map((key) => (
+                                                                    <div key={key} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                                                                        <legend key={key} style={{ fontSize: "10px", color: "gray" }}>{key.toUpperCase()}</legend>
+                                                                        <input
+                                                                            key={key}
+                                                                            type="number"
+                                                                            placeholder={key}
+                                                                            value={data.extraCosts?.[key] || 0}
+                                                                            style={{ width: "65px", fontSize: "10px" }}
+                                                                            onChange={(e) => {
+                                                                                const updatedSizes = { ...item.sizes };
 
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
+                                                                                if (!updatedSizes[size].extraCosts) {
+                                                                                    updatedSizes[size].extraCosts = {};
+                                                                                }
 
-                                </td>
-                                <td>
-                                    <button onClick={() => {
-                                        setSelectedSize("ALL");
-                                        setPrintItem(item);
+                                                                                updatedSizes[size].extraCosts[key] = Number(e.target.value);
+
+                                                                                // 🔥 recalc instantly
+                                                                                updatedSizes[size].sellingPrice = getSellingPrice(
+                                                                                    updatedSizes[size].buyingPrice,
+                                                                                    updatedSizes[size].margin,
+                                                                                    updatedSizes[size].extraCosts
+                                                                                );
+
+                                                                                updateDoc(doc(db, "stocks", item.id), {
+                                                                                    sizes: updatedSizes
+                                                                                });
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    </td>
+
+                                    <td>{totalQty}</td>
+                                    <td>₹{totalInvestment.toFixed(2)}</td>
+                                    <td>₹{totalExtraCost.toFixed(2)}</td>
+                                    <td>₹{avgSelling.toFixed(2)}</td>
+                                    <td>₹{totalSelling.toFixed(2)}</td>
+                                    <td style={{
+                                        color: profit < 0 ? "red" : "green",
+                                        fontWeight: "bold"
                                     }}>
-                                        🖨 Print
-                                    </button>
-                                    <button onClick={() => handleDelete(item)}>
-                                        Delete
-                                    </button>
-                                </td>
-                            </tr>
-                        );
-                    })}
-                </tbody>
-            </table>
+                                        ₹{profit.toFixed(2)}
+                                    </td>
+                                    <td>
+                                        <div key={item.catalogId} style={{
+                                            border: "1px solid #ccc",
+                                            marginBottom: "20px",
+                                            padding: "10px",
+                                            height: "inherit",
+                                        }}>
+                                            <button onClick={() => toggleQR(item.catalogId)}>
+                                                {showQR[item.catalogId] ? "Hide QR" : "Show QR"}
+                                            </button>
 
+                                            {showQR[item.catalogId] && (
+                                                <div className="qr-box">
+                                                    <p><b>Catalog ID:</b> {item.catalogId}</p>
+                                                    <p><b>Count:</b> {qrCodes.length}</p>
+                                                    <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "4px", overflow: "auto", maxHeight: "190px" }}>
+                                                        {qrCodes.map((qr, index) => {
+                                                            const qrObj = qr;
+                                                            const isNew = !qr.printed;
+
+                                                            return (
+                                                                <div key={qr.id} className={`qr-card ${!qr.printed ? "new" : ""}`}
+                                                                    onClick={() => setQrPopup({ open: true, value: JSON.stringify(qr) })}
+                                                                >
+                                                                    <QRCodeCanvas value={JSON.stringify(qr)} size={100} />
+                                                                    {!qr.printed && (
+                                                                        <div style={{ color: "green", fontWeight: "bold" }}>
+                                                                            NEW
+                                                                        </div>
+                                                                    )}
+
+                                                                    <div style={{ fontWeight: "bold" }}>
+                                                                        {qrObj.productType}
+                                                                    </div>
+
+                                                                    <div>{qrObj.color}</div>
+
+                                                                    <div style={{ fontWeight: "bold" }}>
+                                                                        Size: {qrObj.size}
+                                                                    </div>
+
+                                                                    <div>₹{qrObj.sellingPrice}</div>
+
+                                                                    <div style={{ fontSize: "8px" }}>
+                                                                        {qrObj.catalogId}
+                                                                    </div>
+                                                                </div>
+
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                    </td>
+                                    <td>
+                                        <button onClick={() => {
+                                            setSelectedSize("ALL");
+                                            setPrintItem(item);
+                                        }}>
+                                            🖨 Print
+                                        </button>
+                                        <button onClick={() => handleDelete(item)}>
+                                            Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
 
             {qrPopup.open && (
-                <div style={styles.overlay}>
-                    <div style={styles.modal}>
+                <div className="qr-overlay">
+                    <div className="qr-modal">
 
                         <h3>Scan QR Code</h3>
 
@@ -765,23 +744,8 @@ const StockList = ({ user }) => {
             )}
 
             {printItem && (
-                <div style={{
-                    position: "fixed",
-                    top: 0,
-                    left: 0,
-                    width: "100%",
-                    height: "100%",
-                    background: "rgba(0,0,0,0.7)",
-                    zIndex: 999
-                }}>
-                    <div style={{
-                        background: "#fff",
-                        margin: "20px auto",
-                        padding: "20px",
-                        width: "90%",
-                        maxHeight: "90%",
-                        overflowY: "auto"
-                    }}>
+                <div className="print-overlay" >
+                    <div className="print-modal" >
                         <h3>QR Preview - {printItem.productName}</h3>
                         <select onChange={(e) => setSelectedSize(e.target.value)}>
                             <option value="ALL">All</option>
@@ -806,35 +770,26 @@ const StockList = ({ user }) => {
                         </button>
                         <button onClick={() => setPrintItem(null)}>❌ Close</button>
 
-                        <div className="print-area" style={{
-                            display: "flex",
-                            flexWrap: "wrap",
-                            gap: "10px",
-                            marginTop: "20px"
-                        }}>
+                        <div className="print-area" >
                             {getItemQR(printItem)
                                 .filter(qr => selectedSize === "ALL" || qr.size === selectedSize)
                                 .map((qr, index) => {
 
                                     return (
                                         <div key={qr.id}
-                                            style={{
-                                                width: "120px",
-                                                border: "1px solid #000",
-                                                padding: "5px",
-                                                textAlign: "center",
-                                                fontSize: "10px"
-                                            }}>
+                                            className="qr-box" style={{width: "220px"}} >
+                                            <div className={`qr-card ${!qr.printed ? "new" : ""}`} style={{width: "210px"}}>
 
-                                            <QRCodeCanvas value={JSON.stringify(qr)} size={100} />
+                                                <QRCodeCanvas value={JSON.stringify(qr)} size={200} />
 
-                                            <div>
-                                                <b>{qr.productType}</b>
+                                                <div>
+                                                    <b>{qr.productType}</b>
+                                                </div>
+                                                <div>{qr.color}</div>
+                                                <div>Size: {qr.size}</div>
+                                                <div>₹{qr.sellingPrice}</div>
+                                                <div>#{qr.unitNo}</div>
                                             </div>
-                                            <div>{qr.color}</div>
-                                            <div>Size: {qr.size}</div>
-                                            <div>₹{qr.sellingPrice}</div>
-                                            <div>#{qr.unitNo}</div>
                                         </div>
                                     );
                                 })}
@@ -847,7 +802,7 @@ const StockList = ({ user }) => {
 };
 
 const styles = {
-    overlay: {
+    overlayQr: {
         position: "fixed",
         top: 0,
         left: 0,
@@ -859,7 +814,7 @@ const styles = {
         alignItems: "center",
         zIndex: 1000
     },
-    modal: {
+    modalQr: {
         background: "#fff",
         padding: 20,
         borderRadius: 10,

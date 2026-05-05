@@ -1,0 +1,128 @@
+/* PAGE */
+.sales-page {
+  padding: 20px;
+  color: #e5e7eb;
+}
+
+.page-title {
+  margin-bottom: 15px;
+}
+
+/* SUMMARY */
+.sales-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+/* CARD */
+.summary-card {
+  background: #020617;
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+  padding: 12px;
+  transition: 0.25s;
+}
+
+.summary-card span {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.summary-card h2 {
+  margin-top: 5px;
+  color: #f8fafc;
+}
+
+.summary-card.profit h2 {
+  color: #22c55e;
+}
+
+.summary-card.loss h2 {
+  color: #ef4444;
+}
+
+/* FILTER */
+.sales-filter {
+  margin-bottom: 15px;
+}
+
+.sales-filter input {
+  background: #1f2937;
+  color: #fff;
+  border: 1px solid #444;
+  padding: 6px;
+  border-radius: 6px;
+}
+
+/* TABLE */
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.sales-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px;
+}
+
+.sales-table th {
+  background: #111827;
+  padding: 10px;
+  position: sticky;
+  top: 0;
+}
+
+.sales-table td {
+  background: #1f2937;
+  padding: 10px;
+  border-bottom: 1px solid #374151;
+}
+
+.sales-table tr:hover td {
+  background: #2d3748;
+}
+
+/* QR */
+.qr-preview {
+  background: #fff;
+  padding: 4px;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+/* PROFIT COLORS */
+.profit {
+  color: #22c55e;
+  font-weight: bold;
+}
+
+.loss {
+  color: #ef4444;
+  font-weight: bold;
+}
+
+/* DELETE BUTTON */
+.btn-delete {
+  background: #dc2626;
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.btn-delete:hover {
+  background: #b91c1c;
+}
+
+/* MOBILE */
+@media (max-width: 600px) {
+  .sales-table {
+    font-size: 12px;
+  }
+
+  .qr-preview canvas {
+    width: 70px !important;
+    height: 70px !important;
+  }
+}
