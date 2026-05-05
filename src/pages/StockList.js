@@ -16,6 +16,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import StockSummary from "./StockSummary";
 import { QRCodeCanvas } from "qrcode.react";
 import useUserRole from "../hooks/useUserRole";
+import StockInventory from "./StockInventory";
 
 const createQRCodes = async (item, sizeKey, quantity) => {
     const batch = writeBatch(db);
@@ -50,6 +51,7 @@ const createQRCodes = async (item, sizeKey, quantity) => {
 };
 
 const StockList = ({ user }) => {
+    const [showInventory, setShowInventory] = useState(false);
     // Print 
     const [printItem, setPrintItem] = useState(null);
     const [selectedSize, setSelectedSize] = useState("ALL");
@@ -176,8 +178,55 @@ const StockList = ({ user }) => {
         ).toFixed(0));
     };
 
+    const getTotalExtraCost = (sizes) => {
+        return Number(Object.values(sizes || {}).reduce((sum, s) => {
+            (Number(s.extraCosts?.packaging || 0) +
+                Number(s.extraCosts?.labeling || 0) +
+                Number(s.extraCosts?.rto || 0) +
+                Number(s.extraCosts?.returnCost || 0) +
+                Number(s.extraCosts?.advertisementCost || 0) +
+                Number(s.extraCosts?.delivery || 0) +
+                Number(s.extraCosts?.others || 0)).toFixed(0);
+        }))
+    }
+
+    // const getTotalProfit = (sizes) => {
+    //     return Number(Object.values(sizes || {}).reduce((sum, s) => {
+
+    //         const buying = Number(s.buyingPrice || 0);
+    //         const selling = Number(s.sellingPrice || 0);
+    //         const qty = Number(s.qty || 0);
+
+    //         const extra =
+    //             Number(s.extraCosts?.packaging || 0) +
+    //             Number(s.extraCosts?.labeling || 0) +
+    //             Number(s.extraCosts?.rto || 0) +
+    //             Number(s.extraCosts?.returnCost || 0) +
+    //             Number(s.extraCosts?.advertisementCost || 0) +
+    //             Number(s.extraCosts?.delivery || 0) +
+    //             Number(s.extraCosts?.others || 0);
+
+    //         const gstPercent = Number(s.extraCosts?.gst || 0);
+
+    //         // remove GST from selling
+    //         const sellingWithoutGST = selling / (1 + gstPercent / 100);
+
+    //         const profitPerUnit = selling - buying - extra;
+
+    //         return sum + (profitPerUnit * qty);
+
+    //     }, 0).toFixed(0));
+    // };
+
     const getTotalProfit = (sizes) => {
-        return Number((getTotalSellingValue(sizes) - getTotalInvestment(sizes)).toFixed(0));
+        return Number(Object.values(sizes || {}).reduce((sum, s) => {
+
+            const buying = Number(s.buyingPrice || 0);
+            const margin = Number(s.qty) * (buying * Number(s.margin || 0)) / 100;
+
+            return sum + margin;
+
+        }, 0).toFixed(0));
     };
 
     const getAvgSellingPrice = (sizes) => {
@@ -364,6 +413,31 @@ const StockList = ({ user }) => {
     return (
         <div style={{ padding: "20px" }}>
             <StockSummary stocks={stocks} />
+            <>
+                <button onClick={() => setShowInventory(true)}>
+                    Add New Items
+                </button>
+
+                {user && showInventory && (
+                    <div style={styles.overlay}>
+                        <div style={styles.modal}>
+
+                            {/* Header */}
+                            <div style={styles.header}>
+                                <h3>Add New Items</h3>
+                                <button onClick={() => setShowInventory(false)}>❌</button>
+                            </div>
+
+                            {/* Content */}
+                            <div style={styles.content}>
+                                <StockInventory user={user} />
+                            </div>
+
+                        </div>
+                    </div>
+                )}
+            </>
+
             <h2>Stock List</h2>
             <input
                 placeholder="Search by Catalog ID..."
@@ -786,6 +860,43 @@ const styles = {
         flexDirection: "column",
         display: "flex",
         gap: "20px"
+    },
+    overlay: {
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        backgroundColor: "rgba(0,0,0,0.6)",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        zIndex: 1000
+    },
+
+    modal: {
+        background: "#fff",
+        width: "95%",
+        maxWidth: "1200px",
+        maxHeight: "90vh",
+        borderRadius: "12px",
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column"
+    },
+
+    header: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "10px 15px",
+        borderBottom: "1px solid #ddd",
+        background: "#f5f5f5"
+    },
+
+    content: {
+        padding: "15px",
+        overflowY: "auto"
     }
 };
 

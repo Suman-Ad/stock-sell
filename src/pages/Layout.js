@@ -67,15 +67,7 @@ const Layout = ({ user }) => {
                     style={{ cursor:"pointer" }}>{shopName}</h3>
 
                 <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-                    <p onClick={() => navigate("/stock-inventory")}
-                        style={{ cursor:"pointer"}}>Stock Inventory</p>
-                    <p onClick={() => navigate("/sell-product")}
-                        style={{ cursor:"pointer"}}>Sell Product</p>
-                    <p onClick={() => navigate("/sales-history")}
-                        style={{ cursor:"pointer"}}>Sales History</p>
-                    <p onClick={() => navigate("/admin")}
-                        style={{ cursor:"pointer"}}>Admin</p>
-                    <span>👤 {userName}</span>
+                    <span onClick={() => navigate("/profile")} >👤 {userName}</span>
 
                     <button
                         onClick={handleLogout}

@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { db, auth } from "../firebase";
 import { collection, addDoc, serverTimestamp, doc, query, where, getDocs } from "firebase/firestore";
-import StockList from "./StockList";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { writeBatch } from "firebase/firestore";
@@ -178,8 +177,10 @@ const StockInventory = ({ user }) => {
         0
     );
 
-    const totalProfit = totalSellingValue - totalInvestment;
-
+    const totalProfit = sizes.reduce(
+        (sum, s) => sum + (s.qty * ((s.buyingPrice * s.margin)/100)),
+        0
+    );
 
     // Handle size qty change
     const handleSizeChange = (index, value) => {
@@ -200,7 +201,6 @@ const StockInventory = ({ user }) => {
         updated[index].margin = Number(value);
         setSizes(updated);
     };
-
 
 
     // Add new size row
@@ -859,10 +859,10 @@ const StockInventory = ({ user }) => {
                                     <div key={index} style={{ display: window.innerWidth > 500 ? "flex" : "grid", gap: "10px", marginBottom: "8px", alignItems: "center" }}>
                                         <div style={{ marginBottom: "20px", padding: "15px", background: "#f9f9f9" }}>
                                             <div style={{ background: "#fff", padding: "4px 4px", whiteSpace: "nowrap" }}>
-                                                <span>Selling Price:-₹{selling.toFixed(2)}</span>
+                                                <span>Selling Price:-₹{selling.toFixed(2)}<small>/unit</small></span>
                                                 <br />
                                                 <span style={{ color: "green" }}>
-                                                    Profit:-₹{(selling - s.buyingPrice).toFixed(2)}
+                                                    Profit:-₹{s.buyingPrice ? ((s.buyingPrice * s.margin) / 100).toFixed(2) : 0}<small>/unit</small>
                                                 </span>
                                             </div>
                                             <div>
@@ -975,16 +975,6 @@ const StockInventory = ({ user }) => {
                 </div>
 
                 <button onClick={handleSave}>Save Stock</button>
-            </div>
-
-            <div style={{
-                margin: "20px 0",
-                padding: "15px",
-                backgroundColor: "#e0e0e0",
-                borderRadius: "5px"
-            }}>
-                <h2>Existing Stocks</h2>
-                <StockList user={user} />
             </div>
         </div>
     );

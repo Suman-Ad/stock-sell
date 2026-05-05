@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { db, auth } from "../firebase";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import useUserRole from "../hooks/useUserRole";
+import SellProduct from "./SellProduct";
+import { useNavigate } from "react-router-dom";
 
 
 const getDate = (createdAt) => {
@@ -24,6 +26,7 @@ const getDate = (createdAt) => {
 const Dashboard = ({ user }) => {
     const [sales, setSales] = useState([]);
     const role = useUserRole();
+    const navigate = useNavigate();
 
     useEffect(() => {
         if (!auth.currentUser || !role) return;
@@ -118,6 +121,22 @@ const Dashboard = ({ user }) => {
                 <p style={{ margin: "5px 0", color: "#999", fontSize: "12px" }}>
                     UID: {auth.currentUser?.uid?.slice(0, 8)}...
                 </p>
+            </div>
+
+            <div>
+                <button onClick={() => navigate("/sell-product")}>
+                    Sell Product
+                </button>
+                <p onClick={() => navigate("/stock-list")}
+                    style={{ cursor: "pointer" }}>Stock Inventory</p>
+
+                <p onClick={() => navigate("/sales-history")}
+                    style={{ cursor: "pointer" }}>Sales History</p>
+                {(user?.role === "superadmin" || user?.role === "admin") &&
+                    (
+                        <p onClick={() => navigate("/admin")}
+                            style={{ cursor: "pointer" }}>Admin</p>
+                    )}
             </div>
 
             {/* 🔹 Stats Cards */}
