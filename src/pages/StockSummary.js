@@ -5,6 +5,7 @@ const StockSummary = ({ stocks }) => {
     let totalItems = stocks.length;
     let totalQty = 0;
     let totalInvestment = 0;
+    let totalExtraCost = 0;
     let totalSelling = 0;
     let totalProfit = 0;
 
@@ -33,6 +34,7 @@ const StockSummary = ({ stocks }) => {
 
             totalQty += qty;
             totalInvestment += qty * buying;
+            totalExtraCost += qty * extra;
             totalSelling += qty * selling;
             totalProfit += qty * profitPerUnit;
 
@@ -52,6 +54,7 @@ const StockSummary = ({ stocks }) => {
             <p>Total Products: {totalItems}</p>
             <p>Total Quantity: {totalQty}</p>
             <p>Total Investment: ₹{totalInvestment.toFixed(0)}</p>
+            <p>Total Extra Cost: ₹{totalExtraCost.toFixed(0)}</p>
             <p>Total Selling Value: ₹{totalSelling.toFixed(0)}</p>
             <p style={{ color: totalProfit < 0 ? "red" : "lightgreen" }}>
                 Total Profit: ₹{totalProfit.toFixed(0)}

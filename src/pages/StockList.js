@@ -179,16 +179,22 @@ const StockList = ({ user }) => {
     };
 
     const getTotalExtraCost = (sizes) => {
-        return Number(Object.values(sizes || {}).reduce((sum, s) => {
-            (Number(s.extraCosts?.packaging || 0) +
-                Number(s.extraCosts?.labeling || 0) +
-                Number(s.extraCosts?.rto || 0) +
-                Number(s.extraCosts?.returnCost || 0) +
-                Number(s.extraCosts?.advertisementCost || 0) +
-                Number(s.extraCosts?.delivery || 0) +
-                Number(s.extraCosts?.others || 0)).toFixed(0);
-        }))
-    }
+        return Object.values(sizes || {}).reduce((sum, s) => {
+            const extraCosts = s.extraCosts || {};
+            const qty = Number(s.qty || 0);
+
+            const breake =
+                Number(extraCosts.packaging || 0) +
+                Number(extraCosts.labeling || 0) +
+                Number(extraCosts.rto || 0) +
+                Number(extraCosts.returnCost || 0) +
+                Number(extraCosts.advertisementCost || 0) +
+                Number(extraCosts.delivery || 0) +
+                Number(extraCosts.others || 0);
+
+            return sum + (breake * qty);
+        }, 0);
+    };
 
     // const getTotalProfit = (sizes) => {
     //     return Number(Object.values(sizes || {}).reduce((sum, s) => {
@@ -243,21 +249,23 @@ const StockList = ({ user }) => {
             returnCost = 0,
             advertisementCost = 0,
             delivery = 0,
+            others = 0,
             gst = 0
         } = extraCosts;
 
         const breakEven =
-            Number(buying) * (1 + margin / 100) +
+            Number(buying) * (1 + Number(margin || 0) / 100) +
             Number(packaging) +
             Number(labeling) +
             Number(rto) +
             Number(returnCost) +
             Number(advertisementCost) +
-            Number(delivery);
+            Number(delivery) +
+            Number(others);
 
 
 
-        const withGST = breakEven * (1 + Number(gst) / 100);
+        const withGST = breakEven * (1 + gst / 100);
 
         return Number(withGST.toFixed(0));
     };
@@ -461,6 +469,7 @@ const StockList = ({ user }) => {
                         <th>Sizes - Quantity - Prices - Margin%</th>
                         <th>Total Qty</th>
                         <th>Total Investment</th>
+                        <th>Total Extra Cost</th>
                         <th>Avg Selling Price</th>
                         <th>Total Selling Value</th>
                         <th>Profit</th>
@@ -473,6 +482,7 @@ const StockList = ({ user }) => {
                     {filteredStocks.map((item) => {
                         const totalQty = getTotalQty(item.sizes);
                         const totalInvestment = getTotalInvestment(item.sizes);
+                        const totalExtraCost = getTotalExtraCost(item.sizes);
                         const totalSelling = getTotalSellingValue(item.sizes);
                         const profit = getTotalProfit(item.sizes);
                         const avgSelling = getAvgSellingPrice(item.sizes);
@@ -640,6 +650,7 @@ const StockList = ({ user }) => {
 
                                 <td>{totalQty}</td>
                                 <td>₹{totalInvestment.toFixed(2)}</td>
+                                <td>₹{totalExtraCost.toFixed(2)}</td>
                                 <td>₹{avgSelling.toFixed(2)}</td>
                                 <td>₹{totalSelling.toFixed(2)}</td>
                                 <td style={{

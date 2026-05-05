@@ -172,13 +172,29 @@ const StockInventory = ({ user }) => {
         0
     );
 
+    const totalExtraCost = sizes.reduce((sum, s) => {
+        const extraCosts = s.extraCosts || {};
+        const qty = Number(s.qty || 0);
+
+        const breake =
+            Number(extraCosts.packaging || 0) +
+            Number(extraCosts.labeling || 0) +
+            Number(extraCosts.rto || 0) +
+            Number(extraCosts.returnCost || 0) +
+            Number(extraCosts.advertisementCost || 0) +
+            Number(extraCosts.delivery || 0) +
+            Number(extraCosts.others || 0);
+
+        return sum + (breake * qty); // ✅ multiply by qty
+    }, 0);
+
     const totalSellingValue = sizes.reduce(
         (sum, s) => sum + (s.qty * getSellingPrice(s.buyingPrice, s.margin, s.extraCosts)),
         0
     );
 
     const totalProfit = sizes.reduce(
-        (sum, s) => sum + (s.qty * ((s.buyingPrice * s.margin)/100)),
+        (sum, s) => sum + (s.qty * ((s.buyingPrice * s.margin) / 100)),
         0
     );
 
@@ -854,6 +870,7 @@ const StockInventory = ({ user }) => {
                         <div style={{ overflowY: "auto", maxHeight: "300px" }}>
                             {sizes.map((s, index) => {
                                 const selling = getSellingPrice(s.buyingPrice, s.margin, s.extraCosts);
+                                const profit = s.buyingPrice ? Number(((s.buyingPrice * s.margin) / 100).toFixed(0)) : 0;
 
                                 return (
                                     <div key={index} style={{ display: window.innerWidth > 500 ? "flex" : "grid", gap: "10px", marginBottom: "8px", alignItems: "center" }}>
@@ -862,7 +879,7 @@ const StockInventory = ({ user }) => {
                                                 <span>Selling Price:-₹{selling.toFixed(2)}<small>/unit</small></span>
                                                 <br />
                                                 <span style={{ color: "green" }}>
-                                                    Profit:-₹{s.buyingPrice ? ((s.buyingPrice * s.margin) / 100).toFixed(2) : 0}<small>/unit</small>
+                                                    Profit:-₹{profit.toFixed(2)}<small>/unit</small>
                                                 </span>
                                             </div>
                                             <div>
@@ -966,10 +983,11 @@ const StockInventory = ({ user }) => {
                                 ₹{totalQty ? (totalSellingValue / totalQty).toFixed(2) : 0}
                             </b>
                         </p>
-                        <p>Total Investment: <b>₹{totalInvestment}</b></p>
-                        <p>Total Selling Value: <b>₹{totalSellingValue}</b></p>
+                        <p>Total Investment: <b>₹{totalInvestment.toFixed(2)}</b></p>
+                        <p>Total Extra Cost: <b>₹{totalExtraCost.toFixed(2) || 0}</b></p>
+                        <p>Total Selling Value: <b>₹{totalSellingValue.toFixed(2)}</b></p>
                         <p style={{ color: "green" }}>
-                            Total Profit: <b>₹{totalProfit}</b>
+                            Total Profit: <b>₹{totalProfit.toFixed(2)}</b>
                         </p>
                     </div>
                 </div>
