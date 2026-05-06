@@ -651,25 +651,27 @@ const StockInventory = ({ user }) => {
                     <div className="stock-card">
                         <h3>Preview Data ({previewData.length} rows)</h3>
 
-                        <table className="stock-table">
-                            <thead>
-                                <tr>
-                                    {Object.keys(previewData[0]).map((key) => (
-                                        <th key={key}>{key}</th>
-                                    ))}
-                                </tr>
-                            </thead>
-
-                            <tbody>
-                                {previewData.slice(0, 10).map((row, i) => (
-                                    <tr key={i}>
-                                        {Object.values(row).map((val, j) => (
-                                            <td key={j}>{val}</td>
+                        <div className="table-wrapper" style={{ scrollbarWidth: "thin" }}>
+                            <table className="stock-table" >
+                                <thead>
+                                    <tr>
+                                        {Object.keys(previewData[0]).map((key) => (
+                                            <th key={key}>{key}</th>
                                         ))}
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+
+                                <tbody>
+                                    {previewData.slice(0, 10).map((row, i) => (
+                                        <tr key={i}>
+                                            {Object.values(row).map((val, j) => (
+                                                <td key={j}>{val}</td>
+                                            ))}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
 
                         {loading && (
                             <div>

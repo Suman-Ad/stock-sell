@@ -76,7 +76,7 @@
 /* 🔷 MAIN */
 .layout-main {
     flex: 1;
-    padding: 20px;
+    /* padding: 0px; */
 }
 
 /* 🔷 FOOTER */
@@ -113,6 +113,6 @@
     }
 
     .layout-main {
-        padding: 10px;
+        padding: 1px;
     }
 }

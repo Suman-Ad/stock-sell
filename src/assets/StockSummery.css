@@ -21,6 +21,8 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
+  /* width: 100px; */
+  /* overflow: auto; */
 }
 
 /* CARD */
@@ -31,6 +33,7 @@
   padding: 12px;
   transition: 0.25s;
   position: relative;
+  min-width: 0;
   overflow: hidden;
 }
 

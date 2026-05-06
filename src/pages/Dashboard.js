@@ -156,17 +156,17 @@ const Dashboard = ({ user }) => {
             </div>
 
             <div className="dashboard-actions" >
-                <button className="btn primary" onClick={() => navigate("/sell-product")}>
+                <button className="summary-card btn danger" onClick={() => navigate("/sell-product")}>
                     Sell Product
                 </button>
-                <p className="btn" onClick={() => navigate("/stock-list")}
+                <p className="summary-card" onClick={() => navigate("/stock-list")}
                     style={{ cursor: "pointer" }}>Stock Inventory</p>
 
-                <p className="btn" onClick={() => navigate("/sales-history")}
+                <p className="summary-card" onClick={() => navigate("/sales-history")}
                     style={{ cursor: "pointer" }}>Sales History</p>
                 {(user?.role === "superadmin" || user?.role === "admin") &&
                     (
-                        <p className="btn danger" onClick={() => navigate("/admin")}
+                        <p className="summary-card btn primary" onClick={() => navigate("/admin")}
                             style={{ cursor: "pointer" }}>Admin</p>
                     )}
             </div>

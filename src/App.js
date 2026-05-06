@@ -5,6 +5,7 @@ import { getDoc, doc } from "firebase/firestore";
 import { db } from "./firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase";
+import { Navigate } from "react-router-dom";
 
 // Importing pages and components
 import Login from './pages/Login';
@@ -18,6 +19,8 @@ import SellProduct from './pages/SellProduct';
 import Dashboard from './pages/Dashboard';
 import SalesHistory from './pages/SalesHistory';
 import Profile from './pages/Profile'
+import ProtectedRoute from './hooks/ProtectedRoute';
+
 
 function App() {
   const [user, setUser] = useState(null);
@@ -27,20 +30,28 @@ function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        const snap = await getDoc(doc(db, "users", firebaseUser.uid));
-        if (snap.exists()) {
-          const userData = {
-            uid: firebaseUser.uid,
-            email: firebaseUser.email,
-            ...snap.data(),
-          };
-          setUser(userData);
-          localStorage.setItem("user", JSON.stringify(userData));
+        try {
+          const snap = await getDoc(doc(db, "users", firebaseUser.uid));
+
+          if (snap.exists()) {
+            const userData = {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              ...snap.data(),
+            };
+
+            setUser(userData);
+          } else {
+            setUser(null);
+          }
+        } catch (err) {
+          console.error(err);
+          setUser(null);
         }
       } else {
         setUser(null);
-        localStorage.removeItem("user");
       }
+
       setLoading(false);
     });
 
@@ -65,22 +76,6 @@ function App() {
     }
   };
 
-  useEffect(() => {
-    const initUser = async () => {
-      const storedUser = localStorage.getItem("user");
-
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-
-        await refreshUser();
-      }
-
-      setLoading(false);
-    };
-
-    initUser();
-  }, []);
 
   if (loading) return <div>Loading...</div>;
 
@@ -89,21 +84,89 @@ function App() {
       <Routes>
 
         {/* Public Routes */}
-        <Route path="/" element={<Login setUser={setUser} />} />
-        <Route path="/login" element={<Login setUser={setUser} />} />
+        <Route
+          path="/login"
+          element={!user ? <Login setUser={setUser} /> : <Navigate to="/dashboard" />}
+        />
         <Route path="/signup" element={<Signup />} />
 
-        {/* Protected / App Routes */}
-        <Route element={<Layout user={user} />}>
-          <Route path="/admin" element={<AdminRoute><AdminDashboard user={user} /></AdminRoute>} />
-          <Route path="/stock-inventory" element={<StockInventory user={user} />} />
-          <Route path="/stock-list" element={<StockList user={user} />} />
-          <Route path="/sell-product" element={<SellProduct user={user} />} />
-          <Route path="/dashboard" element={<Dashboard user={user} />} />
-          <Route path="/sales-history" element={<SalesHistory user={user} />} />
-          <Route path="/profile" element={<Profile user={user} />} />
-        </Route>
+        {/* Default Route */}
+        <Route
+          path="/"
+          element={
+            user ? <Navigate to="/dashboard" /> : <Navigate to="/login" />
+          }
+        />
 
+        <Route element={<Layout user={user} />}>
+
+          {/* Protected Routes */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute user={user}>
+                <Dashboard user={user} />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/stock-inventory"
+            element={
+              <ProtectedRoute user={user}>
+                <StockInventory user={user} />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/stock-list"
+            element={
+              <ProtectedRoute user={user}>
+                <StockList user={user} />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/sell-product"
+            element={
+              <ProtectedRoute user={user}>
+                <SellProduct user={user} />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/sales-history"
+            element={
+              <ProtectedRoute user={user}>
+                <SalesHistory user={user} />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute user={user}>
+                <Profile user={user} />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Admin */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute user={user}>
+                <AdminRoute>
+                  <AdminDashboard user={user} />
+                </AdminRoute>
+              </ProtectedRoute>
+            }
+          />
+        </Route>
       </Routes>
     </Router>
   );

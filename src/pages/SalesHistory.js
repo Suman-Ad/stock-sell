@@ -3,6 +3,7 @@ import { db, auth } from "../firebase";
 import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc } from "firebase/firestore";
 import useUserRole from "../hooks/useUserRole";
 import { QRCodeCanvas } from "qrcode.react";
+import "../assets/SalesHistory.css";
 
 const SalesHistory = ({ user }) => {
     const [sales, setSales] = useState([]);

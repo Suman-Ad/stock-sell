@@ -98,6 +98,9 @@ input {
   padding: 15px;
   max-height: 70vh;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scroll-behavior: smooth;
+  scrollbar-color: #1f2937;
 }
 
 /* QR BOX */

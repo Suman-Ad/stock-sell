@@ -5,6 +5,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { updateDoc, doc, getDoc } from "firebase/firestore";
 import { sendEmailVerification } from "firebase/auth";
 import { db } from "../firebase";
+import { setPersistence, browserLocalPersistence } from "firebase/auth";
 
 const Login = ({ setUser }) => {
   const [email, setEmail] = useState("");
@@ -22,6 +23,9 @@ const Login = ({ setUser }) => {
 
   const handleLogin = async () => {
     try {
+      // ✅ ADD THIS LINE FIRST
+      await setPersistence(auth, browserLocalPersistence);
+
       const userCredential = await signInWithEmailAndPassword(
         auth,
         email.toLowerCase(),

@@ -56,15 +56,16 @@ const Layout = ({ user }) => {
             {/* 🔷 HEADER */}
             <header className="layout-header">
                 <h3 className="logo" onClick={() => navigate("/dashboard")}>
-                    {shopName}
+                    Stock Sell
                 </h3>
 
                 <div className="header-right">
                     <span
                         className="profile-link"
                         onClick={() => navigate("/profile")}
+                        style={{ textAlign: "center" }}
                     >
-                        👤 {userName}
+                        {shopName} <br /> 👤 {userName}
                     </span>
 
                     <button className="logout-btn" onClick={handleLogout}>
@@ -80,7 +81,7 @@ const Layout = ({ user }) => {
 
             {/* 🔷 FOOTER */}
             <footer className="layout-footer">
-                © {new Date().getFullYear()} Inventory App | Developed by You 🚀
+                © {new Date().getFullYear()} Inventory App | Developed by Adhikari Brothers 🚀
             </footer>
 
         </div>
