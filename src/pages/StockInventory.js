@@ -5,18 +5,8 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { writeBatch } from "firebase/firestore";
 import "../assets/StockInventory.css";
+import { categoryMap, colorOptions, productTypes } from "../components/CategoryMap";
 
-const categoryMap = {
-    Men: ["T-Shirt", "Shirt", "Pant", "Panjabi"],
-    Women: ["Top", "Shirt", "Saree", "Kurti"],
-    Children: ["T-Shirt", "Panjabi", "Dress Set"]
-};
-
-const productTypes = ["Formal", "Casual", "Party Wear", "Sports"];
-const colorOptions = [
-    "Black", "White", "Red", "Blue", "Green",
-    "Yellow", "Grey", "Navy", "Maroon"
-];
 
 export const createQRCodesBulk = async ({
     stockId,

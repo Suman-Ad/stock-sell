@@ -221,26 +221,28 @@ const SalesHistory = ({ user }) => {
 
         let q;
 
-        if (role === "admin") {
+        if (role === "admin" || role === "superadmin") {
 
-            q = collection(db, "sales");
+            q = query(
+                collection(db, "sales"),
+                where("deleted", "!=", true)
+            );
 
         } else {
 
             q = query(
                 collection(db, "sales"),
-                where("userId", "==", auth.currentUser.uid)
+                where("userId", "==", auth.currentUser.uid),
+                where("deleted", "!=", true)
             );
         }
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
 
-            const data = snapshot.docs
-                .map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }))
-                .filter(s => !s.deleted);
+            const data = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
 
             setSales(data);
 
@@ -300,15 +302,19 @@ const SalesHistory = ({ user }) => {
     // =========================================
     // SUMMARY
     // =========================================
-    const totalSales = filteredSales.length;
+    const activeSales = filteredSales;
 
-    const totalRevenue = filteredSales.reduce(
-        (sum, s) => sum + Number(s.sellingPrice || 0),
+    const totalSales = activeSales.length;
+
+    const totalRevenue = activeSales.reduce(
+        (sum, s) =>
+            sum + Number(s.sellingPrice || 0),
         0
     );
 
-    const totalProfit = filteredSales.reduce(
-        (sum, s) => sum + Number(s.profit || 0),
+    const totalProfit = activeSales.reduce(
+        (sum, s) =>
+            sum + Number(s.profit || 0),
         0
     );
 
@@ -388,13 +394,19 @@ const SalesHistory = ({ user }) => {
             // SOFT DELETE SALE
             // ====================================
 
-            await updateDoc(
-                doc(db, "sales", sale.id),
-                {
+            const saleRef = doc(db, "sales", sale.uniqueId);
+
+            const saleSnap = await getDoc(saleRef);
+
+            if (saleSnap.exists()) {
+
+                await updateDoc(saleRef, {
                     deleted: true,
+                    soldAt: null,
                     deletedAt: new Date()
-                }
-            );
+                });
+
+            }
 
             // ====================================
             // REMOVE FROM UI
@@ -504,18 +516,16 @@ const SalesHistory = ({ user }) => {
 
                     <tbody>
 
-                        {filteredSales.map((s) => (
+                        {activeSales.map((s) => (
 
                             <tr key={s.id}>
                                 {/* QR */}
                                 <td>
-
                                     <div
                                         className="qr-preview"
                                         onMouseEnter={() => setHoveredQR(s.id)}
                                         onMouseLeave={() => setHoveredQR(null)}
                                     >
-
                                         <QRCodeCanvas
                                             value={JSON.stringify(s)}
                                             size={80}
@@ -524,52 +534,15 @@ const SalesHistory = ({ user }) => {
                                             level="H"
                                             includeMargin={true}
                                         />
-
-                                        {/* LARGE PREVIEW */}
-                                        {hoveredQR === s.id && (
-
-                                            <div className="qr-popup">
-
-                                                <QRCodeCanvas
-                                                    value={JSON.stringify(s)}
-                                                    size={250}
-                                                    bgColor="#ffffff"
-                                                    fgColor="#000000"
-                                                    level="H"
-                                                    includeMargin={true}
-                                                />
-
-                                                <div className="qr-popup-info">
-
-                                                    <h4>{s.productName}</h4>
-
-                                                    <p>Size: {s.size}</p>
-
-                                                    <p>₹{s.sellingPrice}</p>
-
-                                                    <p>
-                                                        Customer:
-                                                        {" "}
-                                                        {s.customer?.name || "N/A"}
-                                                    </p>
-
-                                                </div>
-
-                                            </div>
-                                        )}
-
                                     </div>
-
                                 </td>
 
                                 {/* DATE */}
                                 <td>
-
                                     {s.soldAt?.toDate
                                         ? s.soldAt.toDate().toLocaleString()
                                         : new Date(s.soldAt).toLocaleString()
-                                    }
-
+                                    }                            
                                 </td>
 
                                 {/* PRODUCT */}
@@ -602,6 +575,12 @@ const SalesHistory = ({ user }) => {
                                 <td>
 
                                     <div className="customer-box">
+
+                                        <p>
+                                            <b>
+                                                {s.customer?.awbNo || "N/A"}
+                                            </b>
+                                        </p>
 
                                         <p>
                                             <b>
@@ -662,7 +641,42 @@ const SalesHistory = ({ user }) => {
                 </table>
 
             </div>
+            {activeSales.map((s) => (
+                <div>
+                    {/* LARGE PREVIEW */}
+                    {hoveredQR === s.id && (
 
+                        <div className="qr-popup">
+
+                            <QRCodeCanvas
+                                value={JSON.stringify(s)}
+                                size={300}
+                                bgColor="#ffffff"
+                                fgColor="#000000"
+                                level="H"
+                                includeMargin={true}
+                            />
+
+                            <div className="qr-popup-info">
+
+                                <h4>{s.productName}</h4>
+
+                                <p>Size: {s.size}</p>
+
+                                <p>₹{s.sellingPrice}</p>
+
+                                <p>
+                                    Customer:
+                                    {" "}
+                                    {s.customer?.name || "N/A"}
+                                </p>
+
+                            </div>
+
+                        </div>
+                    )}
+                </div>
+            ))}
         </div>
     );
 };

@@ -87,6 +87,7 @@ const Dashboard = ({ user }) => {
 
             const qty = Number(s?.qty || 0);
             const buying = Number(s?.buyingPrice || 0);
+            const margin = Number(s?.margin || 0);
             const selling = Number(s?.sellingPrice || 0);
             const gstPercent = Number(s?.extraCosts?.gst || 0);
 
@@ -111,7 +112,7 @@ const Dashboard = ({ user }) => {
             totalSellingValue += qty * selling;
 
             totalExpectedProfit += qty * (
-                sellingWithoutGST - (buying + extra)
+                (buying * margin) / 100
             );
         });
     });
@@ -229,7 +230,7 @@ const Dashboard = ({ user }) => {
 
             <div className="dashboard-actions" >
                 <button className="summary-card btn danger" onClick={() => navigate("/sell-product")}>
-                    Sell Product
+                    <strong style={{ fontSize: "20px" }}>📷 Scan Product</strong>
                 </button>
                 <p className="summary-card" onClick={() => navigate("/stock-list")}
                     style={{ cursor: "pointer" }}>Stock Inventory</p>

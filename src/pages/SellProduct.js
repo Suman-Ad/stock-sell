@@ -237,6 +237,7 @@ import {
     getDoc,
     updateDoc,
     addDoc,
+    setDoc,
     collection,
     query,
     where,
@@ -259,7 +260,8 @@ const SellProduct = ({ user }) => {
         name: "",
         phone: "",
         email: "",
-        address: ""
+        address: "",
+        awbNo: "",
     });
 
     // =========================
@@ -287,6 +289,38 @@ const SellProduct = ({ user }) => {
 
             setStockOwner(stock.userId);
 
+            // =========================
+            // CHECK ALREADY SOLD
+            // =========================
+            const saleRef = doc(db, "sales", data.uniqueId);
+
+            const saleSnap = await getDoc(saleRef);
+
+            if (
+                saleSnap.exists() &&
+                saleSnap.data().deleted !== true
+            ) {
+
+                const saleData = saleSnap.data();
+
+                alert(
+                    `❌ Already Sold\n\n` +
+                    `Customer: ${saleData?.customer?.name || "N/A"}\n` +
+                    `Phone: ${saleData?.customer?.phone || "N/A"}\n` +
+                    `AWB: ${saleData?.customer?.awbNo || "N/A"}`
+                );
+
+                // OPTIONAL UI DATA
+                setScanData({
+                    ...data,
+                    saleHistory: saleData
+                });
+
+                setScanned(true);
+
+                return;
+            }
+
             setScanData(data);
             setScanned(true);
 
@@ -308,7 +342,8 @@ const SellProduct = ({ user }) => {
                 name: data.name || "",
                 phone: data.phone || "",
                 email: data.email || "",
-                address: data.address || ""
+                address: data.address || "",
+                awbNo: data || "",
             });
 
             setShowCustomerScanner(false);
@@ -325,8 +360,8 @@ const SellProduct = ({ user }) => {
     // =========================
     const confirmSale = async (data) => {
 
-        if (!customer.name || !customer.phone) {
-            alert("Please enter customer details");
+        if (!customer.awbNo) {
+            alert("Please enter customer AWB number");
             return;
         }
 
@@ -350,14 +385,14 @@ const SellProduct = ({ user }) => {
             }
 
             // DUPLICATE CHECK
-            const saleCheck = query(
-                collection(db, "sales"),
-                where("uniqueId", "==", data.uniqueId)
-            );
+            const saleRef = doc(db, "sales", data.uniqueId);
 
-            const existing = await getDocs(saleCheck);
+            const saleSnap = await getDoc(saleRef);
 
-            if (!existing.empty) {
+            if (
+                saleSnap.exists() &&
+                saleSnap.data().deleted !== true
+            ) {
                 alert("❌ This item is already sold!");
                 setLoading(false);
                 return;
@@ -426,22 +461,20 @@ const SellProduct = ({ user }) => {
             await updateDoc(docRef, { sizes });
 
             // SAVE SALE
-            await addDoc(collection(db, "sales"), {
+            await setDoc(
+                doc(db, "sales", data.uniqueId),
+                {
+                    ...data,
 
-                ...data,
-
-                qrId: data.id,
-
-                buyingPrice,
-                profit,
-                extra,
-
-                customer,
-
-                userId: currentUser.uid,
-
-                soldAt: serverTimestamp()
-            });
+                    qrId: data.id,
+                    buyingPrice,
+                    profit,
+                    extra,
+                    deleted: false,
+                    customer,
+                    userId: currentUser.uid,
+                    soldAt: serverTimestamp()
+                });
 
             // UPDATE QR
             await updateDoc(doc(db, "qrcodes", qrDoc.id), {
@@ -459,7 +492,8 @@ const SellProduct = ({ user }) => {
                 name: "",
                 phone: "",
                 email: "",
-                address: ""
+                address: "",
+                awbNo: "",
             });
 
         } catch (err) {
@@ -474,7 +508,7 @@ const SellProduct = ({ user }) => {
     return (
         <div style={{ padding: "20px" }}>
 
-            <h2>📷 Scan to Sell</h2>
+            <h2>📷 Scan Product</h2>
 
             {/* SCAN AGAIN */}
             {scanned && (
@@ -533,87 +567,135 @@ const SellProduct = ({ user }) => {
                     <p>Price: ₹{scanData.sellingPrice}</p>
 
                     <hr />
+                    {/* SALE HISTORY */}
+                    {scanData.saleHistory ? (
+                        <div
+                            style={{
+                                border: "1px solid red",
+                                padding: "10px",
+                                marginBottom: "15px",
+                                background: "#27234d"
+                            }}
+                        >
+                            <h3>📜 Sell History</h3>
 
-                    {/* CUSTOMER DETAILS */}
+                            <p>
+                                <b>Customer:</b>{" "}
+                                {scanData.saleHistory?.customer?.name || "N/A"}
+                            </p>
 
-                    <h3>Customer Details</h3>
+                            <p>
+                                <b>Phone:</b>{" "}
+                                {scanData.saleHistory?.customer?.phone || "N/A"}
+                            </p>
 
-                    <input
-                        type="text"
-                        placeholder="Customer Name"
-                        value={customer.name}
-                        onChange={(e) =>
-                            setCustomer({
-                                ...customer,
-                                name: e.target.value
-                            })
-                        }
-                        style={{ width: "100%", marginBottom: "10px" }}
-                    />
+                            <p>
+                                <b>AWB:</b>{" "}
+                                {scanData.saleHistory?.customer?.awbNo || "N/A"}
+                            </p>
 
-                    <input
-                        type="text"
-                        placeholder="Phone Number"
-                        value={customer.phone}
-                        onChange={(e) =>
-                            setCustomer({
-                                ...customer,
-                                phone: e.target.value
-                            })
-                        }
-                        style={{ width: "100%", marginBottom: "10px" }}
-                    />
+                            <hr />
 
-                    <input
-                        type="email"
-                        placeholder="Email"
-                        value={customer.email}
-                        onChange={(e) =>
-                            setCustomer({
-                                ...customer,
-                                email: e.target.value
-                            })
-                        }
-                        style={{ width: "100%", marginBottom: "10px" }}
-                    />
+                        </div>
+                    ) : (
+                        //CUSTOMER DETAILS
+                        <div style={{ padding: "2px 5px" }}>
 
-                    <textarea
-                        placeholder="Address"
-                        value={customer.address}
-                        onChange={(e) =>
-                            setCustomer({
-                                ...customer,
-                                address: e.target.value
-                            })
-                        }
-                        style={{
-                            width: "100%",
-                            marginBottom: "10px"
-                        }}
-                    />
+                            <h3>Customer Details</h3>
+                            <button
+                                onClick={() =>
+                                    setShowCustomerScanner(!showCustomerScanner)
+                                }
+                                style={{ padding: "5px 5px", marginBottom: "10px" }}
+                            >
+                                📷 Scan Customer QR
+                            </button>
 
-                    {/* CUSTOMER QR */}
+                            <input
+                                type="number"
+                                placeholder="AWB No"
+                                value={customer.awbNo}
+                                onChange={(e) =>
+                                    setCustomer({
+                                        ...customer,
+                                        awbNo: e.target.value
+                                    })
+                                }
+                                readOnly
+                                style={{ width: "100%", marginBottom: "10px" }}
+                            />
 
-                    <button
-                        onClick={() =>
-                            setShowCustomerScanner(!showCustomerScanner)
-                        }
-                    >
-                        📷 Scan Customer QR
-                    </button>
+                            <input
+                                type="text"
+                                placeholder="Customer Name"
+                                value={customer.name}
+                                onChange={(e) =>
+                                    setCustomer({
+                                        ...customer,
+                                        name: e.target.value
+                                    })
+                                }
+                                style={{ width: "100%", marginBottom: "10px" }}
+                            />
 
-                    {showCustomerScanner && (
-                        <div style={{ marginTop: "15px" }}>
-                            <QRScanner onScan={handleCustomerQR} />
+                            <input
+                                type="text"
+                                placeholder="Phone Number"
+                                value={customer.phone}
+                                onChange={(e) =>
+                                    setCustomer({
+                                        ...customer,
+                                        phone: e.target.value
+                                    })
+                                }
+                                style={{ width: "100%", marginBottom: "10px" }}
+                            />
+
+                            <input
+                                type="email"
+                                placeholder="Email"
+                                value={customer.email}
+                                onChange={(e) =>
+                                    setCustomer({
+                                        ...customer,
+                                        email: e.target.value
+                                    })
+                                }
+                                style={{ width: "100%", marginBottom: "10px" }}
+                            />
+
+                            <textarea
+                                placeholder="Address"
+                                value={customer.address}
+                                onChange={(e) =>
+                                    setCustomer({
+                                        ...customer,
+                                        address: e.target.value
+                                    })
+                                }
+                                style={{
+                                    width: "100%",
+                                    marginBottom: "10px"
+                                }}
+                            />
+
+                            {/* CUSTOMER QR */}
+                            {showCustomerScanner && (
+                                <div style={{ marginTop: "15px" }}>
+                                    <QRScanner onScan={handleCustomerQR} />
+                                </div>
+                            )}
+
+                            <hr />
+
                         </div>
                     )}
 
-                    <hr />
 
                     <button
                         disabled={
                             stockOwner !== auth.currentUser.uid ||
-                            loading
+                            loading || scanData.saleHistory
                         }
                         onClick={() => confirmSale(scanData)}
                     >

@@ -374,6 +374,12 @@ const StockList = ({ user }) => {
     };
 
     const handleAddStock = async (item, sizeKey, amount) => {
+        const confirmReduce = window.confirm(
+            `Add ${amount} item(s) from ${item.productName} (${sizeKey}). Please confirm befor Add ?`
+        );
+
+        if (!confirmReduce) return;
+
         await createQRCodes(item, sizeKey, amount);
 
         const updatedSizes = { ...item.sizes };
@@ -388,6 +394,12 @@ const StockList = ({ user }) => {
     };
 
     const handleReduceStock = async (item, sizeKey, amount) => {
+        const confirmReduce = window.confirm(
+            `Reduce ${amount} item(s) from ${item.productName} (${sizeKey}). Please confirm befor remove ?`
+        );
+
+        if (!confirmReduce) return;
+
         const availableQR = qrData
             .filter(qr =>
                 qr.stockId === item.id &&
