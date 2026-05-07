@@ -55,9 +55,18 @@ const Dashboard = ({ user }) => {
     }, [role]);
 
     useEffect(() => {
-        if (!auth.currentUser) return;
+        if (!auth.currentUser || !role) return;
 
-        const q = collection(db, "stocks");
+        let q;
+
+        if (role === "admin" || role === "superadmin") {
+            q = collection(db, "stocks");
+        } else {
+            q = query(
+                collection(db, "stocks"),
+                where("userId", "==", auth.currentUser.uid)
+            );
+        }
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             setStocks(snapshot.docs.map(doc => ({
@@ -67,7 +76,7 @@ const Dashboard = ({ user }) => {
         });
 
         return () => unsubscribe();
-    }, []);
+    }, [role]);
 
     const totalStockItems = stocks.length;
 
