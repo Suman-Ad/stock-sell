@@ -568,7 +568,7 @@ const SellProduct = ({ user }) => {
 
                     <hr />
                     {/* SALE HISTORY */}
-                    {scanData.saleHistory ? (
+                    {scanData.saleHistory && (
                         <div
                             style={{
                                 border: "1px solid red",
@@ -597,7 +597,9 @@ const SellProduct = ({ user }) => {
                             <hr />
 
                         </div>
-                    ) : (
+                    )}
+                    
+                    {stockOwner === auth.currentUser.uid && !scanData.saleHistory && (
                         //CUSTOMER DETAILS
                         <div style={{ padding: "2px 5px" }}>
 
@@ -690,7 +692,6 @@ const SellProduct = ({ user }) => {
 
                         </div>
                     )}
-
 
                     <button
                         disabled={

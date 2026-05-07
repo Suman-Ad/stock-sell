@@ -60,6 +60,7 @@ const StockList = ({ user }) => {
     const [printedIds, setPrintedIds] = useState(new Set());
     const [qrData, setQrData] = useState([]);
 
+
     useEffect(() => {
         const q = query(collection(db, "qrcodes"));
 
@@ -82,6 +83,7 @@ const StockList = ({ user }) => {
 
     const [stocks, setStocks] = useState([]);
     const [searchId, setSearchId] = useState("");
+    const [selectedUser, setSelectedUser] = useState("all");
     const [showQR, setShowQR] = useState({});
     const toggleQR = (id) => {
         setShowQR(prev => ({
@@ -425,10 +427,45 @@ const StockList = ({ user }) => {
         });
     };
 
-    const filteredStocks = stocks.filter(item =>
-        item.catalogId?.includes(searchId)
-    );
 
+    const userList = [
+        ...new Map(
+            stocks
+                .filter(item => item.userId)
+                .map(item => [
+                    item.userId,
+                    {
+                        userId: item.userId,
+                        userName: item.createdBy?.name,
+                        userShopName: item.createdBy?.shopName,
+                        userMobile: item.createdBy?.mobile,
+                        userEmail: item.createdBy?.email,
+                    }
+                ])
+        ).values()
+    ];
+
+    const filteredStocks = stocks.filter(item => {
+
+        // 🔥 User filter
+        if (
+            (role === "admin" || role === "superadmin") &&
+            selectedUser !== "all" &&
+            item.userId !== selectedUser
+        ) {
+            return false;
+        }
+
+        // 🔥 Catalog filter
+        if (
+            searchId &&
+            !item.catalogId?.toUpperCase().includes(searchId.toUpperCase())
+        ) {
+            return false;
+        }
+
+        return true;
+    });
 
     const getItemQR = (item) => {
         return qrData.filter(qr =>
@@ -452,7 +489,7 @@ const StockList = ({ user }) => {
 
     return (
         <div className="stock-page" >
-            <StockSummary stocks={stocks} />
+            <StockSummary stocks={filteredStocks} />
             <>
                 <button onClick={() => setShowInventory(true)}>
                     Add New Items
@@ -479,6 +516,29 @@ const StockList = ({ user }) => {
             </>
 
             <h2>Stock List</h2>
+            {/* 👤 User Filter */}
+            {(role === "admin" || role === "superadmin") && (
+                <div style={{ marginBottom: "10px" }}>
+                    <select
+                        value={selectedUser}
+                        onChange={(e) => setSelectedUser(e.target.value)}
+                        style={{
+                            padding: "10px",
+                            borderRadius: "8px",
+                            border: "1px solid #ccc",
+                            minWidth: "250px"
+                        }}
+                    >
+                        <option value="all">All Users</option>
+
+                        {userList.map((u) => (
+                            <option key={u.userId} value={u.userId}>
+                                {u.userShopName}:({u.userName}-{u.userEmail}-{u.userMobile})
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            )}
             <input
                 placeholder="Search by Catalog ID..."
                 value={searchId}

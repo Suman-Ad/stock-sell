@@ -29,6 +29,24 @@ const Dashboard = ({ user }) => {
     const role = useUserRole();
     const navigate = useNavigate();
     const [stocks, setStocks] = useState([]);
+    const [selectedUser, setSelectedUser] = useState("all");
+
+    const userList = [
+        ...new Map(
+            [...sales, ...stocks]
+                .filter(item => item.userId)
+                .map(item => [
+                    item.userId,
+                    {
+                        userId: item.userId,
+                        userName: item.createdBy?.name,
+                        userShopName: item.createdBy?.shopName,
+                        userMobile : item.createdBy?.mobile,
+                        userEmail : item.createdBy?.email,
+                    }
+                ])
+        ).values()
+    ];
 
     useEffect(() => {
         if (!auth.currentUser || !role) return;
@@ -86,45 +104,56 @@ const Dashboard = ({ user }) => {
     let totalSellingValue = 0;
     let totalExpectedProfit = 0;
 
-    stocks.forEach((item) => {
+    stocks
+        .filter((item) => {
+            if (
+                (role === "admin" || role === "superadmin") &&
+                selectedUser !== "all"
+            ) {
+                return item.userId === selectedUser;
+            }
 
-        const sizes = Array.isArray(item.sizes)
-            ? item.sizes
-            : Object.values(item.sizes || {});
+            return true;
+        })
+        .forEach((item) => {
 
-        sizes.forEach((s) => {
+            const sizes = Array.isArray(item.sizes)
+                ? item.sizes
+                : Object.values(item.sizes || {});
 
-            const qty = Number(s?.qty || 0);
-            const buying = Number(s?.buyingPrice || 0);
-            const margin = Number(s?.margin || 0);
-            const selling = Number(s?.sellingPrice || 0);
-            const gstPercent = Number(s?.extraCosts?.gst || 0);
+            sizes.forEach((s) => {
 
-            const sellingWithoutGST =
-                selling / (1 + gstPercent / 100);
+                const qty = Number(s?.qty || 0);
+                const buying = Number(s?.buyingPrice || 0);
+                const margin = Number(s?.margin || 0);
+                const selling = Number(s?.sellingPrice || 0);
+                const gstPercent = Number(s?.extraCosts?.gst || 0);
 
-            const extra =
-                Number(s?.extraCosts?.packaging || 0) +
-                Number(s?.extraCosts?.labeling || 0) +
-                Number(s?.extraCosts?.rto || 0) +
-                Number(s?.extraCosts?.returnCost || 0) +
-                Number(s?.extraCosts?.advertisementCost || 0) +
-                Number(s?.extraCosts?.delivery || 0) +
-                Number(s?.extraCosts?.others || 0);
+                const sellingWithoutGST =
+                    selling / (1 + gstPercent / 100);
 
-            totalStockQty += qty;
+                const extra =
+                    Number(s?.extraCosts?.packaging || 0) +
+                    Number(s?.extraCosts?.labeling || 0) +
+                    Number(s?.extraCosts?.rto || 0) +
+                    Number(s?.extraCosts?.returnCost || 0) +
+                    Number(s?.extraCosts?.advertisementCost || 0) +
+                    Number(s?.extraCosts?.delivery || 0) +
+                    Number(s?.extraCosts?.others || 0);
 
-            totalStockValue += qty * buying;
+                totalStockQty += qty;
 
-            totalStockExtraCost += qty * extra;
+                totalStockValue += qty * buying;
 
-            totalSellingValue += qty * selling;
+                totalStockExtraCost += qty * extra;
 
-            totalExpectedProfit += qty * (
-                (buying * margin) / 100
-            );
+                totalSellingValue += qty * selling;
+
+                totalExpectedProfit += qty * (
+                    (buying * margin) / 100
+                );
+            });
         });
-    });
 
     // Filter Salse
     const [filter, setFilter] = useState("all");
@@ -133,6 +162,16 @@ const Dashboard = ({ user }) => {
         const now = new Date();
 
         return sales.filter((s) => {
+
+            // ✅ User filter
+            if (
+                (role === "admin" || role === "superadmin") &&
+                selectedUser !== "all" &&
+                s.userId !== selectedUser
+            ) {
+                return false;
+            }
+
             const saleDate = getDate(s.soldAt);
 
             if (!saleDate || isNaN(saleDate.getTime())) return false;
@@ -236,6 +275,30 @@ const Dashboard = ({ user }) => {
                     UID: {auth.currentUser?.uid?.slice(0, 8)}...
                 </p>
             </div>
+
+            {/* 👤 User Filter */}
+            {(role === "admin" || role === "superadmin") && (
+                <div style={{ marginBottom: "15px" }}>
+                    <select
+                        value={selectedUser}
+                        onChange={(e) => setSelectedUser(e.target.value)}
+                        style={{
+                            padding: "10px",
+                            borderRadius: "8px",
+                            border: "1px solid #ccc",
+                            minWidth: "220px"
+                        }}
+                    >
+                        <option value="all">All Users</option>
+
+                        {userList.map((u) => (
+                            <option key={u.userId} value={u.userId}>
+                                {u.userShopName}:({u.userName}-{u.userEmail}-{u.userMobile})
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            )}
 
             <div className="dashboard-actions" >
                 <button className="summary-card btn danger" onClick={() => navigate("/sell-product")}>
