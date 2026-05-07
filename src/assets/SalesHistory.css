@@ -115,6 +115,100 @@
   background: #b91c1c;
 }
 
+.customer-box {
+  min-width: 180px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.customer-box p {
+  margin: 4px 0;
+}
+
+.sales-filter {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+}
+
+.sales-filter input {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+
+.btn-delete {
+  background: #dc2626;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.btn-delete:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.qr-preview {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.qr-popup {
+  position: absolute;
+  top: 0px;
+  left: 90px;
+
+  background: #111827;
+
+  border-radius: 14px;
+
+  padding: 15px;
+
+  transform: translateY(-3px);
+  border-color: #3b82f6;
+  box-shadow: 0 6px 200px rgba(59, 131, 246, 0.336);
+
+  z-index: 999;
+
+  min-width: 280px;
+}
+
+.qr-popup-info {
+  margin-top: 10px;
+}
+
+.qr-popup-info h4 {
+  margin: 0 0 8px;
+}
+
+.qr-popup-info p {
+  margin: 4px 0;
+}
+
+@media (max-width: 768px) {
+
+  .qr-popup {
+
+    position: fixed;
+
+    top: 50%;
+    left: 50%;
+
+    transform: translate(-50%, -50%);
+
+    width: 90%;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
 /* MOBILE */
 @media (max-width: 600px) {
   .sales-table {

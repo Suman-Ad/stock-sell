@@ -28,6 +28,7 @@ const Dashboard = ({ user }) => {
     const [sales, setSales] = useState([]);
     const role = useUserRole();
     const navigate = useNavigate();
+    const [stocks, setStocks] = useState([]);
 
     useEffect(() => {
         if (!auth.currentUser || !role) return;
@@ -53,6 +54,69 @@ const Dashboard = ({ user }) => {
         return () => unsubscribe();
     }, [role]);
 
+    useEffect(() => {
+        if (!auth.currentUser) return;
+
+        const q = collection(db, "stocks");
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            setStocks(snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            })));
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    const totalStockItems = stocks.length;
+
+    let totalStockQty = 0;
+    let totalStockValue = 0;
+    let totalStockExtraCost = 0;
+    let totalSellingValue = 0;
+    let totalExpectedProfit = 0;
+
+    stocks.forEach((item) => {
+
+        const sizes = Array.isArray(item.sizes)
+            ? item.sizes
+            : Object.values(item.sizes || {});
+
+        sizes.forEach((s) => {
+
+            const qty = Number(s?.qty || 0);
+            const buying = Number(s?.buyingPrice || 0);
+            const selling = Number(s?.sellingPrice || 0);
+            const gstPercent = Number(s?.extraCosts?.gst || 0);
+
+            const sellingWithoutGST =
+                selling / (1 + gstPercent / 100);
+
+            const extra =
+                Number(s?.extraCosts?.packaging || 0) +
+                Number(s?.extraCosts?.labeling || 0) +
+                Number(s?.extraCosts?.rto || 0) +
+                Number(s?.extraCosts?.returnCost || 0) +
+                Number(s?.extraCosts?.advertisementCost || 0) +
+                Number(s?.extraCosts?.delivery || 0) +
+                Number(s?.extraCosts?.others || 0);
+
+            totalStockQty += qty;
+
+            totalStockValue += qty * buying;
+
+            totalStockExtraCost += qty * extra;
+
+            totalSellingValue += qty * selling;
+
+            totalExpectedProfit += qty * (
+                sellingWithoutGST - (buying + extra)
+            );
+        });
+    });
+
+    // Filter Salse
     const [filter, setFilter] = useState("all");
 
     const filterSales = () => {
@@ -100,7 +164,15 @@ const Dashboard = ({ user }) => {
         0
     );
 
-    const totalProfit = totalRevenue - totalCost;
+    const totalExtraCost = filteredSales.reduce(
+        (sum, s) => sum + (s.extra || 0),
+        0
+    );
+
+    const totalProfit = filteredSales.reduce(
+        (sum, s) => sum + (s.profit || 0),
+        0
+    );
 
     const profitColor = totalProfit >= 0 ? "#16a34a" : "#dc2626";
 
@@ -189,7 +261,7 @@ const Dashboard = ({ user }) => {
                 {/* Cost */}
                 <div className="stat-card orange">
                     <h4>💸 Cost</h4>
-                    <h2>₹{totalCost.toFixed(2)}</h2>
+                    <h2>₹{(totalCost + totalExtraCost).toFixed(2)}</h2>
                 </div>
 
                 {/* Profit */}
@@ -200,6 +272,37 @@ const Dashboard = ({ user }) => {
                     </h2>
                 </div>
 
+                {/* Stock Items */}
+                <div className="stat-card blue">
+                    <h4>📦 Stock Available</h4>
+                    <h2>{totalStockQty.toFixed(2)}</h2>
+                </div>
+
+                {/* Stock Value */}
+                <div className="stat-card orange">
+                    <h4>💼 Stock Investment</h4>
+                    <h2>₹{totalStockValue.toFixed(2)}</h2>
+                </div>
+
+                {/* Stock Extra Cost */}
+                <div className="stat-card red">
+                    <h4>📦 Extra Cost</h4>
+                    <h2>₹{totalStockExtraCost.toFixed(2)}</h2>
+                </div>
+
+                {/* Stock Sellinng value */}
+                <div className="stat-card green">
+                    <h4>💰 Stock Selling Value</h4>
+                    <h2>₹{totalSellingValue.toFixed(2)}</h2>
+                </div>
+
+                {/* Expected Profit */}
+                <div className={`stat-card ${totalExpectedProfit >= 0 ? "green" : "red"}`}>
+                    <h4>📈 Expected Profit</h4>
+                    <h2>
+                        ₹{totalExpectedProfit.toFixed(2)}
+                    </h2>
+                </div>
             </div>
 
             <div className="filter-bar">
@@ -279,14 +382,14 @@ const Dashboard = ({ user }) => {
                     </thead>
                     <tbody>
                         {filteredSales.slice(0, 5).map((s, i) => {
-                            const profit = (s.sellingPrice || 0) - (s.buyingPrice || 0);
+                            const profit = (s.profit || 0);
                             return (
                                 <tr key={i} style={{ borderBottom: "1px solid #eee" }}>
                                     <td>{s.productName || "N/A"}</td>
-                                    <td>₹{s.sellingPrice}</td>
-                                    <td>₹{s.buyingPrice}</td>
+                                    <td>₹{(s.sellingPrice).toFixed(2)}</td>
+                                    <td>₹{(s.buyingPrice + s.extra).toFixed(2)}</td>
                                     <td style={{ color: profit >= 0 ? "green" : "red" }}>
-                                        ₹{profit}
+                                        ₹{profit.toFixed(2)}
                                     </td>
                                 </tr>
                             );

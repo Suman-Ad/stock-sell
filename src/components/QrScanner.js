@@ -97,7 +97,7 @@ const QRScanner = ({ onScan }) => {
         };
     }, []); // ✅ IMPORTANT: no dependency
 
-    return <div id="reader" style={{ width: "300px" }} />;
+    return <div id="reader" style={{ width: "300px", border: "4px solid #fff" }} />;
 };
 
 export default QRScanner;

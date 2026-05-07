@@ -10,7 +10,8 @@ import {
     deleteDoc,
     addDoc,
     serverTimestamp,
-    writeBatch
+    writeBatch,
+    getDocs
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import StockSummary from "./StockSummary";
@@ -152,7 +153,34 @@ const StockList = ({ user }) => {
             return;
         }
 
-        await deleteDoc(doc(db, "stocks", item.id));
+        try {
+            // 🔥 1. Find all QR linked to this stock
+            const q = query(
+                collection(db, "qrcodes"),
+                where("stockId", "==", item.id)
+            );
+
+            const snapshot = await getDocs(q);
+
+            // 🔥 2. Batch delete all QR
+            const batch = writeBatch(db);
+
+            snapshot.forEach((docSnap) => {
+                batch.delete(docSnap.ref);
+            });
+
+            // 🔥 3. Delete stock itself
+            batch.delete(doc(db, "stocks", item.id));
+
+            // 🔥 4. Commit everything together
+            await batch.commit();
+
+            alert("Stock + QR deleted successfully");
+
+        } catch (err) {
+            console.error(err);
+            alert("Delete failed");
+        }
     };
 
     const getTotalQty = (sizes) => {
@@ -513,8 +541,38 @@ const StockList = ({ user }) => {
                                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "5px" }}>
                                                             <label>Size:- {size}</label>
                                                             <span style={{ marginLeft: "8px" }}>
-                                                                ₹{(data.sellingPrice || 0).toFixed(2)}<small>/Unit</small>
+                                                                <small>Listing Price:</small> ₹{(data.sellingPrice || 0).toFixed(2)}<small>/Unit</small>
                                                             </span>
+                                                            <span>
+                                                                <small>Extra Cost:</small> ₹
+                                                                {(
+                                                                    data.extraCosts.packaging +
+                                                                    data.extraCosts.labeling +
+                                                                    data.extraCosts.rto +
+                                                                    data.extraCosts.returnCost +
+                                                                    data.extraCosts.advertisementCost +
+                                                                    data.extraCosts.delivery +
+                                                                    data.extraCosts.others
+                                                                )}
+                                                                <small>/Unit</small>
+                                                            </span>
+                                                            <span>
+                                                                <small>Gst Amount:</small> ₹
+                                                                {
+                                                                    (((data.buyingPrice * (1 + data.margin / 100)) +
+                                                                        (
+                                                                            data.extraCosts.packaging +
+                                                                            data.extraCosts.labeling +
+                                                                            data.extraCosts.rto +
+                                                                            data.extraCosts.returnCost +
+                                                                            data.extraCosts.advertisementCost +
+                                                                            data.extraCosts.delivery +
+                                                                            data.extraCosts.others
+                                                                        )) * data.extraCosts.gst) / 100
+                                                                }
+                                                                <small>/Unit</small>
+                                                            </span>
+                                                            <span><small>Profit:</small> ₹{(data.buyingPrice * data.margin) / 100}<small>/Unit</small></span>
                                                             {data.sellingPrice <
                                                                 data.buyingPrice && (
                                                                     <span style={{ color: "red", fontSize: "10px" }}>
@@ -553,6 +611,7 @@ const StockList = ({ user }) => {
                                                                 <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Qty:-
                                                                     <button
                                                                         onClick={() => handleReduceStock(item, size, 1)}
+                                                                        style={{ padding: "2px 2px" }}
                                                                     >
                                                                         ➖
                                                                     </button>
@@ -560,9 +619,10 @@ const StockList = ({ user }) => {
                                                                         type="number"
                                                                         value={data.qty}
                                                                         readOnly
-                                                                        style={{ width: "60px", marginLeft: "5px", background: "#eee" }}
+                                                                        style={{ width: "60px", marginLeft: "5px", marginLeft: "2px" }}
                                                                     />
                                                                     <button
+                                                                        style={{ padding: "2px 2px" }}
                                                                         onClick={() => handleAddStock(item, size, 1)}
                                                                     >
                                                                         ➕
@@ -731,14 +791,24 @@ const StockList = ({ user }) => {
 
                         <h3>Scan QR Code</h3>
 
-                        <QRCodeCanvas value={qrPopup.value} size={280} className="print-area" />
+                        <QRCodeCanvas
+                            value={qrPopup.value}
+                            size={280}
+                            className="print-area"
+                            bgColor="#ffffff"   // ✅ white background
+                            fgColor="#000000"   // ✅ black QR
+                            level="H"           // ✅ high error correction
+                            includeMargin={true} />
+
 
                         {/* <p style={{ marginTop: 10 }}>{qrPopup.value}</p> */}
-                        <button onClick={() => window.print()}>Download</button>
+                        <div style={{ padding: "5px 5px" }} >
+                            <button style={{ padding: "2px 5px", margin: "5px" }} onClick={() => window.print()}>Download</button>
 
-                        <button onClick={() => setQrPopup({ open: false, value: "" })}>
-                            Close
-                        </button>
+                            <button style={{ padding: "2px 5px", }} onClick={() => setQrPopup({ open: false, value: "" })}>
+                                Close
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -777,18 +847,24 @@ const StockList = ({ user }) => {
 
                                     return (
                                         <div key={qr.id}
-                                            className="qr-box" style={{width: "220px"}} >
-                                            <div className={`qr-card ${!qr.printed ? "new" : ""}`} style={{width: "210px"}}>
-
-                                                <QRCodeCanvas value={JSON.stringify(qr)} size={200} />
-
-                                                <div>
-                                                    <b>{qr.productType}</b>
+                                            className="qr-box" style={{ width: "170px" }} >
+                                            <div className={`qr-card ${!qr.printed ? "new" : ""}`} style={{ width: "160px", background: !qr.printed ? "" : "white" }}>
+                                                <div style={{ color: !qr.printed ? "" : "black" }} >
+                                                    <b>{qr.productType}</b>-
+                                                    {qr.color}-
+                                                    Size: {qr.size}
                                                 </div>
-                                                <div>{qr.color}</div>
-                                                <div>Size: {qr.size}</div>
-                                                <div>₹{qr.sellingPrice}</div>
-                                                <div>#{qr.unitNo}</div>
+                                                <QRCodeCanvas
+                                                    value={JSON.stringify(qr)}
+                                                    size={150}
+                                                    bgColor="#ffffff"   // ✅ white background
+                                                    fgColor="#000000"   // ✅ black QR
+                                                    level="H"           // ✅ high error correction
+                                                    includeMargin={true}
+                                                />
+                                                <div style={{ color: !qr.printed ? "" : "black" }} >
+                                                    #{qr.unitNo}
+                                                </div>
                                             </div>
                                         </div>
                                     );

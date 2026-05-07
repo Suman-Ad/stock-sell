@@ -70,7 +70,7 @@ input {
   position: fixed;
   inset: 0;
   margin-top: 65px;
-  background: rgba(0,0,0,0.7);
+  background: rgba(0, 0, 0, 0.7);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -139,7 +139,7 @@ input {
 .qr-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.85);
+  background: rgba(0, 0, 0, 0.85);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -151,13 +151,16 @@ input {
   padding: 20px;
   border-radius: 10px;
   text-align: center;
+  transform: translateY(-3px);
+  border-color: #3b82f6;
+  box-shadow: 0 6px 200px rgba(59, 131, 246, 0.336);
 }
 
 /* PRINT MODAL */
 .print-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.9);
+  background: rgba(0, 0, 0, 0.9);
   z-index: 1000;
 }
 
