@@ -41,8 +41,8 @@ const Dashboard = ({ user }) => {
                         userId: item.userId,
                         userName: item.createdBy?.name,
                         userShopName: item.createdBy?.shopName,
-                        userMobile : item.createdBy?.mobile,
-                        userEmail : item.createdBy?.email,
+                        userMobile: item.createdBy?.mobile,
+                        userEmail: item.createdBy?.email,
                     }
                 ])
         ).values()
@@ -276,45 +276,57 @@ const Dashboard = ({ user }) => {
                 </p>
             </div>
 
-            {/* 👤 User Filter */}
-            {(role === "admin" || role === "superadmin") && (
-                <div style={{ marginBottom: "15px" }}>
-                    <select
-                        value={selectedUser}
-                        onChange={(e) => setSelectedUser(e.target.value)}
-                        style={{
-                            padding: "10px",
-                            borderRadius: "8px",
-                            border: "1px solid #ccc",
-                            minWidth: "220px"
-                        }}
-                    >
-                        <option value="all">All Users</option>
+            <div style={{
+                display: "flex",
+                gap: "10px",
+                flexWrap: "wrap",
+                alignItems: "center",
+                marginBottom: "15px",
+                width: "100%"
+            }}>
+                <div className="dashboard-actions" >
+                    <button className="summary-card btn danger" onClick={() => navigate("/sell-product")}>
+                        <strong style={{ fontSize: "20px" }}>📷 Scan Product</strong>
+                    </button>
+                    <p className="summary-card" onClick={() => navigate("/stock-list")}
+                        style={{ cursor: "pointer" }}>Stock Inventory</p>
 
-                        {userList.map((u) => (
-                            <option key={u.userId} value={u.userId}>
-                                {u.userShopName}:({u.userName}-{u.userEmail}-{u.userMobile})
-                            </option>
-                        ))}
-                    </select>
+                    <p className="summary-card" onClick={() => navigate("/sales-history")}
+                        style={{ cursor: "pointer" }}>Sales History</p>
+                    {(user?.role === "superadmin" || user?.role === "admin") &&
+                        (
+                            <p className="summary-card btn primary" onClick={() => navigate("/admin")}
+                                style={{ cursor: "pointer" }}>Admin</p>
+                        )}
                 </div>
-            )}
+                {/* 👤 User Filter */}
+                {(role === "admin" || role === "superadmin") && (
+                    <div style={{ marginBottom: "15px" }}>
+                        <select
+                            value={selectedUser}
+                            onChange={(e) => setSelectedUser(e.target.value)}
+                            style={{
+                                padding: "10px",
+                                borderRadius: "8px",
+                                border: "1px solid #ccc",
+                                flex: "1 1 220px",
+                                minWidth: "0",
+                                maxWidth: "80%"
+                            }}
+                        >
+                            <option value="all">All Users</option>
 
-            <div className="dashboard-actions" >
-                <button className="summary-card btn danger" onClick={() => navigate("/sell-product")}>
-                    <strong style={{ fontSize: "20px" }}>📷 Scan Product</strong>
-                </button>
-                <p className="summary-card" onClick={() => navigate("/stock-list")}
-                    style={{ cursor: "pointer" }}>Stock Inventory</p>
-
-                <p className="summary-card" onClick={() => navigate("/sales-history")}
-                    style={{ cursor: "pointer" }}>Sales History</p>
-                {(user?.role === "superadmin" || user?.role === "admin") &&
-                    (
-                        <p className="summary-card btn primary" onClick={() => navigate("/admin")}
-                            style={{ cursor: "pointer" }}>Admin</p>
-                    )}
+                            {userList.map((u) => (
+                                <option key={u.userId} value={u.userId}>
+                                    {u.userShopName}:({u.userName}-{u.userEmail}-{u.userMobile})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
             </div>
+
+
 
             {/* 🔹 Stats Cards */}
             <div className="dashboard-grid" >

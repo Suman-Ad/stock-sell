@@ -598,7 +598,7 @@ const SellProduct = ({ user }) => {
 
                         </div>
                     )}
-                    
+
                     {stockOwner === auth.currentUser.uid && !scanData.saleHistory && (
                         //CUSTOMER DETAILS
                         <div style={{ padding: "2px 5px" }}>
@@ -623,7 +623,7 @@ const SellProduct = ({ user }) => {
                                         awbNo: e.target.value
                                     })
                                 }
-                                readOnly
+                                // readOnly
                                 style={{ width: "100%", marginBottom: "10px" }}
                             />
 

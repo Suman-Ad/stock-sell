@@ -516,37 +516,49 @@ const StockList = ({ user }) => {
             </>
 
             <h2>Stock List</h2>
-            {/* 👤 User Filter */}
-            {(role === "admin" || role === "superadmin") && (
-                <div style={{ marginBottom: "10px" }}>
-                    <select
-                        value={selectedUser}
-                        onChange={(e) => setSelectedUser(e.target.value)}
-                        style={{
-                            padding: "10px",
-                            borderRadius: "8px",
-                            border: "1px solid #ccc",
-                            minWidth: "250px"
-                        }}
-                    >
-                        <option value="all">All Users</option>
+            <div style={{
+                display: "flex",
+                gap: "10px",
+                flexWrap: "wrap",
+                alignItems: "center",
+                marginBottom: "15px",
+                width: "100%"
+            }}>
+                {/* 👤 User Filter */}
+                {(role === "admin" || role === "superadmin") && (
+                    <div style={{ marginBottom: "10px" }}>
+                        <select
+                            value={selectedUser}
+                            onChange={(e) => setSelectedUser(e.target.value)}
+                            style={{
+                                padding: "10px",
+                                borderRadius: "8px",
+                                border: "1px solid #ccc",
+                                flex: "1 1 220px",
+                                minWidth: "0",
+                                maxWidth: "80%"
+                            }}
+                        >
+                            <option value="all">All Users</option>
 
-                        {userList.map((u) => (
-                            <option key={u.userId} value={u.userId}>
-                                {u.userShopName}:({u.userName}-{u.userEmail}-{u.userMobile})
-                            </option>
-                        ))}
-                    </select>
-                </div>
-            )}
-            <input
-                placeholder="Search by Catalog ID..."
-                value={searchId}
-                onChange={(e) => setSearchId(e.target.value.toUpperCase())}
-                style={{ marginBottom: "15px", padding: "8px", width: "250px" }}
-            />
+                            {userList.map((u) => (
+                                <option key={u.userId} value={u.userId}>
+                                    {u.userShopName}:({u.userName}-{u.userEmail}-{u.userMobile})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+                <input
+                    placeholder="Search by Catalog ID..."
+                    value={searchId}
+                    onChange={(e) => setSearchId(e.target.value.toUpperCase())}
+                    style={{ marginBottom: "15px", padding: "8px", width: "250px" }}
+                    className="summary-card"
+                />
+            </div>
             <div className="table-wrapper">
-                <table className="stock-table" border="1" cellPadding="10" style={{ borderCollapse: "collapse", overflowX: "auto", display: "block", width: "100%" }}>
+                <table className="stock-table" border="1" cellPadding="10" >
                     <thead>
                         <tr>
                             {isAdmin && (
