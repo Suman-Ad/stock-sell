@@ -1,235 +1,4 @@
-// import React, { useState } from "react";
-// import QRScanner from "../components/QrScanner";
-// import { db, auth } from "../firebase";
-// import { doc, getDoc, updateDoc, addDoc, collection, query, where, getDocs, serverTimestamp } from "firebase/firestore";
-
-// const SellProduct = ({ user }) => {
-//     const [scanData, setScanData] = useState(null);
-//     const [loading, setLoading] = useState(false);
-//     const [scanned, setScanned] = useState(false);
-//     const [stockOwner, setStockOwner] = useState(null);
-
-//     // const handleScan = async (result) => {
-//     //     if (!result) return;
-
-//     //     try {
-//     //         const data = JSON.parse(result?.text);
-//     //         setScanData(data);
-//     //     } catch {
-//     //         alert("Invalid QR");
-//     //     }
-//     // };
-
-//     const handleScanData = async (text) => {
-//         try {
-//             const data = JSON.parse(text);
-
-//             if (!data.stockId) {
-//                 alert("Invalid QR");
-//                 return;
-//             }
-
-//             const docRef = doc(db, "stocks", data.stockId);
-//             const docSnap = await getDoc(docRef);
-
-//             if (!docSnap.exists()) {
-//                 alert("Stock not found!");
-//                 return;
-//             }
-
-//             const stock = docSnap.data();
-
-//             // ✅ SET OWNER HERE (before confirm)
-//             setStockOwner(stock.userId);
-
-//             setScanData(data);
-//             setScanned(true);
-
-//         } catch {
-//             alert("Invalid QR");
-//         }
-//     };
-
-//     const confirmSale = async (data) => {
-//         if (!window.confirm("Confirm Sale?")) return;
-
-//         setLoading(true);
-
-//         try {
-//             if (!data.stockId) {
-//                 alert("Invalid QR (missing stock reference)");
-//                 return;
-//             }
-
-//             const docRef = doc(db, "stocks", data.stockId);
-//             const docSnap = await getDoc(docRef);
-
-//             if (!docSnap.exists()) {
-//                 alert("Stock not found!");
-//                 return;
-//             }
-
-//             const saleCheck = query(
-//                 collection(db, "sales"),
-//                 where("uniqueId", "==", data.uniqueId)
-//             );
-
-//             const existing = await getDocs(saleCheck);
-
-//             if (!existing.empty) {
-//                 alert("❌ This item is already sold!");
-//                 setLoading(false);
-//                 return;
-//             }
-
-//             const qrQuery = query(
-//                 collection(db, "qrcodes"),
-//                 where("uniqueId", "==", data.uniqueId)
-//             );
-
-//             const qrSnap = await getDocs(qrQuery);
-
-//             if (qrSnap.empty) {
-//                 alert("QR not found!");
-//                 return;
-//             }
-
-//             // get QR doc
-//             const qrDoc = qrSnap.docs[0];
-
-//             // ❌ Prevent double sell at QR level
-//             if (qrDoc.data().status === "sold") {
-//                 alert("❌ Already Sold!");
-//                 return;
-//             }
-
-//             const stock = docSnap.data();
-
-//             // 🔥 NEW: OWNERSHIP CHECK
-//             const currentUser = auth.currentUser;
-
-//             if (stock.userId !== currentUser.uid) {
-//                 alert("❌ You can only sell your own product!");
-//                 return;
-//             }
-
-//             const sizes = { ...stock.sizes };
-//             const currentSize = sizes[data.size];
-
-//             if (!currentSize || currentSize.qty <= 0) {
-//                 alert("Out of stock!");
-//                 return;
-//             }
-
-//             const buyingPrice = Number(currentSize.buyingPrice || 0);
-//             // const sellingPrice = Number(data.sellingPrice || 0);
-
-//             // extra cost
-//             const extraCosts = currentSize.extraCosts  || {};
-//             const extra =
-//                 Number(extraCosts.packaging || 0) +
-//                 Number(extraCosts.labeling || 0) +
-//                 Number(extraCosts.rto || 0) +
-//                 Number(extraCosts.returnCost || 0) +
-//                 Number(extraCosts.advertisementCost || 0) +
-//                 Number(extraCosts.delivery || 0) +
-//                 Number(extraCosts.others || 0);
-
-//             // // GST
-//             // const gstPercent = Number(extraCosts.gst  || 0);
-//             // const gstAmount = ((buyingPrice + extra) * gstPercent) / 100;
-
-//             // ✅ FINAL PROFIT (FOR 1 ITEM ONLY)
-//             const profit = (buyingPrice * Number(currentSize.margin)) / 100;
-
-//             currentSize.qty -= 1;
-
-//             await updateDoc(docRef, { sizes });
-
-//             await addDoc(collection(db, "sales"), {
-//                 ...data,
-//                 qrId: data.id,
-//                 buyingPrice,
-//                 profit,
-//                 extra,
-//                 userId: currentUser.uid,
-//                 soldAt: serverTimestamp()
-//             });
-
-//             await updateDoc(doc(db, "qrcodes", qrDoc.id), {
-//                 status: "sold",
-//                 soldAt: serverTimestamp()
-//             });
-
-//             alert("✅ Sold successfully!");
-
-//             setScanData(null);
-//             setScanned(false);
-
-//         } catch (err) {
-//             alert(err.message);
-//         }
-
-//         setLoading(false);
-//     };
-
-//     return (
-//         <div style={{ padding: "20px" }}>
-//             <h2>📷 Scan to Sell</h2>
-
-//             {scanned && (
-//                 <button onClick={() => {
-//                     setScanData(null);
-//                     setScanned(false);
-//                 }}>
-//                     🔄 Scan Again
-//                 </button>
-//             )}
-//             {!scanned && (
-//                 <QRScanner onScan={handleScanData} />
-//             )}
-
-//             {scanData && (
-//                 <div style={{ marginTop: "20px", border: "1px solid #ccc", padding: "15px" }}>
-
-//                     <h3>Product Details</h3>
-//                     <p>
-//                         Owner:{" "}
-//                         <b style={{
-//                             color:
-//                                 stockOwner === null
-//                                     ? "gray"
-//                                     : stockOwner === auth.currentUser.uid
-//                                         ? "green"
-//                                         : "red"
-//                         }}>
-//                             {stockOwner === null
-//                                 ? "Checking..."
-//                                 : stockOwner === auth.currentUser.uid
-//                                     ? "You"
-//                                     : "Another User"}
-//                         </b>
-//                     </p>
-//                     <p><b>{scanData.productName}</b></p>
-//                     <p>Size: {scanData.size}</p>
-//                     <p>Price: ₹{scanData.sellingPrice}</p>
-
-//                     <button
-//                         disabled={stockOwner !== auth.currentUser.uid}
-//                         onClick={() => confirmSale(scanData)}
-//                     >
-//                         ✅ Confirm Sale
-//                     </button>
-//                 </div>
-//             )}
-//         </div>
-//     );
-// };
-
-// export default SellProduct;
-
-
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import QRScanner from "../components/QrScanner";
 import { db, auth } from "../firebase";
 import {
@@ -249,6 +18,10 @@ const SellProduct = ({ user }) => {
 
     // PRODUCT
     const [scanData, setScanData] = useState(null);
+    const scannerInputRef = useRef(null);
+    const scanLock = useRef(false);
+    const [scanMode, setScanMode] = useState("device");
+    const [scannerValue, setScannerValue] = useState("");
     const [loading, setLoading] = useState(false);
     const [scanned, setScanned] = useState(false);
     const [stockOwner, setStockOwner] = useState(null);
@@ -270,7 +43,8 @@ const SellProduct = ({ user }) => {
     const handleScanData = async (text) => {
 
         try {
-            const data = JSON.parse(text);
+            const cleanedText = text.trim();
+            const data = JSON.parse(cleanedText);
 
             if (!data.stockId) {
                 alert("Invalid Product QR");
@@ -336,7 +110,8 @@ const SellProduct = ({ user }) => {
 
         try {
 
-            const data = JSON.parse(text);
+            const cleanedText = text.trim();
+            const data = JSON.parse(cleanedText);
 
             setCustomer({
                 name: data.name || "",
@@ -505,10 +280,83 @@ const SellProduct = ({ user }) => {
         setLoading(false);
     };
 
+    useEffect(() => {
+
+        if (
+            document.activeElement.tagName !== "INPUT" &&
+            document.activeElement.tagName !== "TEXTAREA"
+        ) {
+            scannerInputRef.current?.focus();
+        }
+
+    }, [scanned]);
+
+    const handleScannerKeyDown = async (e) => {
+
+        if (e.key === "Enter") {
+
+            e.preventDefault();
+
+            if (scanLock.current) return;
+
+            scanLock.current = true;
+
+            const value = scannerValue.trim();
+
+            if (!value) {
+                scanLock.current = false;
+                return;
+            }
+
+            await handleScanData(value);
+
+            setScannerValue("");
+
+            setTimeout(() => {
+                scanLock.current = false;
+            }, 500);
+        }
+    };
+
+
     return (
         <div style={{ padding: "20px" }}>
 
             <h2>📷 Scan Product</h2>
+
+            <div
+                style={{
+                    display: "flex",
+                    gap: "10px",
+                    marginBottom: "15px"
+                }}
+            >
+
+                <button
+                    onClick={() => setScanMode("device")}
+                    style={{
+                        background:
+                            scanMode === "device"
+                                ? "#4caf50"
+                                : "#ddd"
+                    }}
+                >
+                    [ 🔳 ] Device Scanner
+                </button>
+
+                <button
+                    onClick={() => setScanMode("camera")}
+                    style={{
+                        background:
+                            scanMode === "camera"
+                                ? "#2196f3"
+                                : "#ddd"
+                    }}
+                >
+                    <img src="/gemini-svg.svg" alt="Scan QR" />
+                </button>
+
+            </div>
 
             {/* SCAN AGAIN */}
             {scanned && (
@@ -522,9 +370,60 @@ const SellProduct = ({ user }) => {
                 </button>
             )}
 
-            {/* PRODUCT SCANNER */}
-            {!scanned && (
+
+
+            {/* PRODUCT Camera SCANNER */}
+            {!scanned && scanMode === "camera" && (
                 <QRScanner onScan={handleScanData} />
+            )}
+
+            {/* PRODUCT Device SCANNER */}
+            {!scanned && scanMode === "device" && (
+
+                <div
+                    style={{
+                        border: "2px dashed #4caf50",
+                        padding: "30px",
+                        borderRadius: "12px",
+                        textAlign: "center",
+                        background: "#101828",
+                        marginBottom: "20px"
+                    }}
+                >
+
+                    <h2 style={{ color: "#4caf50" }}>
+                        [ 🔳 ] Hardware Scanner Ready
+                    </h2>
+
+                    <p style={{ color: "#aaa" }}>
+                        Scan Product QR using USB/Bluetooth Scanner
+                    </p>
+
+                    <div
+                        style={{
+                            marginTop: "15px",
+                            fontSize: "14px",
+                            color: "#00ff99"
+                        }}
+                    >
+                        Waiting for scan...
+                    </div>
+
+                    <input
+                        ref={scannerInputRef}
+                        type="text"
+                        value={scannerValue}
+                        onChange={(e) => setScannerValue(e.target.value)}
+                        onKeyDown={handleScannerKeyDown}
+                        autoFocus
+                        style={{
+                            position: "absolute",
+                            top: "-1000px",
+                            left: "-1000px"
+                        }}
+                    />
+
+                </div>
             )}
 
             {/* PRODUCT DETAILS */}
@@ -537,6 +436,9 @@ const SellProduct = ({ user }) => {
                         padding: "15px"
                     }}
                 >
+                    <div style={{ color: "#4caf50" }}>
+                        ✅ Product Scanned
+                    </div>
 
                     <h3>Product Details</h3>
 
@@ -577,6 +479,9 @@ const SellProduct = ({ user }) => {
                                 background: "#27234d"
                             }}
                         >
+                            <div style={{ color: "red" }}>
+                                ❌ Already Sold
+                            </div>
                             <h3>📜 Sell History</h3>
 
                             <p>

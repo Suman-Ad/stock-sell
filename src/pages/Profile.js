@@ -169,8 +169,168 @@ const Profile = () => {
                 <br /><br />
 
                 {/* ✅ Subscription */}
-                <h4>Subscription</h4>
-                <p>{userData.subscription?.plan} ({userData.subscription?.status})</p>
+                {/* =========================
+   SUBSCRIPTION SECTION
+========================= */}
+
+                <div className="subscription-card">
+
+                    <div className="subscription-header">
+
+                        <div>
+
+                            <h3>
+                                Subscription Plan
+                            </h3>
+
+                            <p>
+                                Manage your active subscription
+                            </p>
+
+                        </div>
+
+                        <div
+                            className={
+                                userData.subscription?.status === "active"
+                                    ? "plan-badge active"
+                                    : "plan-badge expired"
+                            }
+                        >
+
+                            {
+                                userData.subscription?.status || "inactive"
+                            }
+
+                        </div>
+
+                    </div>
+
+                    {/* PLAN */}
+
+                    <div className="subscription-plan">
+
+                        <h2>
+
+                            {
+                                userData.subscription?.planId?.toUpperCase() || "FREE"
+                            }
+
+                        </h2>
+
+                    </div>
+
+                    {/* DATES */}
+
+                    <div className="subscription-grid">
+
+                        <div className="subscription-item">
+
+                            <span>
+                                Start Date
+                            </span>
+
+                            <strong>
+
+                                {
+                                    userData.subscription?.startDate
+                                        ?.toDate?.()
+                                        ?.toLocaleDateString?.() || "N/A"
+                                }
+
+                            </strong>
+
+                        </div>
+
+                        <div className="subscription-item">
+
+                            <span>
+                                Expiry Date
+                            </span>
+
+                            <strong>
+
+                                {
+                                    userData.subscription?.endDate
+                                        ?.toDate?.()
+                                        ?.toLocaleDateString?.() || "N/A"
+                                }
+
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                    {/* FEATURES */}
+
+                    <div
+                        style={{
+                            marginTop: "20px"
+                        }}
+                    >
+
+                        <h4
+                            style={{
+                                color: "#fff",
+                                marginBottom: "15px"
+                            }}
+                        >
+
+                            Plan Features
+
+                        </h4>
+
+                        <div className="feature-list">
+
+                            <div>
+                                ✅ Stock Management
+                            </div>
+
+                            <div>
+                                ✅ QR Code System
+                            </div>
+
+                            <div>
+                                ✅ Sales Tracking
+                            </div>
+
+                            {
+                                userData.subscription?.planId !== "free" && (
+
+                                    <>
+                                        <div>
+                                            ✅ Excel Export
+                                        </div>
+
+                                        <div>
+                                            ✅ Bulk QR Print
+                                        </div>
+
+                                        <div>
+                                            ✅ Advanced Reports
+                                        </div>
+                                    </>
+                                )
+                            }
+
+                        </div>
+
+                    </div>
+
+                    {/* ACTION */}
+
+                    <button
+                        className="subscription-btn"
+                        onClick={() =>
+                            window.location.href = "/plans"
+                        }
+                    >
+
+                        Upgrade Plan
+
+                    </button>
+
+                </div>
 
                 <br />
 

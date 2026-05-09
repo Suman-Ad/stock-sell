@@ -1,342 +1,3 @@
-// import React, { useEffect, useState } from "react";
-// import { db } from "../firebase";
-// import {
-//   collection,
-//   onSnapshot,
-//   doc,
-//   updateDoc,
-//   query,
-//   deleteDoc
-// } from "firebase/firestore";
-
-// const hasHigherRole = (currentUser, targetUser) => {
-//   const roles = { user: 1, admin: 2, superadmin: 3 };
-//   return roles[currentUser.role] > roles[targetUser.role];
-// };
-
-// const AdminDashboard = ({ user }) => {
-//   const [users, setUsers] = useState([]);
-//   const [selectedUser, setSelectedUser] = useState(null);
-//   const [userStocks, setUserStocks] = useState([]);
-//   const [editMode, setEditMode] = useState(false);
-//   const [editData, setEditData] = useState({});
-
-//   // 🔥 Load users
-//   useEffect(() => {
-//     const unsubscribe = onSnapshot(query(collection(db, "users")), (snapshot) => {
-//       const data = snapshot.docs.map(doc => ({
-//         id: doc.id,
-//         ...doc.data()
-//       }));
-//       setUsers(data);
-//     });
-
-//     return () => unsubscribe();
-//   }, []);
-
-//   // 🔥 Load selected user stocks
-//   useEffect(() => {
-//     if (!selectedUser) return;
-
-//     const unsubscribe = onSnapshot(query(collection(db, "stocks")), (snapshot) => {
-//       const data = snapshot.docs
-//         .map(doc => ({ id: doc.id, ...doc.data() }))
-//         .filter(s => s.userId === selectedUser.id);
-
-//       setUserStocks(data);
-//     });
-
-//     return () => unsubscribe();
-//   }, [selectedUser]);
-
-//   // 🔧 Common validations
-//   const canModify = (u) => {
-//     if (user.id === u.id) return false;
-//     if (u.role === "superadmin" && user.role !== "superadmin") return false;
-//     return true;
-//   };
-
-//   // ✅ Actions
-//   const toggleUserStatus = async (u) => {
-//     if (!canModify(u)) return alert("Permission denied!");
-//     await updateDoc(doc(db, "users", u.id), {
-//       isActive: !u.isActive
-//     });
-//   };
-
-//   const promoteUser = async (u) => {
-//     if (!canModify(u)) return alert("Permission denied!");
-//     await updateDoc(doc(db, "users", u.id), { role: "admin" });
-//   };
-
-//   const demoteUser = async (u) => {
-//     if (!canModify(u)) return alert("Permission denied!");
-//     await updateDoc(doc(db, "users", u.id), { role: "user" });
-//   };
-
-//   const deleteUser = async (u) => {
-//     if (!canModify(u)) return alert("Permission denied!");
-//     if (!window.confirm("Delete this user permanently?")) return;
-
-//     await deleteDoc(doc(db, "users", u.id));
-//     if (selectedUser?.id === u.id) setSelectedUser(null);
-//   };
-
-//   const startEdit = (u) => {
-//     setEditMode(true);
-//     setEditData(u);
-//   };
-
-//   const saveEdit = async () => {
-//     await updateDoc(doc(db, "users", editData.id), {
-//       name: editData.name,
-//       shopName: editData.shopName,
-//       address: editData.address,
-//       pin: editData.pin
-//     });
-//     setEditMode(false);
-//   };
-
-//   return (
-//     <div className="admin-container">
-
-//       <h2 className="title">⚙️ Admin Dashboard</h2>
-
-//       <div className="layout">
-
-//         {/* 🔵 USER LIST */}
-//         <div className="user-list">
-//           <h3>Users</h3>
-
-//           {users.map(u => (
-//             <div
-//               key={u.id}
-//               className={`user-card ${selectedUser?.id === u.id ? "active" : ""}`}
-//               onClick={() => setSelectedUser(u)}
-//             >
-//               <div className="user-info">
-//                 <b>{u.name}</b>
-//                 <span>{u.email}</span>
-//                 <span className="meta">
-//                   {u.role} • {u.isActive ? "🟢 Active" : "🔴 Inactive"}
-//                 </span>
-//               </div>
-
-//               <div className="actions">
-//                 <button onClick={(e) => { e.stopPropagation(); toggleUserStatus(u); }}>
-//                   {u.isActive ? "Deactivate" : "Activate"}
-//                 </button>
-
-//                 <button
-//                   disabled={!hasHigherRole(user, u)}
-//                   onClick={(e) => { e.stopPropagation(); promoteUser(u); }}
-//                 >
-//                   Promote
-//                 </button>
-
-//                 <button onClick={(e) => { e.stopPropagation(); demoteUser(u); }}>
-//                   Demote
-//                 </button>
-
-//                 <button onClick={(e) => { e.stopPropagation(); startEdit(u); }}>
-//                   Edit
-//                 </button>
-
-//                 <button
-//                   className="danger"
-//                   onClick={(e) => { e.stopPropagation(); deleteUser(u); }}
-//                 >
-//                   Delete
-//                 </button>
-//               </div>
-//             </div>
-//           ))}
-//         </div>
-
-//         {/* 🟢 DETAILS */}
-//         <div className="details">
-//           {selectedUser ? (
-//             <>
-//               <h3>User Details</h3>
-
-//               {editMode ? (
-//                 <div className="form">
-//                   <input
-//                     value={editData.name}
-//                     onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-//                     placeholder="Name"
-//                   />
-//                   <input
-//                     value={editData.shopName}
-//                     onChange={(e) => setEditData({ ...editData, shopName: e.target.value })}
-//                     placeholder="Shop Name"
-//                   />
-//                   <textarea
-//                     value={editData.address}
-//                     onChange={(e) => setEditData({ ...editData, address: e.target.value })}
-//                     placeholder="Address"
-//                   />
-//                   <input
-//                     value={editData.pin}
-//                     onChange={(e) => setEditData({ ...editData, pin: e.target.value })}
-//                     placeholder="PIN"
-//                   />
-
-//                   <div className="form-actions">
-//                     <button onClick={saveEdit}>Save</button>
-//                     <button className="secondary" onClick={() => setEditMode(false)}>Cancel</button>
-//                   </div>
-//                 </div>
-//               ) : (
-//                 <div className="info-box">
-//                   <p><b>Name:</b> {selectedUser.name}</p>
-//                   <p><b>Email:</b> {selectedUser.email}</p>
-//                   <p><b>Shop:</b> {selectedUser.shopName}</p>
-//                   <p><b>Address:</b> {selectedUser.address}</p>
-//                   <p><b>PIN:</b> {selectedUser.pin}</p>
-//                   <p><b>Role:</b> {selectedUser.role}</p>
-//                   <p><b>Status:</b> {selectedUser.isActive ? "Active" : "Inactive"}</p>
-
-//                   <h4>Subscription</h4>
-//                   <pre>{JSON.stringify(selectedUser.subscription, null, 2)}</pre>
-//                 </div>
-//               )}
-
-//               <h4>User Stocks</h4>
-//               <div className="stocks">
-//                 {userStocks.map(stock => (
-//                   <div key={stock.id} className="stock-card">
-//                     <b>{stock.catalogId}</b>
-
-//                     {Object.entries(stock.sizes || {}).map(([size, data]) => (
-//                       <div key={size}>
-//                         {size} → Qty: {data.qty} | ₹{data.sellingPrice}
-//                       </div>
-//                     ))}
-//                   </div>
-//                 ))}
-//               </div>
-//             </>
-//           ) : (
-//             <p>Select a user to view details</p>
-//           )}
-//         </div>
-//       </div>
-
-//       {/* 🎨 CSS */}
-//       <style>{`
-//         .admin-container {
-//           padding: 20px;
-//           font-family: 'Segoe UI', sans-serif;
-//           background: #f5f7fb;
-//         }
-
-//         .title {
-//           margin-bottom: 20px;
-//         }
-
-//         .layout {
-//           display: flex;
-//           gap: 20px;
-//         }
-
-//         .user-list {
-//           width: 35%;
-//           max-height: 80vh;
-//           overflow-y: auto;
-//         }
-
-//         .user-card {
-//           background: #fff;
-//           padding: 12px;
-//           border-radius: 10px;
-//           margin-bottom: 10px;
-//           cursor: pointer;
-//           box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-//           transition: 0.2s;
-//         }
-
-//         .user-card:hover {
-//           transform: translateY(-2px);
-//         }
-
-//         .user-card.active {
-//           border: 2px solid #4f46e5;
-//         }
-
-//         .user-info span {
-//           display: block;
-//           font-size: 12px;
-//           color: #666;
-//         }
-
-//         .meta {
-//           margin-top: 4px;
-//         }
-
-//         .actions {
-//           margin-top: 10px;
-//           display: flex;
-//           flex-wrap: wrap;
-//           gap: 5px;
-//         }
-
-//         button {
-//           padding: 5px 8px;
-//           border: none;
-//           border-radius: 6px;
-//           background: #4f46e5;
-//           color: white;
-//           cursor: pointer;
-//           font-size: 12px;
-//         }
-
-//         button:hover {
-//           opacity: 0.9;
-//         }
-
-//         button.secondary {
-//           background: gray;
-//         }
-
-//         button.danger {
-//           background: #dc2626;
-//         }
-
-//         .details {
-//           width: 65%;
-//           background: #fff;
-//           padding: 20px;
-//           border-radius: 12px;
-//           box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-//           max-height: 80vh;
-//           overflow-y: auto;
-//         }
-
-//         .form input, .form textarea {
-//           width: 100%;
-//           margin-bottom: 10px;
-//           padding: 8px;
-//           border-radius: 6px;
-//           border: 1px solid #ccc;
-//         }
-
-//         .form-actions {
-//           display: flex;
-//           gap: 10px;
-//         }
-
-//         .stock-card {
-//           border-bottom: 1px solid #eee;
-//           padding: 8px 0;
-//         }
-//       `}</style>
-//     </div>
-//   );
-// };
-
-// export default AdminDashboard;
-
 // 🚀 ENTERPRISE ADMIN PANEL (Full Featured)
 // Features: Search, Filter, Analytics, Pagination, Role Mgmt, User Detail Panel, Actions
 
@@ -348,8 +9,12 @@ import {
   doc,
   updateDoc,
   query,
-  deleteDoc
+  deleteDoc,
+  getDocs,
+  where,
+  Timestamp
 } from "firebase/firestore";
+import SubscriptionManager from "./SubscriptionManager";
 
 const rolesColor = {
   user: "#6b7280",
@@ -365,6 +30,8 @@ const AdminDashboard = ({ user }) => {
   const [search, setSearch] = useState("");
   const [filterRole, setFilterRole] = useState("all");
   const [page, setPage] = useState(1);
+  const [showPlan, setShowPlan] = useState(false);
+  const [subscriptionRequests, setSubscriptionRequests] = useState({});
 
   // 🔥 Load Users
   useEffect(() => {
@@ -403,7 +70,7 @@ const AdminDashboard = ({ user }) => {
     const total = users.length;
     const active = users.filter(u => u.isActive).length;
     const admins = users.filter(u => u.role === "admin").length;
-    const revenue = users.reduce((sum, u) => sum + (u.subscription?.amount || 0), 0);
+    const revenue = users.reduce((sum, u) => sum + (u.subscription?.price || 0), 0);
     return { total, active, admins, revenue };
   }, [users]);
 
@@ -425,6 +92,162 @@ const AdminDashboard = ({ user }) => {
     setSelectedUser(null);
   };
 
+  // ✅ APPROVE SUBSCRIPTION
+  // const approveRequest = async (req) => {
+
+  //   try {
+
+  //     const startDate = new Date();
+
+  //     const endDate = new Date();
+
+  //     endDate.setDate(
+  //       endDate.getDate() + (req.duration || 30)
+  //     );
+
+  //     // UPDATE USER SUBSCRIPTION
+  //     await updateDoc(
+  //       doc(db, "users", req.userId),
+  //       {
+  //         subscription: {
+  //           planId: req.planId,
+  //           planName: req.planName,
+  //           price: req.price,
+  //           features: req.features || {},
+  //           durationDays: req.duration || 30,
+
+  //           billingCycle: "monthly",
+  //           currency: "INR",
+
+  //           maxProducts: req.maxProducts || -1,
+  //           maxUsers: req.maxUsers || -1,
+
+  //           paymentMethod: req.paymentMethod || "UPI",
+  //           paymentStatus: "paid",
+
+  //           transactionId: req.transactionId || "",
+
+  //           startDate,
+  //           endDate,
+
+  //           status: "active",
+  //           autoRenew: false,
+
+  //           updatedAt: Timestamp.now()
+  //         }
+  //       }
+  //     );
+
+  //     // UPDATE REQUEST STATUS
+  //     await updateDoc(
+  //       doc(db, "subscriptionRequests", req.id),
+  //       {
+  //         status: "approved",
+  //         approvedAt: Timestamp.now()
+  //       }
+  //     );
+
+  //     alert("Subscription Approved");
+
+  //   } catch (err) {
+
+  //     console.log(err);
+
+  //     alert(err.message);
+
+  //   }
+  // };
+
+  // // ❌ REJECT REQUEST
+  // const rejectRequest = async (req) => {
+
+  //   try {
+
+  //     const confirmReject =
+  //       window.confirm(
+  //         "Reject this request?"
+  //       );
+
+  //     if (!confirmReject) return;
+
+  //     await updateDoc(
+  //       doc(db, "subscriptionRequests", req.id),
+  //       {
+  //         status: "rejected",
+  //         rejectedAt: Timestamp.now()
+  //       }
+  //     );
+
+  //     alert("Request Rejected");
+
+  //   } catch (err) {
+
+  //     console.log(err);
+
+  //     alert(err.message);
+
+  //   }
+  // };
+
+  // 🗑 DELETE REQUEST
+  // const deleteRequest = async (reqId) => {
+
+  //   try {
+
+  //     const confirmDelete =
+  //       window.confirm(
+  //         "Delete this request?"
+  //       );
+
+  //     if (!confirmDelete) return;
+
+  //     await deleteDoc(
+  //       doc(db, "subscriptionRequests", reqId)
+  //     );
+
+  //   } catch (err) {
+
+  //     console.log(err);
+
+  //     alert(err.message);
+
+  //   }
+  // };
+
+  // 🔔 REALTIME SUBSCRIPTION REQUESTS
+  useEffect(() => {
+
+    const unsub = onSnapshot(
+      collection(db, "subscriptionRequests"),
+      (snap) => {
+
+        const grouped = {};
+
+        snap.docs.forEach(d => {
+
+          const data = {
+            id: d.id,
+            ...d.data()
+          };
+
+          if (!grouped[data.userId]) {
+            grouped[data.userId] = [];
+          }
+
+          grouped[data.userId].push(data);
+
+        });
+
+        setSubscriptionRequests(grouped);
+
+      }
+    );
+
+    return () => unsub();
+
+  }, []);
+
+  
   return (
     <div className="container">
 
@@ -435,6 +258,14 @@ const AdminDashboard = ({ user }) => {
         <div className="card">🧑‍💼 {analytics.admins} Admins</div>
         <div className="card">💰 ₹{analytics.revenue}</div>
       </div>
+
+      <div>
+        <button onClick={() => setShowPlan(!showPlan)}>Subscription Manager</button>
+      </div>
+
+      {showPlan && (
+        <SubscriptionManager />
+      )}
 
       {/* 🔍 CONTROLS */}
       <div className="controls">
@@ -466,6 +297,28 @@ const AdminDashboard = ({ user }) => {
               </span>
 
               <p>{u.isActive ? "🟢 Active" : "🔴 Inactive"}</p>
+
+              {/* SUBSCRIPTION REQUEST */}
+              {
+                subscriptionRequests[u.id]?.some(
+                  r => r.status === "pending"
+                ) && (
+                  <div
+                    style={{
+                      marginTop: "8px",
+                      background: "#f59e0b",
+                      color: "#000",
+                      padding: "5px 10px",
+                      borderRadius: "8px",
+                      fontSize: "11px",
+                      fontWeight: "bold",
+                      display: "inline-block"
+                    }}
+                  >
+                    🔔 Subscription Request
+                  </div>
+                )
+              }
             </div>
           ))}
         </div>
@@ -567,6 +420,64 @@ const AdminDashboard = ({ user }) => {
                     </button>
                   </div>
 
+                  {/* REQUESTS */}
+                  <h4 style={{ marginTop: "20px" }}>
+                    Subscription Requests
+                  </h4>
+
+                  {
+                    subscriptionRequests[selectedUser.id]?.length > 0 ? (
+
+                      subscriptionRequests[selectedUser.id].map(req => (
+
+                        <div
+                          key={req.id}
+                          style={{
+                            background: "#1e293b",
+                            padding: "10px",
+                            borderRadius: "10px",
+                            marginBottom: "10px",
+                            border: "1px solid #334155"
+                          }}
+                        >
+
+                          <p>
+                            <b>Plan:</b> {req.planName}
+                          </p>
+
+                          <p>
+                            <b>Price:</b> ₹{req.price}
+                          </p>
+
+                          <p>
+                            <b>Status:</b> {req.status}
+                          </p>
+
+                          {
+                            req.paymentImage && (
+                              <a
+                                href={req.paymentImage}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{
+                                  color: "#60a5fa",
+                                  fontSize: "12px"
+                                }}
+                              >
+                                View Payment Screenshot
+                              </a>
+                            )
+                          }
+
+                        </div>
+                      ))
+
+                    ) : (
+
+                      <p>No subscription requests</p>
+
+                    )
+                  }
                   <h4>Subscription</h4>
                   <pre>
                     {JSON.stringify(selectedUser.subscription, null, 2)}

@@ -1,0 +1,179 @@
+/* ==============================
+   AUTH PAGE
+============================== */
+
+.auth-container{
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:20px;
+
+    background:
+        linear-gradient(
+            rgba(0,0,0,0.65),
+            rgba(0,0,0,0.65)
+        ),
+        url("./StockSellLogin.jpg")
+        center/cover
+        no-repeat;
+}
+
+/* ==============================
+   BOX
+============================== */
+
+.auth-box {
+    width: 100%;
+    max-width: 450px;
+    background: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 24px;
+    padding: 35px 28px;
+    box-shadow:
+        0 10px 40px rgba(0, 0, 0, 0.4);
+}
+
+/* ==============================
+   TITLE
+============================== */
+
+.auth-box h2 {
+    text-align: center;
+    color: white;
+    font-size: 32px;
+    margin-bottom: 10px;
+    font-weight: 700;
+}
+
+.auth-subtitle {
+    text-align: center;
+    color: #cbd5e1;
+    margin-bottom: 30px;
+    font-size: 14px;
+}
+
+/* ==============================
+   INPUTS
+============================== */
+
+.auth-box input,
+.auth-box textarea {
+    width: 100%;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+    outline: none;
+    font-size: 15px;
+    transition: 0.25s;
+    box-sizing: border-box;
+}
+
+.auth-box textarea {
+    min-height: 90px;
+    resize: vertical;
+}
+
+.auth-box input::placeholder,
+.auth-box textarea::placeholder {
+    color: #94a3b8;
+}
+
+.auth-box input:focus,
+.auth-box textarea:focus {
+    border-color: #3b82f6;
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow:
+        0 0 0 4px rgba(59, 130, 246, 0.15);
+}
+
+/* ==============================
+   PASSWORD CHECKBOX
+============================== */
+
+.checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #cbd5e1;
+    font-size: 14px;
+    margin-bottom: 18px;
+}
+
+.checkbox-row input {
+    width: auto;
+    margin: 0;
+}
+
+/* ==============================
+   BUTTON
+============================== */
+
+.auth-btn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 14px;
+    background:
+        linear-gradient(135deg,
+            #2563eb,
+            #1d4ed8);
+    color: white;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.25s;
+}
+
+.auth-btn:hover {
+    transform: translateY(-2px);
+    box-shadow:
+        0 10px 20px rgba(37, 99, 235, 0.35);
+}
+
+.auth-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ==============================
+   FOOTER
+============================== */
+
+.auth-footer {
+    margin-top: 24px;
+    text-align: center;
+    color: #cbd5e1;
+    font-size: 14px;
+}
+
+.auth-footer a {
+    color: #60a5fa;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.auth-footer a:hover {
+    text-decoration: underline;
+}
+
+/* ==============================
+   MOBILE
+============================== */
+
+@media(max-width:600px) {
+
+    .auth-box {
+        padding: 25px 18px;
+        border-radius: 18px;
+    }
+
+    .auth-box h2 {
+        font-size: 26px;
+    }
+
+}

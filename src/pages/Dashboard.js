@@ -5,6 +5,7 @@ import useUserRole from "../hooks/useUserRole";
 import SellProduct from "./SellProduct";
 import { useNavigate } from "react-router-dom";
 import "../assets/Dashboard.css";
+import FeatureGate from "../components/FeatureGate";
 
 
 const getDate = (createdAt) => {
@@ -262,6 +263,8 @@ const Dashboard = ({ user }) => {
     return (
         <div className="dashboard-container">
 
+
+
             {/* 🔹 Welcome Section */}
             <div className="dashboard-card welcome-card" >
                 <h2>👋 Welcome, {user?.name || "User"}!</h2>
@@ -277,7 +280,7 @@ const Dashboard = ({ user }) => {
             </div>
 
             <div style={{
-                display: "flex",
+                // display: "flex",
                 gap: "10px",
                 flexWrap: "wrap",
                 alignItems: "center",
@@ -285,9 +288,22 @@ const Dashboard = ({ user }) => {
                 width: "100%"
             }}>
                 <div className="dashboard-actions" >
-                    <button className="summary-card btn danger" onClick={() => navigate("/sell-product")}>
-                        <strong style={{ fontSize: "20px" }}>📷 Scan Product</strong>
-                    </button>
+                    <FeatureGate
+                        user={user}
+                        feature="analytics"
+                        title="Analytics Dashboard"
+                        description="Upgrade to Pro plan to unlock advanced analytics."
+                    >
+                        <button className="summary-card" style={{ background: "#6bd7ebb2" }} onClick={() => navigate("/sell-product")}>
+                            <img src="/gemini-svg.svg" alt="Scan QR" />
+
+                            <strong style={{ fontSize: "20px" }}>
+                                Scan Product
+                            </strong>
+                        </button>
+
+                    </FeatureGate>
+
                     <p className="summary-card" onClick={() => navigate("/stock-list")}
                         style={{ cursor: "pointer" }}>Stock Inventory</p>
 
@@ -301,17 +317,25 @@ const Dashboard = ({ user }) => {
                 </div>
                 {/* 👤 User Filter */}
                 {(role === "admin" || role === "superadmin") && (
-                    <div style={{ marginBottom: "15px" }}>
+                    <div>
                         <select
                             value={selectedUser}
                             onChange={(e) => setSelectedUser(e.target.value)}
                             style={{
                                 padding: "10px",
                                 borderRadius: "8px",
-                                border: "1px solid #ccc",
                                 flex: "1 1 220px",
                                 minWidth: "0",
-                                maxWidth: "80%"
+                                maxWidth: "100%",
+                                border: "1px solid #3b82f6",
+                                outline: "none",
+                                background: "#1e293b",
+                                color: "#fff",
+                                width: "80%",
+                                cursor: "pointer",
+                                transform: "translateY(-3px)",
+                                boxShadow: "0 6px 20px rgba(59,130,246,0.25)",
+                                transition: "all 0.2s ease"
                             }}
                         >
                             <option value="all">All Users</option>

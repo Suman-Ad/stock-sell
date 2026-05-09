@@ -177,6 +177,6 @@
     }
 
     .dashboard-actions {
-        flex-direction: column;
+        flex-direction: row;
     }
 }

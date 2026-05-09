@@ -54,6 +54,9 @@ input {
 
 .stock-table tr:hover td {
   background: #2d3748;
+  transform: translateY(-3px);
+  border-color: #3b82f6;
+  box-shadow: 0 6px 20px rgba(59,130,246,0.25);
 }
 
 /* SIZE BOX */
@@ -204,4 +207,72 @@ input {
 .small-text {
   font-size: 10px;
   color: #9ca3af;
+}
+
+/* 📦 Card */
+.stock-card {
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(18px);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+}
+
+/* 🧠 Headings */
+.stock-card h2,
+.stock-card h3,
+.stock-card h4 {
+    margin-bottom: 10px;
+}
+
+/* 📊 Grid */
+.stock-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+}
+
+/* Inputs */
+.stock-card input,
+.stock-card select,
+.stock-card textarea {
+    width: 100%;
+    padding: 10px;
+    border-radius: 10px;
+    border: none;
+    outline: none;
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font-size: 13px;
+}
+
+/* Focus */
+.stock-card input:focus,
+.stock-card select:focus,
+.stock-card textarea:focus {
+    background: rgba(255,255,255,0.15);
+    box-shadow: 0 0 0 2px #38bdf8;
+}
+
+/* 🧾 Table */
+.stock-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.stock-table th {
+    background: rgba(255,255,255,0.08);
+    padding: 10px;
+    text-align: left;
+}
+
+.stock-table td {
+    padding: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.stock-table tr:hover {
+    background: rgba(255,255,255,0.05);
 }

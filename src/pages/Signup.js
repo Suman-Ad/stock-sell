@@ -1,212 +1,544 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { auth, db } from "../firebase";
+
 import {
     createUserWithEmailAndPassword,
     sendEmailVerification
 } from "firebase/auth";
-import { setDoc, doc, serverTimestamp } from "firebase/firestore";
-import { useNavigate, Link, useAsyncError } from "react-router-dom";
 
+import {
+    setDoc,
+    doc,
+    serverTimestamp,
+    getDoc
+} from "firebase/firestore";
+
+import {
+    useNavigate,
+    Link
+} from "react-router-dom";
+
+import "../assets/Signup.css";
 
 const Signup = () => {
+
     const [form, setForm] = useState({
+
         name: "",
+
         email: "",
+
         mobile: "",
+
         password: "",
+
+        confirmPassword: "",
+
         shopName: "",
+
         address: "",
+
         pin: "",
+
         govId: "",
+
         gstNo: ""
+
     });
+
     const [registering, setRegistering] = useState(false);
+
+    const [showPassword, setShowPassword] = useState(false);
 
     const navigate = useNavigate();
 
-    // handle input change
+    // ==============================
+    // Handle Change
+    // ==============================
+
     const handleChange = (field, value) => {
-        setForm({ ...form, [field]: value });
+
+        setForm(prev => ({
+            ...prev,
+            [field]: value
+        }));
+
     };
 
-    // validation
+    // ==============================
+    // Validation
+    // ==============================
+
     const validate = () => {
-        if (!form.name || !form.email || !form.password) {
-            alert("Name, Email & Password required");
+
+        // Required
+        if (
+            !form.name ||
+            !form.email ||
+            !form.mobile ||
+            !form.password ||
+            !form.shopName
+        ) {
+
+            alert("Please fill all required fields");
+
             return false;
         }
 
-        if (!form.shopName) {
-            alert("Shop Name required");
+        // Name
+        if (form.name.length < 3) {
+
+            alert("Name too short");
+
             return false;
         }
 
-        if (!form.address || !form.pin) {
-            alert("Complete Address with PIN required");
+        // Email
+        const emailRegex =
+            /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        if (!emailRegex.test(form.email)) {
+
+            alert("Invalid email");
+
             return false;
         }
 
-        if (!/^\d{6}$/.test(form.pin)) {
-            alert("PIN must be 6 digits");
+        // Mobile
+        if (!/^[6-9]\d{9}$/.test(form.mobile)) {
+
+            alert("Invalid mobile number");
+
             return false;
         }
 
-        if (!form.govId) {
-            alert("Government ID required");
-            return false;
-        }
-
+        // Password
         if (form.password.length < 6) {
-            alert("Password must be at least 6 characters");
+
+            alert(
+                "Password must be minimum 6 characters"
+            );
+
+            return false;
+        }
+
+        // Confirm Password
+        if (
+            form.password !==
+            form.confirmPassword
+        ) {
+
+            alert("Passwords do not match");
+
+            return false;
+        }
+
+        // PIN
+        if (
+            form.pin &&
+            !/^\d{6}$/.test(form.pin)
+        ) {
+
+            alert("PIN must be 6 digits");
+
             return false;
         }
 
         return true;
     };
 
+    // ==============================
+    // Signup
+    // ==============================
+
     const handleSignup = async () => {
+
         try {
+
             if (!validate()) return;
 
             setRegistering(true);
 
-            // 1️⃣ Create Auth user
-            const userCredential = await createUserWithEmailAndPassword(
-                auth,
-                form.email,
-                form.password
+            // ==========================
+            // CHECK FREE PLAN
+            // ==========================
+
+            const planRef = doc(
+                db,
+                "plans",
+                "free"
             );
+
+            const planSnap = await getDoc(planRef);
+
+            if (!planSnap.exists()) {
+
+                alert(
+                    "Default subscription plan not found"
+                );
+
+                setRegistering(false);
+
+                return;
+            }
+
+            const freePlan = planSnap.data();
+
+            // ==========================
+            // CREATE AUTH USER
+            // ==========================
+
+            const userCredential =
+                await createUserWithEmailAndPassword(
+                    auth,
+                    form.email.toLowerCase(),
+                    form.password
+                );
 
             const user = userCredential.user;
 
-            // 2️⃣ Send email verification
+            // ==========================
+            // EMAIL VERIFICATION
+            // ==========================
+
             await sendEmailVerification(user);
 
-            // 3️⃣ Setup subscription
-            const now = new Date();
-            const end = new Date();
-            end.setMonth(end.getMonth() + 1);
+            // ==========================
+            // SUBSCRIPTION
+            // ==========================
 
-            // 4️⃣ Save user in Firestore
-            await setDoc(doc(db, "users", user.uid), {
-                name: form.name,
-                email: form.email,
-                mobile: form.mobile,
-                shopName: form.shopName,
-                address: form.address,
-                pin: form.pin,
-                govId: form.govId,
-                gstNo: form.gstNo,
+            const startDate = new Date();
 
-                role: "user",
-                isActive: false,
+            const endDate = new Date();
 
-                emailVerified: false, // 👈 important
+            endDate.setDate(
+                endDate.getDate() +
+                freePlan.durationDays
+            );
 
-                subscription: {
-                    plan: "free",
-                    startDate: now,
-                    endDate: end,
-                    status: "active"
-                },
+            // ==========================
+            // SAVE USER
+            // ==========================
 
-                createdAt: serverTimestamp()
-            });
+            await setDoc(
+                doc(db, "users", user.uid),
+                {
 
-            alert("Verification email sent! Please verify before login.");
-            setRegistering(false);
+                    uid: user.uid,
+
+                    name: form.name.trim(),
+
+                    email: form.email
+                        .trim()
+                        .toLowerCase(),
+
+                    mobile: form.mobile,
+
+                    shopName: form.shopName.trim(),
+
+                    address: form.address.trim(),
+
+                    pin: form.pin,
+
+                    govId: form.govId.trim(),
+
+                    gstNo: form.gstNo.trim(),
+
+                    photoURL: "",
+
+                    role: "user",
+
+                    isActive: false,
+
+                    emailVerified: false,
+
+                    profileCompleted: true,
+
+                    // ======================
+                    // SUBSCRIPTION
+                    // ======================
+
+                    subscription: {
+
+                        ...freePlan,
+
+                        status: "active",
+
+                        paymentStatus: "free",
+
+                        autoRenew: false,
+
+                        startDate,
+
+                        endDate,
+
+                        upgradedFrom: null
+
+                    },
+
+                    // ======================
+                    // ACCOUNT STATUS
+                    // ======================
+
+                    accountStatus: "pending",
+
+                    lastLogin: null,
+
+                    createdAt: serverTimestamp(),
+
+                    updatedAt: serverTimestamp()
+
+                }
+            );
+
+            alert(
+                "Verification email sent successfully!"
+            );
 
             navigate("/login");
 
         } catch (err) {
-            alert(err.message);
+
+            console.log(err);
+
+            if (
+                err.code ===
+                "auth/email-already-in-use"
+            ) {
+
+                alert(
+                    "Email already registered"
+                );
+
+            } else if (
+                err.code ===
+                "auth/weak-password"
+            ) {
+
+                alert(
+                    "Weak password"
+                );
+
+            } else {
+
+                alert(err.message);
+
+            }
+
+        } finally {
+
+            setRegistering(false);
+
         }
     };
 
     return (
-        <div className="login-container">
-            <div className="login-box">
-                <h2>Signup</h2>
+
+        <div className="auth-container">
+
+            <div className="auth-box">
+
+                <h2>Create Account</h2>
+
+                <p className="auth-subtitle">
+                    Start managing your stock smarter
+                </p>
+
+                {/* NAME */}
 
                 <input
                     type="text"
-                    placeholder="Full Name"
+                    placeholder="Full Name *"
                     value={form.name}
-                    onChange={(e) => handleChange("name", e.target.value)}
+                    onChange={(e) =>
+                        handleChange(
+                            "name",
+                            e.target.value
+                        )
+                    }
                 />
-                <br /><br />
+
+                {/* EMAIL */}
 
                 <input
                     type="email"
-                    placeholder="Email"
+                    placeholder="Email Address *"
                     value={form.email}
-                    onChange={(e) => handleChange("email", e.target.value)}
+                    onChange={(e) =>
+                        handleChange(
+                            "email",
+                            e.target.value
+                        )
+                    }
                 />
-                <br /><br />
+
+                {/* MOBILE */}
 
                 <input
-                    type="number"
-                    placeholder="Mobile No"
+                    type="tel"
+                    placeholder="Mobile Number *"
                     value={form.mobile}
-                    onChange={(e) => handleChange("mobile", e.target.value)}
+                    onChange={(e) =>
+                        handleChange(
+                            "mobile",
+                            e.target.value
+                        )
+                    }
                 />
-                <br /><br />
+
+                {/* PASSWORD */}
 
                 <input
-                    type="password"
-                    placeholder="Password"
+                    type={
+                        showPassword
+                            ? "text"
+                            : "password"
+                    }
+                    placeholder="Password *"
                     value={form.password}
-                    onChange={(e) => handleChange("password", e.target.value)}
+                    onChange={(e) =>
+                        handleChange(
+                            "password",
+                            e.target.value
+                        )
+                    }
                 />
-                <br /><br />
+
+                {/* CONFIRM PASSWORD */}
+
+                <input
+                    type={
+                        showPassword
+                            ? "text"
+                            : "password"
+                    }
+                    placeholder="Confirm Password *"
+                    value={form.confirmPassword}
+                    onChange={(e) =>
+                        handleChange(
+                            "confirmPassword",
+                            e.target.value
+                        )
+                    }
+                />
+
+                {/* SHOW PASSWORD */}
+
+                <label className="checkbox-row">
+
+                    <input
+                        type="checkbox"
+                        checked={showPassword}
+                        onChange={() =>
+                            setShowPassword(
+                                !showPassword
+                            )
+                        }
+                    />
+
+                    Show Password
+
+                </label>
+
+                {/* SHOP */}
 
                 <input
                     type="text"
-                    placeholder="Shop Name"
+                    placeholder="Shop Name *"
                     value={form.shopName}
-                    onChange={(e) => handleChange("shopName", e.target.value)}
+                    onChange={(e) =>
+                        handleChange(
+                            "shopName",
+                            e.target.value
+                        )
+                    }
                 />
-                <br /><br />
+
+                {/* ADDRESS */}
 
                 <textarea
-                    placeholder="Address"
+                    placeholder="Full Address"
                     value={form.address}
-                    onChange={(e) => handleChange("address", e.target.value)}
+                    onChange={(e) =>
+                        handleChange(
+                            "address",
+                            e.target.value
+                        )
+                    }
                 />
-                <br /><br />
+
+                {/* PIN */}
 
                 <input
                     type="text"
                     placeholder="PIN Code"
                     value={form.pin}
-                    onChange={(e) => handleChange("pin", e.target.value)}
+                    onChange={(e) =>
+                        handleChange(
+                            "pin",
+                            e.target.value
+                        )
+                    }
                 />
-                <br /><br />
+
+                {/* GOV ID */}
 
                 <input
                     type="text"
-                    placeholder="Government ID Number"
+                    placeholder="Government ID"
                     value={form.govId}
-                    onChange={(e) => handleChange("govId", e.target.value)}
+                    onChange={(e) =>
+                        handleChange(
+                            "govId",
+                            e.target.value
+                        )
+                    }
                 />
-                <br /><br />
+
+                {/* GST */}
 
                 <input
                     type="text"
-                    placeholder="Goods & Service Tax No"
+                    placeholder="GST Number (Optional)"
                     value={form.gstNo}
-                    onChange={(e) => handleChange("gstNo", e.target.value)}
+                    onChange={(e) =>
+                        handleChange(
+                            "gstNo",
+                            e.target.value
+                        )
+                    }
                 />
-                <br /><br />
 
-                <button onClick={handleSignup}>{registering ? "Registering.." : "Register"}</button>
+                {/* BUTTON */}
 
-                <br /><br />
+                <button
+                    className="auth-btn"
+                    onClick={handleSignup}
+                    disabled={registering}
+                >
 
-                <p>
-                    Already have an account? <Link to="/login">Login</Link>
+                    {
+                        registering
+                            ? "Creating Account..."
+                            : "Create Account"
+                    }
+
+                </button>
+
+                <p className="auth-footer">
+
+                    Already have an account?{" "}
+
+                    <Link to="/login">
+
+                        Login
+
+                    </Link>
+
                 </p>
+
             </div>
+
         </div>
 
     );

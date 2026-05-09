@@ -1,173 +1,306 @@
-import './App.css';
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { getDoc, doc } from "firebase/firestore";
-import { db } from "./firebase";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "./firebase";
-import { Navigate } from "react-router-dom";
+import "./App.css";
 
-// Importing pages and components
-import Login from './pages/Login';
-import Signup from './pages/Signup';
-import StockInventory from './pages/StockInventory';
-import Layout from './pages/Layout';
-import StockList from './pages/StockList';
-import AdminDashboard from './pages/AdminDashboard';
-import AdminRoute from './components/AdminRoute';
-import SellProduct from './pages/SellProduct';
-import Dashboard from './pages/Dashboard';
-import SalesHistory from './pages/SalesHistory';
-import Profile from './pages/Profile'
-import ProtectedRoute from './hooks/ProtectedRoute';
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate
+} from "react-router-dom";
 
+import {
+  useAuth
+} from "./context/AuthProvider";
+
+// PAGES
+import Login from "./pages/Login";
+
+import Signup from "./pages/Signup";
+
+import Dashboard from "./pages/Dashboard";
+
+import StockInventory from "./pages/StockInventory";
+
+import StockList from "./pages/StockList";
+
+import SellProduct from "./pages/SellProduct";
+
+import SalesHistory from "./pages/SalesHistory";
+
+import Profile from "./pages/Profile";
+
+import AdminDashboard from "./pages/AdminDashboard";
+
+import SubscriptionManager from "./pages/SubscriptionManager";
+
+// COMPONENTS
+import Layout from "./pages/Layout";
+
+import ProtectedRoute from "./hooks/ProtectedRoute";
+
+import SubscriptionExpired from "./pages/SubscriptionExpired";
+
+import PlansPage from "./pages/PlansPage";
 
 function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
 
+  // ==========================
+  // AUTH
+  // ==========================
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        try {
-          const snap = await getDoc(doc(db, "users", firebaseUser.uid));
+  const {
+    user,
+    loading,
+    setUser
+  } = useAuth();
 
-          if (snap.exists()) {
-            const userData = {
-              uid: firebaseUser.uid,
-              email: firebaseUser.email,
-              ...snap.data(),
-            };
+  // ==========================
+  // LOADING
+  // ==========================
 
-            setUser(userData);
-          } else {
-            setUser(null);
-          }
-        } catch (err) {
-          console.error(err);
-          setUser(null);
-        }
-      } else {
-        setUser(null);
-      }
+  if (loading) {
 
-      setLoading(false);
-    });
+    return (
 
-    return () => unsubscribe();
-  }, []);
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#0f172a",
+          color: "#fff",
+          fontSize: "20px"
+        }}
+      >
 
-  const refreshUser = async () => {
-    const stored = JSON.parse(localStorage.getItem("user"));
-    if (!stored || !stored.uid) return;
+        Loading...
 
-    try {
-      const snap = await getDoc(doc(db, "users", stored.uid));
+      </div>
 
-      if (snap.exists()) {
-        const updatedUser = { ...stored, ...snap.data() };
-
-        localStorage.setItem("user", JSON.stringify(updatedUser));
-        setUser(updatedUser);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-
-  if (loading) return <div>Loading...</div>;
+    );
+  }
 
   return (
+
     <Router>
+
       <Routes>
 
-        {/* Public Routes */}
+        {/* ======================
+            PUBLIC ROUTES
+        ====================== */}
         <Route
           path="/login"
-          element={!user ? <Login setUser={setUser} /> : <Navigate to="/dashboard" />}
+          element={<Login setUser={setUser} />}
         />
-        <Route path="/signup" element={<Signup />} />
 
-        {/* Default Route */}
+        <Route
+          path="/signup"
+          element={<Signup />}
+        />
+
+        <Route
+          path="/subscription-expired"
+          element={<SubscriptionExpired />}
+        />
+
+        <Route
+          path="/plans"
+          element={
+            // <ProtectedRoute
+            //   user={user}
+            // >
+              <PlansPage user={user} />
+            // </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/login"
+          element={
+            !user
+              ? (
+                <Login
+                  setUser={setUser}
+                />
+              )
+              : (
+                <Navigate
+                  to="/dashboard"
+                />
+              )
+          }
+        />
+
+        <Route
+          path="/signup"
+          element={
+            !user
+              ? <Signup />
+              : (
+                <Navigate
+                  to="/dashboard"
+                />
+              )
+          }
+        />
+
+        {/* ======================
+            DEFAULT
+        ====================== */}
+
         <Route
           path="/"
           element={
-            user ? <Navigate to="/dashboard" /> : <Navigate to="/login" />
+            user
+              ? (
+                <Navigate
+                  to="/dashboard"
+                />
+              )
+              : (
+                <Navigate
+                  to="/login"
+                />
+              )
           }
         />
 
-        <Route element={<Layout user={user} />}>
+        {/* ======================
+            PROTECTED LAYOUT
+        ====================== */}
 
-          {/* Protected Routes */}
+        <Route
+          element={
+            <ProtectedRoute
+              user={user}
+              loading={loading}
+            >
+
+              <Layout user={user} />
+
+            </ProtectedRoute>
+          }
+        >
+
+          {/* DASHBOARD */}
+
           <Route
             path="/dashboard"
             element={
-              <ProtectedRoute user={user}>
-                <Dashboard user={user} />
-              </ProtectedRoute>
+              <Dashboard
+                user={user}
+              />
             }
           />
+
+          {/* STOCK INVENTORY */}
 
           <Route
             path="/stock-inventory"
             element={
-              <ProtectedRoute user={user}>
-                <StockInventory user={user} />
-              </ProtectedRoute>
+              <StockInventory
+                user={user}
+              />
             }
           />
+
+          {/* STOCK LIST */}
 
           <Route
             path="/stock-list"
             element={
-              <ProtectedRoute user={user}>
-                <StockList user={user} />
-              </ProtectedRoute>
+              <StockList
+                user={user}
+              />
             }
           />
+
+          {/* SELL PRODUCT */}
 
           <Route
             path="/sell-product"
             element={
-              <ProtectedRoute user={user}>
-                <SellProduct user={user} />
-              </ProtectedRoute>
+              <SellProduct
+                user={user}
+              />
             }
           />
+
+          {/* SALES HISTORY */}
 
           <Route
             path="/sales-history"
             element={
-              <ProtectedRoute user={user}>
-                <SalesHistory user={user} />
-              </ProtectedRoute>
+              <SalesHistory
+                user={user}
+              />
             }
           />
+
+          {/* PROFILE */}
 
           <Route
             path="/profile"
             element={
-              <ProtectedRoute user={user}>
-                <Profile user={user} />
-              </ProtectedRoute>
+              <Profile
+                user={user}
+              />
             }
           />
 
-          {/* Admin */}
+
+
+          {/* ======================
+              ADMIN ROUTES
+          ====================== */}
+
           <Route
             path="/admin"
             element={
-              <ProtectedRoute user={user}>
-                <AdminRoute>
-                  <AdminDashboard user={user} />
-                </AdminRoute>
+
+              <ProtectedRoute
+                user={user}
+                requiredRole="superadmin"
+              >
+
+                <AdminDashboard
+                  user={user}
+                />
+
               </ProtectedRoute>
+
             }
           />
+
+          {/* ======================
+              SUBSCRIPTION
+          ====================== */}
+
+          <Route
+            path="/subscription-manager"
+            element={
+
+              <ProtectedRoute
+                user={user}
+                requiredRole="superadmin"
+              >
+
+                <SubscriptionManager
+                  user={user}
+                />
+
+              </ProtectedRoute>
+
+            }
+          />
+
+
+
         </Route>
+
       </Routes>
+
     </Router>
   );
 }
