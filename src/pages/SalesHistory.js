@@ -1,187 +1,3 @@
-// import React, { useEffect, useState } from "react";
-// import { db, auth } from "../firebase";
-// import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc } from "firebase/firestore";
-// import useUserRole from "../hooks/useUserRole";
-// import { QRCodeCanvas } from "qrcode.react";
-// import "../assets/SalesHistory.css";
-
-// const SalesHistory = ({ user }) => {
-//     const [sales, setSales] = useState([]);
-//     const [filterDate, setFilterDate] = useState("");
-//     const role = useUserRole();
-//     const [deletingId, setDeletingId] = useState(null);
-//     useEffect(() => {
-//         if (!auth.currentUser || !role) return;
-
-//         let q;
-
-//         if (role === "admin") {
-//             q = collection(db, "sales");
-//         } else {
-//             q = query(
-//                 collection(db, "sales"),
-//                 where("userId", "==", auth.currentUser.uid)
-//             );
-//         }
-
-//         const unsubscribe = onSnapshot(q, (snapshot) => {
-//             const data = snapshot.docs
-//                 .map(doc => ({ id: doc.id, ...doc.data() }))
-//                 .filter(s => !s.deleted);
-//             setSales(data);
-//         });
-
-//         return () => unsubscribe();
-//     }, [role]);
-
-//     const totalSales = sales.length;
-
-//     const totalRevenue = sales.reduce(
-//         (sum, s) => sum + (s.sellingPrice || 0),
-//         0
-//     );
-
-//     const totalProfit = sales.reduce(
-//         (sum, s) => sum + (s.profit || 0),
-//         0
-//     );
-
-//     const filteredSales = sales.filter(s => {
-//         if (!filterDate) return true;
-
-//         let saleDate;
-
-//         if (s.soldAt?.toDate) {
-//             saleDate = s.soldAt.toDate().toISOString().split("T")[0];
-//         } else {
-//             saleDate = new Date(s.soldAt).toISOString().split("T")[0];
-//         }
-
-//         return saleDate === filterDate;
-//     });
-
-//     const handleDelete = async (sale) => {
-//         if (!window.confirm("Are you sure?")) return;
-
-//         setDeletingId(sale.id);
-
-//         try {
-//             // 🔥 Restore QR
-//             if (sale.qrId) {
-//                 await updateDoc(doc(db, "qrcodes", sale.qrId), {
-//                     status: "available"
-//                 });
-//             }
-
-//             // 🔥 Delete sale
-//             await deleteDoc(doc(db, "sales", sale.id));
-
-//         } catch (error) {
-//             console.error(error);
-//         }
-
-//         setDeletingId(null);
-//     };
-
-//     return (
-//         <div className="sales-page">
-
-//             <h2 className="page-title">🧾 Sales History</h2>
-
-//             {/* SUMMARY */}
-//             <div className="sales-summary">
-
-//                 <div className="summary-card">
-//                     <span>Total Orders</span>
-//                     <h2>{totalSales}</h2>
-//                 </div>
-
-//                 <div className="summary-card">
-//                     <span>Total Revenue</span>
-//                     <h2>₹{totalRevenue.toFixed(2)}</h2>
-//                 </div>
-
-//                 <div className={`summary-card ${totalProfit < 0 ? "loss" : "profit"}`}>
-//                     <span>Total Profit</span>
-//                     <h2>₹{totalProfit.toFixed(2)}</h2>
-//                 </div>
-
-//             </div>
-
-//             {/* FILTER */}
-//             <div className="sales-filter">
-//                 <input
-//                     type="date"
-//                     value={filterDate}
-//                     onChange={(e) => setFilterDate(e.target.value)}
-//                 />
-//             </div>
-
-//             {/* TABLE */}
-//             <div className="table-wrapper">
-//                 <table className="sales-table">
-//                     <thead>
-//                         <tr>
-//                             <th>QR</th>
-//                             <th>Date</th>
-//                             <th>Product</th>
-//                             <th>Size</th>
-//                             <th>Price</th>
-//                             <th>Profit</th>
-//                             <th>Coustomer Details</th>
-//                             <th>Action</th>
-//                         </tr>
-//                     </thead>
-
-//                     <tbody>
-//                         {filteredSales.map((s) => (
-//                             <tr key={s.id}>
-
-//                                 <td>
-//                                     <div className="qr-preview">
-//                                         <QRCodeCanvas value={JSON.stringify(s)} size={100} />
-//                                     </div>
-//                                 </td>
-
-//                                 <td>
-//                                     {s.soldAt?.toDate
-//                                         ? s.soldAt.toDate().toLocaleString()
-//                                         : new Date(s.soldAt).toLocaleString()}
-//                                 </td>
-
-//                                 <td>{s.productName}</td>
-//                                 <td>{s.size}</td>
-
-//                                 <td>₹{s.sellingPrice}</td>
-
-//                                 <td className={s.profit < 0 ? "loss" : "profit"}>
-//                                     ₹{s.profit?.toFixed(2)}
-//                                 </td>
-
-//                                 <td>
-//                                     {(role === "admin" || s.userId === auth.currentUser.uid) && (
-//                                         <button
-//                                             className="btn-delete"
-//                                             disabled={deletingId === s.id}
-//                                             onClick={() => handleDelete(s)}
-//                                         >
-//                                             {deletingId === s.id ? "Deleting..." : "Delete"}
-//                                         </button>
-//                                     )}
-//                                 </td>
-
-//                             </tr>
-//                         ))}
-//                     </tbody>
-//                 </table>
-//             </div>
-
-//         </div>
-//     );
-// };
-
-// export default SalesHistory;
-
 import React, { useEffect, useState } from "react";
 import { db, auth } from "../firebase";
 
@@ -201,6 +17,7 @@ import useUserRole from "../hooks/useUserRole";
 import { QRCodeCanvas } from "qrcode.react";
 
 import "../assets/SalesHistory.css";
+import FeatureGate from "../components/FeatureGate";
 
 const SalesHistory = ({ user }) => {
 
@@ -433,250 +250,257 @@ const SalesHistory = ({ user }) => {
     return (
 
         <div className="sales-page">
+            <FeatureGate
+                user={user}
+                feature="salesHistory"
+                title="Sales History"
+                description="Upgrade your plan to unlock Sales History."
+            >
 
-            <h2 className="page-title">
-                🧾 Sales History
-            </h2>
+                <h2 className="page-title">
+                    🧾 Sales History
+                </h2>
 
-            {/* SUMMARY */}
-            <div className="sales-summary">
+                {/* SUMMARY */}
+                <div className="sales-summary">
 
-                <div className="summary-card">
-                    <span>Total Orders</span>
-                    <h2>{totalSales}</h2>
+                    <div className="summary-card">
+                        <span>Total Orders</span>
+                        <h2>{totalSales}</h2>
+                    </div>
+
+                    <div className="summary-card">
+                        <span>Total Revenue</span>
+                        <h2>
+                            ₹{totalRevenue.toFixed(2)}
+                        </h2>
+                    </div>
+
+                    <div className={`summary-card ${totalProfit < 0 ? "loss" : "profit"}`}>
+                        <span>Total Profit</span>
+
+                        <h2>
+                            ₹{totalProfit.toFixed(2)}
+                        </h2>
+                    </div>
+
                 </div>
 
-                <div className="summary-card">
-                    <span>Total Revenue</span>
-                    <h2>
-                        ₹{totalRevenue.toFixed(2)}
-                    </h2>
+                {/* FILTER */}
+                <div className="sales-filter">
+
+                    <input
+                        type="date"
+                        value={filterDate}
+                        onChange={(e) =>
+                            setFilterDate(e.target.value)
+                        }
+                    />
+
+                    <input
+                        type="text"
+                        placeholder="Search customer / phone / product"
+                        value={search}
+                        onChange={(e) =>
+                            setSearch(e.target.value)
+                        }
+                    />
+
                 </div>
 
-                <div className={`summary-card ${totalProfit < 0 ? "loss" : "profit"}`}>
-                    <span>Total Profit</span>
+                {/* TABLE */}
+                <div className="table-wrapper">
 
-                    <h2>
-                        ₹{totalProfit.toFixed(2)}
-                    </h2>
-                </div>
+                    <table className="sales-table">
 
-            </div>
+                        <thead>
 
-            {/* FILTER */}
-            <div className="sales-filter">
+                            <tr>
 
-                <input
-                    type="date"
-                    value={filterDate}
-                    onChange={(e) =>
-                        setFilterDate(e.target.value)
-                    }
-                />
+                                <th>QR</th>
 
-                <input
-                    type="text"
-                    placeholder="Search customer / phone / product"
-                    value={search}
-                    onChange={(e) =>
-                        setSearch(e.target.value)
-                    }
-                />
+                                <th>Date</th>
 
-            </div>
+                                <th>Product</th>
 
-            {/* TABLE */}
-            <div className="table-wrapper">
+                                <th>Size</th>
 
-                <table className="sales-table">
+                                <th>Price</th>
 
-                    <thead>
+                                <th>Profit</th>
 
-                        <tr>
+                                <th>Customer Details</th>
 
-                            <th>QR</th>
-
-                            <th>Date</th>
-
-                            <th>Product</th>
-
-                            <th>Size</th>
-
-                            <th>Price</th>
-
-                            <th>Profit</th>
-
-                            <th>Customer Details</th>
-
-                            <th>Action</th>
-
-                        </tr>
-
-                    </thead>
-
-                    <tbody>
-
-                        {activeSales.map((s) => (
-
-                            <tr key={s.id}>
-                                {/* QR */}
-                                <td>
-                                    <div
-                                        className="qr-preview"
-                                        onMouseEnter={() => setHoveredQR(s.id)}
-                                        onMouseLeave={() => setHoveredQR(null)}
-                                    >
-                                        <QRCodeCanvas
-                                            value={JSON.stringify(s)}
-                                            size={80}
-                                            bgColor="#ffffff"
-                                            fgColor="#000000"
-                                            level="H"
-                                            includeMargin={true}
-                                        />
-                                    </div>
-                                </td>
-
-                                {/* DATE */}
-                                <td>
-                                    {s.soldAt?.toDate
-                                        ? s.soldAt.toDate().toLocaleString()
-                                        : new Date(s.soldAt).toLocaleString()
-                                    }                            
-                                </td>
-
-                                {/* PRODUCT */}
-                                <td>
-                                    {s.productName}
-                                </td>
-
-                                {/* SIZE */}
-                                <td>
-                                    {s.size}
-                                </td>
-
-                                {/* PRICE */}
-                                <td>
-                                    ₹{s.sellingPrice}
-                                </td>
-
-                                {/* PROFIT */}
-                                <td
-                                    className={
-                                        s.profit < 0
-                                            ? "loss"
-                                            : "profit"
-                                    }
-                                >
-                                    ₹{Number(s.profit || 0).toFixed(2)}
-                                </td>
-
-                                {/* CUSTOMER */}
-                                <td>
-
-                                    <div className="customer-box">
-
-                                        <p>
-                                            <b>
-                                                {s.customer?.awbNo || "N/A"}
-                                            </b>
-                                        </p>
-
-                                        <p>
-                                            <b>
-                                                {s.customer?.name || "N/A"}
-                                            </b>
-                                        </p>
-
-                                        <p>
-                                            📞 {s.customer?.phone || "-"}
-                                        </p>
-
-                                        {s.customer?.email && (
-                                            <p>
-                                                📧 {s.customer.email}
-                                            </p>
-                                        )}
-
-                                        {s.customer?.address && (
-                                            <p>
-                                                📍 {s.customer.address}
-                                            </p>
-                                        )}
-
-                                    </div>
-
-                                </td>
-
-                                {/* ACTION */}
-                                <td>
-
-                                    {(role === "admin" ||
-                                        s.userId === auth.currentUser.uid) && (
-
-                                            <button
-                                                className="btn-delete"
-                                                disabled={deletingId === s.id}
-                                                onClick={() =>
-                                                    handleDelete(s)
-                                                }
-                                            >
-
-                                                {deletingId === s.id
-                                                    ? "Deleting..."
-                                                    : "Delete"}
-
-                                            </button>
-                                        )}
-
-                                </td>
+                                <th>Action</th>
 
                             </tr>
 
+                        </thead>
 
-                        ))}
+                        <tbody>
 
-                    </tbody>
+                            {activeSales.map((s) => (
 
-                </table>
+                                <tr key={s.id}>
+                                    {/* QR */}
+                                    <td>
+                                        <div
+                                            className="qr-preview"
+                                            onMouseEnter={() => setHoveredQR(s.id)}
+                                            onMouseLeave={() => setHoveredQR(null)}
+                                        >
+                                            <QRCodeCanvas
+                                                value={JSON.stringify(s)}
+                                                size={80}
+                                                bgColor="#ffffff"
+                                                fgColor="#000000"
+                                                level="H"
+                                                includeMargin={true}
+                                            />
+                                        </div>
+                                    </td>
 
-            </div>
-            {activeSales.map((s) => (
-                <div>
-                    {/* LARGE PREVIEW */}
-                    {hoveredQR === s.id && (
+                                    {/* DATE */}
+                                    <td>
+                                        {s.soldAt?.toDate
+                                            ? s.soldAt.toDate().toLocaleString()
+                                            : new Date(s.soldAt).toLocaleString()
+                                        }
+                                    </td>
 
-                        <div className="qr-popup">
+                                    {/* PRODUCT */}
+                                    <td>
+                                        {s.productName}
+                                    </td>
 
-                            <QRCodeCanvas
-                                value={JSON.stringify(s)}
-                                size={300}
-                                bgColor="#ffffff"
-                                fgColor="#000000"
-                                level="H"
-                                includeMargin={true}
-                            />
+                                    {/* SIZE */}
+                                    <td>
+                                        {s.size}
+                                    </td>
 
-                            <div className="qr-popup-info">
+                                    {/* PRICE */}
+                                    <td>
+                                        ₹{s.sellingPrice}
+                                    </td>
 
-                                <h4>{s.productName}</h4>
+                                    {/* PROFIT */}
+                                    <td
+                                        className={
+                                            s.profit < 0
+                                                ? "loss"
+                                                : "profit"
+                                        }
+                                    >
+                                        ₹{Number(s.profit || 0).toFixed(2)}
+                                    </td>
 
-                                <p>Size: {s.size}</p>
+                                    {/* CUSTOMER */}
+                                    <td>
 
-                                <p>₹{s.sellingPrice}</p>
+                                        <div className="customer-box">
 
-                                <p>
-                                    Customer:
-                                    {" "}
-                                    {s.customer?.name || "N/A"}
-                                </p>
+                                            <p>
+                                                <b>
+                                                    {s.customer?.awbNo || "N/A"}
+                                                </b>
+                                            </p>
+
+                                            <p>
+                                                <b>
+                                                    {s.customer?.name || "N/A"}
+                                                </b>
+                                            </p>
+
+                                            <p>
+                                                📞 {s.customer?.phone || "-"}
+                                            </p>
+
+                                            {s.customer?.email && (
+                                                <p>
+                                                    📧 {s.customer.email}
+                                                </p>
+                                            )}
+
+                                            {s.customer?.address && (
+                                                <p>
+                                                    📍 {s.customer.address}
+                                                </p>
+                                            )}
+
+                                        </div>
+
+                                    </td>
+
+                                    {/* ACTION */}
+                                    <td>
+
+                                        {(role === "admin" ||
+                                            s.userId === auth.currentUser.uid) && (
+
+                                                <button
+                                                    className="btn-delete"
+                                                    disabled={deletingId === s.id}
+                                                    onClick={() =>
+                                                        handleDelete(s)
+                                                    }
+                                                >
+
+                                                    {deletingId === s.id
+                                                        ? "Deleting..."
+                                                        : "Delete"}
+
+                                                </button>
+                                            )}
+
+                                    </td>
+
+                                </tr>
+
+
+                            ))}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+                {activeSales.map((s) => (
+                    <div>
+                        {/* LARGE PREVIEW */}
+                        {hoveredQR === s.id && (
+
+                            <div className="qr-popup">
+
+                                <QRCodeCanvas
+                                    value={JSON.stringify(s)}
+                                    size={300}
+                                    bgColor="#ffffff"
+                                    fgColor="#000000"
+                                    level="H"
+                                    includeMargin={true}
+                                />
+
+                                <div className="qr-popup-info">
+
+                                    <h4>{s.productName}</h4>
+
+                                    <p>Size: {s.size}</p>
+
+                                    <p>₹{s.sellingPrice}</p>
+
+                                    <p>
+                                        Customer:
+                                        {" "}
+                                        {s.customer?.name || "N/A"}
+                                    </p>
+
+                                </div>
 
                             </div>
-
-                        </div>
-                    )}
-                </div>
-            ))}
+                        )}
+                    </div>
+                ))}
+            </FeatureGate>
         </div>
     );
 };

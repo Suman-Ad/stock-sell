@@ -1,74 +1,154 @@
+// // src/utils/subscription.js
+
+// // ==============================
+// // CHECK FEATURE ACCESS
+// // ==============================
+
+// export const hasFeature = (
+//     user,
+//     featureName
+// ) => {
+
+//     // No user
+//     if (!user) return false;
+
+//     const subscription = user.subscription;
+
+//     // No subscription
+//     if (!subscription) return false;
+
+//     // Enterprise all access
+//     if (
+//         subscription?.features?.mobileScan
+//     ) {
+//         return true;
+//     }
+
+//     return !!subscription?.features?.[featureName];
+// };
+
+// // ==============================
+// // CHECK PRODUCT LIMIT
+// // ==============================
+
+// export const canAddProducts = (
+//     user,
+//     currentProductCount
+// ) => {
+
+//     if (!user) return false;
+
+//     const maxProducts =
+//         user?.subscription?.maxProducts;
+
+//     // Unlimited
+//     if (maxProducts === -1) {
+//         return true;
+//     }
+
+//     return currentProductCount < maxProducts;
+// };
+
+// // ==============================
+// // CHECK USER LIMIT
+// // ==============================
+
+// export const canAddUsers = (
+//     user,
+//     currentUsers
+// ) => {
+
+//     if (!user) return false;
+
+//     const maxUsers =
+//         user?.subscription?.maxUsers;
+
+//     // Unlimited
+//     if (maxUsers === -1) {
+//         return true;
+//     }
+
+//     return currentUsers < maxUsers;
+// };
+
+// // ==============================
+// // CHECK SUBSCRIPTION ACTIVE
+// // ==============================
+
+// export const isSubscriptionActive = (
+//     user
+// ) => {
+
+//     if (!user?.subscription) {
+//         return false;
+//     }
+
+//     const sub = user.subscription;
+
+//     // Must be active
+//     if (sub.status !== "active") {
+//         return false;
+//     }
+
+//     // Expiry check
+//     if (sub.endDate) {
+
+//         const endDate =
+//             sub.endDate?.toDate
+//                 ? sub.endDate.toDate()
+//                 : new Date(sub.endDate);
+
+//         if (endDate < new Date()) {
+//             return false;
+//         }
+//     }
+
+//     return true;
+// };
+
 // src/utils/subscription.js
 
 // ==============================
-// CHECK FEATURE ACCESS
+// GET SAFE SUBSCRIPTION
 // ==============================
 
-export const hasFeature = (
-    user,
-    featureName
-) => {
+export const getSubscription = (user) => {
 
-    // No user
-    if (!user) return false;
+    const subscription =
+        user?.subscription || {};
 
-    const subscription = user.subscription;
+    return {
 
-    // No subscription
-    if (!subscription) return false;
+        planId:
+            subscription.planId || "free",
 
-    // Enterprise all access
-    if (
-        subscription?.features?.all
-    ) {
-        return true;
-    }
+        planName:
+            subscription.planName || "Free",
 
-    return !!subscription?.features?.[featureName];
-};
+        price:
+            Number(subscription.price) || 0,
 
-// ==============================
-// CHECK PRODUCT LIMIT
-// ==============================
+        durationDays:
+            Number(subscription.durationDays) || 30,
 
-export const canAddProducts = (
-    user,
-    currentProductCount
-) => {
+        maxProducts:
+            subscription.maxProducts ?? 25,
 
-    if (!user) return false;
+        maxUsers:
+            subscription.maxUsers ?? 1,
 
-    const maxProducts =
-        user?.subscription?.maxProducts;
+        features:
+            subscription.features || {},
 
-    // Unlimited
-    if (maxProducts === -1) {
-        return true;
-    }
+        status:
+            subscription.status || "inactive",
 
-    return currentProductCount < maxProducts;
-};
+        startDate:
+            subscription.startDate || null,
 
-// ==============================
-// CHECK USER LIMIT
-// ==============================
-
-export const canAddUsers = (
-    user,
-    currentUsers
-) => {
-
-    if (!user) return false;
-
-    const maxUsers =
-        user?.subscription?.maxUsers;
-
-    // Unlimited
-    if (maxUsers === -1) {
-        return true;
-    }
-
-    return currentUsers < maxUsers;
+        endDate:
+            subscription.endDate || null
+    };
 };
 
 // ==============================
@@ -79,29 +159,255 @@ export const isSubscriptionActive = (
     user
 ) => {
 
-    if (!user?.subscription) {
+    if (!user) {
         return false;
     }
 
-    const sub = user.subscription;
+    const sub =
+        getSubscription(user);
 
-    // Must be active
+    // ==========================
+    // STATUS CHECK
+    // ==========================
+
     if (sub.status !== "active") {
         return false;
     }
 
-    // Expiry check
+    // ==========================
+    // EXPIRY CHECK
+    // ==========================
+
     if (sub.endDate) {
+
+        try {
+
+            const endDate =
+                sub.endDate?.toDate
+                    ? sub.endDate.toDate()
+                    : new Date(sub.endDate);
+
+            // Invalid date
+            if (
+                isNaN(endDate.getTime())
+            ) {
+
+                return false;
+            }
+
+            if (
+                endDate < new Date()
+            ) {
+
+                return false;
+            }
+
+        } catch {
+
+            return false;
+
+        }
+    }
+
+    return true;
+};
+
+// ==============================
+// CHECK FEATURE ACCESS
+// ==============================
+
+export const hasFeature = (
+    user,
+    featureName
+) => {
+
+    // ==========================
+    // USER CHECK
+    // ==========================
+
+    if (!user) {
+        return false;
+    }
+
+    // ==========================
+    // ACTIVE SUBSCRIPTION CHECK
+    // ==========================
+
+    if (
+        !isSubscriptionActive(user)
+    ) {
+
+        return false;
+    }
+
+    const sub =
+        getSubscription(user);
+
+    // ==========================
+    // ENTERPRISE ACCESS
+    // ==========================
+
+    if (
+        sub?.features?.all === true
+    ) {
+
+        return true;
+    }
+
+    // ==========================
+    // FEATURE CHECK
+    // ==========================
+
+    return Boolean(
+        sub?.features?.[featureName]
+    );
+};
+
+// ==============================
+// CHECK PRODUCT LIMIT
+// ==============================
+
+export const canAddProducts = (
+    user,
+    currentProductCount = 0
+) => {
+
+    if (!user) {
+        return false;
+    }
+
+    if (
+        !isSubscriptionActive(user)
+    ) {
+
+        return false;
+    }
+
+    const sub =
+        getSubscription(user);
+
+    const maxProducts =
+        Number(sub.maxProducts);
+
+    // Unlimited
+    if (maxProducts === -1) {
+        return true;
+    }
+
+    // Invalid limit
+    if (
+        isNaN(maxProducts)
+    ) {
+
+        return false;
+    }
+
+    return (
+        currentProductCount <
+        maxProducts
+    );
+};
+
+// ==============================
+// CHECK USER LIMIT
+// ==============================
+
+export const canAddUsers = (
+    user,
+    currentUsers = 0
+) => {
+
+    if (!user) {
+        return false;
+    }
+
+    if (
+        !isSubscriptionActive(user)
+    ) {
+
+        return false;
+    }
+
+    const sub =
+        getSubscription(user);
+
+    const maxUsers =
+        Number(sub.maxUsers);
+
+    // Unlimited
+    if (maxUsers === -1) {
+        return true;
+    }
+
+    // Invalid limit
+    if (
+        isNaN(maxUsers)
+    ) {
+
+        return false;
+    }
+
+    return (
+        currentUsers <
+        maxUsers
+    );
+};
+
+// ==============================
+// GET DAYS LEFT
+// ==============================
+
+export const getSubscriptionDaysLeft = (
+    user
+) => {
+
+    try {
+
+        const sub =
+            getSubscription(user);
+
+        if (!sub.endDate) {
+            return 0;
+        }
 
         const endDate =
             sub.endDate?.toDate
                 ? sub.endDate.toDate()
                 : new Date(sub.endDate);
 
-        if (endDate < new Date()) {
-            return false;
-        }
-    }
+        const now =
+            new Date();
 
-    return true;
+        const diff =
+            endDate - now;
+
+        return Math.max(
+            0,
+            Math.ceil(
+                diff /
+                (1000 * 60 * 60 * 24)
+            )
+        );
+
+    } catch {
+
+        return 0;
+
+    }
+};
+
+// ==============================
+// CHECK FREE PLAN
+// ==============================
+
+export const isFreePlan = (
+    user
+) => {
+
+    const sub =
+        getSubscription(user);
+
+    return (
+        Number(sub.price) <= 0
+    );
 };

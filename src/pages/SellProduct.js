@@ -13,6 +13,7 @@ import {
     getDocs,
     serverTimestamp
 } from "firebase/firestore";
+import FeatureGate from "../components/FeatureGate";
 
 const SellProduct = ({ user }) => {
 
@@ -411,6 +412,7 @@ const SellProduct = ({ user }) => {
                     [ 🔳 ] Device Scanner
                 </button>
 
+
                 <button
                     onClick={() => setScanMode("camera")}
                     style={{
@@ -423,359 +425,383 @@ const SellProduct = ({ user }) => {
                     <img src="/gemini-svg.svg" alt="Scan QR" />
                 </button>
 
+
+
             </div>
 
             {/* SCAN AGAIN */}
-            {scanned && (
-                <button
-                    onClick={() => {
-                        setScanData(null);
-                        setScanned(false);
-                    }}
-                >
-                    🔄 Scan Again
-                </button>
-            )}
+            {
+                scanned && (
+                    <button
+                        onClick={() => {
+                            setScanData(null);
+                            setScanned(false);
+                        }}
+                    >
+                        🔄 Scan Again
+                    </button>
+                )
+            }
 
 
 
             {/* PRODUCT Camera SCANNER */}
-            {!scanned && scanMode === "camera" && (
-                <QRScanner onScan={handleScanData} />
-            )}
+            {
+                !scanned && scanMode === "camera" && (
+                    <FeatureGate
+                        user={user}
+                        feature="mobileScan"
+                        title="Mobile Scanner"
+                        description="Upgrade your plan to unlock QR mobile product scanning."
+                    >
+                        <QRScanner onScan={handleScanData} />
+                    </FeatureGate>
+                )
+            }
 
             {/* PRODUCT Device SCANNER */}
-            {!scanned && scanMode === "device" && (
-
-                <div
-                    style={{
-                        border: "2px dashed #4caf50",
-                        padding: "30px",
-                        borderRadius: "12px",
-                        textAlign: "center",
-                        background: "#101828",
-                        marginBottom: "20px"
-                    }}
-                >
-
-                    <h2 style={{ color: "#4caf50" }}>
-                        [ 🔳 ] Hardware Scanner Ready
-                    </h2>
-
-                    <p style={{ color: "#aaa" }}>
-                        Scan Product QR using USB/Bluetooth Scanner
-                    </p>
-
-                    <div
-                        style={{
-                            marginTop: "15px",
-                            fontSize: "14px",
-                            color: "#00ff99"
-                        }}
+            {
+                !scanned && scanMode === "device" && (
+                    <FeatureGate
+                        user={user}
+                        feature="hardwareScan"
+                        title="Hardware Scanner"
+                        description="Upgrade your plan to unlock QR hardwear product scanning."
                     >
-                        Waiting for scan...
-                    </div>
 
-                    <input
-                        ref={scannerInputRef}
-                        type="text"
-                        value={scannerValue}
-                        onChange={(e) => setScannerValue(e.target.value)}
-                        onKeyDown={handleScannerKeyDown}
-                        onBlur={() => {
-                            setTimeout(() => {
-                                scannerInputRef.current?.focus();
-                            }, 100);
-                        }}
-                        autoFocus
-                        style={{
-                            opacity: 0,
-                            position: "fixed",
-                            pointerEvents: "none",
-                            zIndex: -1
-                        }}
-                    />
-
-                </div>
-            )}
-
-            {/* PRODUCT DETAILS */}
-            {scanData && (
-
-                <div
-                    style={{
-                        marginTop: "20px",
-                        border: "1px solid #ccc",
-                        padding: "15px"
-                    }}
-                >
-                    <div style={{ color: "#4caf50" }}>
-                        ✅ Product Scanned
-                    </div>
-
-                    <h3>Product Details</h3>
-
-                    <p>
-                        Owner:{" "}
-                        <b
-                            style={{
-                                color:
-                                    stockOwner === null
-                                        ? "gray"
-                                        : stockOwner === auth.currentUser.uid
-                                            ? "green"
-                                            : "red"
-                            }}
-                        >
-                            {stockOwner === null
-                                ? "Checking..."
-                                : stockOwner === auth.currentUser.uid
-                                    ? "You"
-                                    : "Another User"}
-                        </b>
-                    </p>
-
-                    <p><b>{scanData.productName}</b></p>
-
-                    <p>Size: {scanData.size}</p>
-
-                    <p>Price: ₹{scanData.sellingPrice}</p>
-
-                    <hr />
-                    {/* SALE HISTORY */}
-                    {scanData.saleHistory && (
                         <div
                             style={{
-                                border: "1px solid red",
-                                padding: "10px",
-                                marginBottom: "15px",
-                                background: "#27234d"
+                                border: "2px dashed #4caf50",
+                                padding: "30px",
+                                borderRadius: "12px",
+                                textAlign: "center",
+                                background: "#101828",
+                                marginBottom: "20px"
                             }}
                         >
-                            <div style={{ color: "red" }}>
-                                ❌ Already Sold
-                            </div>
-                            <h3>📜 Sell History</h3>
 
-                            <p>
-                                <b>Customer:</b>{" "}
-                                {scanData.saleHistory?.customer?.name || "N/A"}
+                            <h2 style={{ color: "#4caf50" }}>
+                                [ 🔳 ] Hardware Scanner Ready
+                            </h2>
+
+                            <p style={{ color: "#aaa" }}>
+                                Scan Product QR using USB/Bluetooth Scanner
                             </p>
 
-                            <p>
-                                <b>Phone:</b>{" "}
-                                {scanData.saleHistory?.customer?.phone || "N/A"}
-                            </p>
-
-                            <p>
-                                <b>AWB:</b>{" "}
-                                {scanData.saleHistory?.customer?.awbNo || "N/A"}
-                            </p>
-
-                            <hr />
-
-                        </div>
-                    )}
-
-                    {stockOwner === auth.currentUser.uid && !scanData.saleHistory && (
-                        //CUSTOMER DETAILS
-                        <div style={{ padding: "2px 5px" }}>
-
-                            <h3>Customer Details</h3>
-                            <button
-                                onClick={() =>
-                                    setShowCustomerScanner(!showCustomerScanner)
-                                }
-                                style={{ padding: "5px 5px", marginBottom: "10px" }}
-                            >
-                                📷 Scan Customer QR
-                            </button>
-
-                            <input
-                                type="number"
-                                placeholder="AWB No"
-                                value={customer.awbNo}
-                                onChange={(e) =>
-                                    setCustomer({
-                                        ...customer,
-                                        awbNo: e.target.value
-                                    })
-                                }
-                                // readOnly
-                                style={{ width: "100%", marginBottom: "10px" }}
-                            />
-
-                            <input
-                                type="text"
-                                placeholder="Customer Name"
-                                value={customer.name}
-                                onChange={(e) =>
-                                    setCustomer({
-                                        ...customer,
-                                        name: e.target.value
-                                    })
-                                }
-                                style={{ width: "100%", marginBottom: "10px" }}
-                            />
-
-                            <input
-                                type="text"
-                                placeholder="Phone Number"
-                                value={customer.phone}
-                                onChange={(e) =>
-                                    setCustomer({
-                                        ...customer,
-                                        phone: e.target.value
-                                    })
-                                }
-                                style={{ width: "100%", marginBottom: "10px" }}
-                            />
-
-                            <input
-                                type="email"
-                                placeholder="Email"
-                                value={customer.email}
-                                onChange={(e) =>
-                                    setCustomer({
-                                        ...customer,
-                                        email: e.target.value
-                                    })
-                                }
-                                style={{ width: "100%", marginBottom: "10px" }}
-                            />
-
-                            <textarea
-                                placeholder="Address"
-                                value={customer.address}
-                                onChange={(e) =>
-                                    setCustomer({
-                                        ...customer,
-                                        address: e.target.value
-                                    })
-                                }
+                            <div
                                 style={{
-                                    width: "100%",
-                                    marginBottom: "10px"
+                                    marginTop: "15px",
+                                    fontSize: "14px",
+                                    color: "#00ff99"
+                                }}
+                            >
+                                Waiting for scan...
+                            </div>
+
+                            <input
+                                ref={scannerInputRef}
+                                type="text"
+                                value={scannerValue}
+                                onChange={(e) => setScannerValue(e.target.value)}
+                                onKeyDown={handleScannerKeyDown}
+                                onBlur={() => {
+                                    setTimeout(() => {
+                                        scannerInputRef.current?.focus();
+                                    }, 100);
+                                }}
+                                autoFocus
+                                style={{
+                                    opacity: 0,
+                                    position: "fixed",
+                                    pointerEvents: "none",
+                                    zIndex: -1
                                 }}
                             />
 
-                            {/* CUSTOMER QR */}
-                            {showCustomerScanner && (
+                        </div>
+                    </FeatureGate>
+                )
+            }
 
-                                <div style={{ marginTop: "15px" }}>
+            {/* PRODUCT DETAILS */}
+            {
+                scanData && (
 
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            gap: "10px",
-                                            marginBottom: "10px"
-                                        }}
-                                    >
+                    <div
+                        style={{
+                            marginTop: "20px",
+                            border: "1px solid #ccc",
+                            padding: "15px"
+                        }}
+                    >
+                        <div style={{ color: "#4caf50" }}>
+                            ✅ Product Scanned
+                        </div>
 
-                                        <button
-                                            onClick={() =>
-                                                setCustomerScanMode("device")
-                                            }
-                                            style={{
-                                                background:
-                                                    customerScanMode === "device"
-                                                        ? "#4caf50"
-                                                        : "#ddd"
-                                            }}
-                                        >
-                                            🔳 Device Scanner
-                                        </button>
+                        <h3>Product Details</h3>
 
-                                        <button
-                                            onClick={() =>
-                                                setCustomerScanMode("camera")
-                                            }
-                                            style={{
-                                                background:
-                                                    customerScanMode === "camera"
-                                                        ? "#2196f3"
-                                                        : "#ddd"
-                                            }}
-                                        >
-                                            📷 Camera Scanner
-                                        </button>
+                        <p>
+                            Owner:{" "}
+                            <b
+                                style={{
+                                    color:
+                                        stockOwner === null
+                                            ? "gray"
+                                            : stockOwner === auth.currentUser.uid
+                                                ? "green"
+                                                : "red"
+                                }}
+                            >
+                                {stockOwner === null
+                                    ? "Checking..."
+                                    : stockOwner === auth.currentUser.uid
+                                        ? "You"
+                                        : "Another User"}
+                            </b>
+                        </p>
 
-                                    </div>
+                        <p><b>{scanData.productName}</b></p>
 
-                                    {/* CAMERA SCANNER */}
-                                    {customerScanMode === "camera" && (
-                                        <QRScanner onScan={handleCustomerQR} />
-                                    )}
+                        <p>Size: {scanData.size}</p>
 
-                                    {/* HARDWARE SCANNER */}
-                                    {customerScanMode === "device" && (
+                        <p>Price: ₹{scanData.sellingPrice}</p>
+
+                        <hr />
+                        {/* SALE HISTORY */}
+                        {scanData.saleHistory && (
+                            <div
+                                style={{
+                                    border: "1px solid red",
+                                    padding: "10px",
+                                    marginBottom: "15px",
+                                    background: "#27234d"
+                                }}
+                            >
+                                <div style={{ color: "red" }}>
+                                    ❌ Already Sold
+                                </div>
+                                <h3>📜 Sell History</h3>
+
+                                <p>
+                                    <b>Customer:</b>{" "}
+                                    {scanData.saleHistory?.customer?.name || "N/A"}
+                                </p>
+
+                                <p>
+                                    <b>Phone:</b>{" "}
+                                    {scanData.saleHistory?.customer?.phone || "N/A"}
+                                </p>
+
+                                <p>
+                                    <b>AWB:</b>{" "}
+                                    {scanData.saleHistory?.customer?.awbNo || "N/A"}
+                                </p>
+
+                                <hr />
+
+                            </div>
+                        )}
+
+                        {stockOwner === auth.currentUser.uid && !scanData.saleHistory && (
+                            //CUSTOMER DETAILS
+                            <div style={{ padding: "2px 5px" }}>
+
+                                <h3>Customer Details</h3>
+                                <button
+                                    onClick={() =>
+                                        setShowCustomerScanner(!showCustomerScanner)
+                                    }
+                                    style={{ padding: "5px 5px", marginBottom: "10px" }}
+                                >
+                                    📷 Scan Customer QR
+                                </button>
+
+                                <input
+                                    type="number"
+                                    placeholder="AWB No"
+                                    value={customer.awbNo}
+                                    onChange={(e) =>
+                                        setCustomer({
+                                            ...customer,
+                                            awbNo: e.target.value
+                                        })
+                                    }
+                                    // readOnly
+                                    style={{ width: "100%", marginBottom: "10px" }}
+                                />
+
+                                <input
+                                    type="text"
+                                    placeholder="Customer Name"
+                                    value={customer.name}
+                                    onChange={(e) =>
+                                        setCustomer({
+                                            ...customer,
+                                            name: e.target.value
+                                        })
+                                    }
+                                    style={{ width: "100%", marginBottom: "10px" }}
+                                />
+
+                                <input
+                                    type="text"
+                                    placeholder="Phone Number"
+                                    value={customer.phone}
+                                    onChange={(e) =>
+                                        setCustomer({
+                                            ...customer,
+                                            phone: e.target.value
+                                        })
+                                    }
+                                    style={{ width: "100%", marginBottom: "10px" }}
+                                />
+
+                                <input
+                                    type="email"
+                                    placeholder="Email"
+                                    value={customer.email}
+                                    onChange={(e) =>
+                                        setCustomer({
+                                            ...customer,
+                                            email: e.target.value
+                                        })
+                                    }
+                                    style={{ width: "100%", marginBottom: "10px" }}
+                                />
+
+                                <textarea
+                                    placeholder="Address"
+                                    value={customer.address}
+                                    onChange={(e) =>
+                                        setCustomer({
+                                            ...customer,
+                                            address: e.target.value
+                                        })
+                                    }
+                                    style={{
+                                        width: "100%",
+                                        marginBottom: "10px"
+                                    }}
+                                />
+
+                                {/* CUSTOMER QR */}
+                                {showCustomerScanner && (
+
+                                    <div style={{ marginTop: "15px" }}>
 
                                         <div
                                             style={{
-                                                border: "2px dashed #2196f3",
-                                                padding: "20px",
-                                                borderRadius: "12px",
-                                                textAlign: "center",
-                                                background: "#101828"
+                                                display: "flex",
+                                                gap: "10px",
+                                                marginBottom: "10px"
                                             }}
                                         >
 
-                                            <h3 style={{ color: "#2196f3" }}>
-                                                🔳 Customer Hardware Scanner Ready
-                                            </h3>
-
-                                            <p style={{ color: "#aaa" }}>
-                                                Scan Customer QR using USB/Bluetooth Scanner
-                                            </p>
-
-                                            <input
-                                                ref={customerScannerInputRef}
-                                                type="text"
-                                                value={customerScannerValue}
-                                                onChange={(e) =>
-                                                    setCustomerScannerValue(e.target.value)
+                                            <button
+                                                onClick={() =>
+                                                    setCustomerScanMode("device")
                                                 }
-                                                onKeyDown={handleCustomerScannerKeyDown}
-                                                onBlur={() => {
-                                                    setTimeout(() => {
-                                                        customerScannerInputRef.current?.focus();
-                                                    }, 100);
-                                                }}
-                                                autoFocus
                                                 style={{
-                                                    opacity: 0,
-                                                    position: "fixed",
-                                                    pointerEvents: "none",
-                                                    zIndex: -1
+                                                    background:
+                                                        customerScanMode === "device"
+                                                            ? "#4caf50"
+                                                            : "#ddd"
                                                 }}
-                                            />
+                                            >
+                                                🔳 Device Scanner
+                                            </button>
+
+                                            <button
+                                                onClick={() =>
+                                                    setCustomerScanMode("camera")
+                                                }
+                                                style={{
+                                                    background:
+                                                        customerScanMode === "camera"
+                                                            ? "#2196f3"
+                                                            : "#ddd"
+                                                }}
+                                            >
+                                                📷 Camera Scanner
+                                            </button>
 
                                         </div>
-                                    )}
 
-                                </div>
-                            )}
+                                        {/* CAMERA SCANNER */}
+                                        {customerScanMode === "camera" && (
+                                            <QRScanner onScan={handleCustomerQR} />
+                                        )}
 
-                            <hr />
+                                        {/* HARDWARE SCANNER */}
+                                        {customerScanMode === "device" && (
 
-                        </div>
-                    )}
+                                            <div
+                                                style={{
+                                                    border: "2px dashed #2196f3",
+                                                    padding: "20px",
+                                                    borderRadius: "12px",
+                                                    textAlign: "center",
+                                                    background: "#101828"
+                                                }}
+                                            >
 
-                    <button
-                        disabled={
-                            stockOwner !== auth.currentUser.uid ||
-                            loading || scanData.saleHistory
-                        }
-                        onClick={() => confirmSale(scanData)}
-                    >
-                        {loading
-                            ? "Selling..."
-                            : "✅ Confirm Sale"}
-                    </button>
+                                                <h3 style={{ color: "#2196f3" }}>
+                                                    🔳 Customer Hardware Scanner Ready
+                                                </h3>
 
-                </div>
-            )}
-        </div>
+                                                <p style={{ color: "#aaa" }}>
+                                                    Scan Customer QR using USB/Bluetooth Scanner
+                                                </p>
+
+                                                <input
+                                                    ref={customerScannerInputRef}
+                                                    type="text"
+                                                    value={customerScannerValue}
+                                                    onChange={(e) =>
+                                                        setCustomerScannerValue(e.target.value)
+                                                    }
+                                                    onKeyDown={handleCustomerScannerKeyDown}
+                                                    onBlur={() => {
+                                                        setTimeout(() => {
+                                                            customerScannerInputRef.current?.focus();
+                                                        }, 100);
+                                                    }}
+                                                    autoFocus
+                                                    style={{
+                                                        opacity: 0,
+                                                        position: "fixed",
+                                                        pointerEvents: "none",
+                                                        zIndex: -1
+                                                    }}
+                                                />
+
+                                            </div>
+                                        )}
+
+                                    </div>
+                                )}
+
+                                <hr />
+
+                            </div>
+                        )}
+
+                        <button
+                            disabled={
+                                stockOwner !== auth.currentUser.uid ||
+                                loading || scanData.saleHistory
+                            }
+                            onClick={() => confirmSale(scanData)}
+                        >
+                            {loading
+                                ? "Selling..."
+                                : "✅ Confirm Sale"}
+                        </button>
+
+                    </div>
+                )
+            }
+        </div >
     );
 };
 

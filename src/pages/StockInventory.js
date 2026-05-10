@@ -6,6 +6,7 @@ import { saveAs } from "file-saver";
 import { writeBatch } from "firebase/firestore";
 import "../assets/StockInventory.css";
 import { categoryMap, colorOptions, productTypes } from "../components/CategoryMap";
+import FeatureGate from "../components/FeatureGate";
 
 
 export const createQRCodesBulk = async ({
@@ -623,228 +624,241 @@ const StockInventory = ({ user }) => {
                 <h2>Stock Inventory</h2>
                 <p>Welcome <b>{user?.name}</b></p>
             </div>
+            <FeatureGate
+                user={user}
+                feature="fileUpload"
+                title="File Uploading"
+                description="Upgrade your plan to unlock File Uploading."
+            >
+                {/* 🔹 Upload Section */}
+                <div className="stock-card upload-box">
+                    <input
+                        type="file"
+                        accept=".xlsx, .xls"
+                        onChange={handleExcelUpload}
+                        ref={fileInputRef}
+                    />
 
-            {/* 🔹 Upload Section */}
-            <div className="stock-card upload-box">
-                <input
-                    type="file"
-                    accept=".xlsx, .xls"
-                    onChange={handleExcelUpload}
-                    ref={fileInputRef}
-                />
+                    <button className="btn secondary" onClick={downloadTemplate}>
+                        Download Template
+                    </button>
 
-                <button className="btn secondary" onClick={downloadTemplate}>
-                    Download Template
-                </button>
+                    {previewData.length > 0 && (
+                        <div className="stock-card">
+                            <h3>Preview Data ({previewData.length} rows)</h3>
 
-                {previewData.length > 0 && (
-                    <div className="stock-card">
-                        <h3>Preview Data ({previewData.length} rows)</h3>
-
-                        <div className="table-wrapper" style={{ scrollbarWidth: "thin" }}>
-                            <table className="stock-table" >
-                                <thead>
-                                    <tr>
-                                        {Object.keys(previewData[0]).map((key) => (
-                                            <th key={key}>{key}</th>
-                                        ))}
-                                    </tr>
-                                </thead>
-
-                                <tbody>
-                                    {previewData.slice(0, 10).map((row, i) => (
-                                        <tr key={i}>
-                                            {Object.values(row).map((val, j) => (
-                                                <td key={j}>{val}</td>
+                            <div className="table-wrapper" style={{ scrollbarWidth: "thin" }}>
+                                <table className="stock-table" >
+                                    <thead>
+                                        <tr>
+                                            {Object.keys(previewData[0]).map((key) => (
+                                                <th key={key}>{key}</th>
                                             ))}
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
 
-                        {loading && (
-                            <div>
-                                <div className="progress-bar">
-                                    <div
-                                        className="progress-fill"
-                                        style={{ width: `${uploadProgress}%` }}
-                                    />
-                                </div>
-
-                                <p>{uploadProgress}% Completed</p>
-                                <p>Processed: {processedCount} / {totalCount}</p>
-                            </div>
-                        )}
-
-                        <button className="btn success" onClick={confirmUpload}>
-                            Confirm Upload
-                        </button>
-
-                        <button className="btn danger"
-                            onClick={() => { setPreviewData([]); resetFileInput(); }}>
-                            Cancel
-                        </button>
-                    </div>
-                )}
-            </div>
-
-            {/* 🔹 Product Info */}
-            <div className="stock-card stock-grid">
-
-                <select value={category}
-                    onChange={(e) => {
-                        setCategory(e.target.value);
-                        setSubCategory("");
-                    }}>
-                    <option value="">Category</option>
-                    {Object.keys(categoryMap).map(cat => (
-                        <option key={cat}>{cat}</option>
-                    ))}
-                </select>
-
-                <select value={subCategory}
-                    onChange={(e) => setSubCategory(e.target.value)}>
-                    <option value="">Sub Category</option>
-                    {(categoryMap[category] || []).map(sub => (
-                        <option key={sub}>{sub}</option>
-                    ))}
-                </select>
-
-                <select value={productType}
-                    onChange={(e) => setProductType(e.target.value)}>
-                    <option value="">Product Type</option>
-                    {productTypes.map(type => (
-                        <option key={type}>{type}</option>
-                    ))}
-                </select>
-
-                <select value={color}
-                    onChange={(e) => setColor(e.target.value)}>
-                    <option value="">Color</option>
-                    {colorOptions.map(c => (
-                        <option key={c}>{c}</option>
-                    ))}
-                    <option value="custom">Other</option>
-                </select>
-
-                {color === "custom" && (
-                    <input
-                        placeholder="Custom Color"
-                        value={customColor}
-                        onChange={(e) => setCustomColor(e.target.value)}
-                    />
-                )}
-            </div>
-
-            {/* 🔹 Sizes */}
-            <div className="stock-card">
-
-                <h4>Sizes & Pricing</h4>
-
-                {sizes.map((s, index) => {
-                    const selling = getSellingPrice(s.buyingPrice, s.margin, s.extraCosts);
-                    const profit = (s.buyingPrice * s.margin) / 100;
-
-                    return (
-                        <div className="size-row" key={index}>
-
-                            {/* LEFT */}
-                            <div className="stock-grid">
-
-                                <div className="input-group">
-                                    <label>Size</label>
-                                    <input
-                                        value={s.size}
-                                        onChange={(e) => handleSizeNameChange(index, e.target.value)}
-                                    />
-                                </div>
-
-                                <div className="input-group">
-                                    <label>Qty</label>
-                                    <input
-                                        type="number"
-                                        value={s.qty}
-                                        onChange={(e) => handleSizeChange(index, e.target.value)}
-                                    />
-                                </div>
-
-                                <div className="input-group">
-                                    <label>Buying Price (₹)</label>
-                                    <input
-                                        type="number"
-                                        value={s.buyingPrice}
-                                        onChange={(e) => handleBuyingPriceChange(index, e.target.value)}
-                                    />
-                                </div>
-
-                                <div className="input-group">
-                                    <label>Margin (%)</label>
-                                    <input
-                                        type="number"
-                                        value={s.margin}
-                                        onChange={(e) => handleMarginChange(index, e.target.value)}
-                                    />
-                                </div>
+                                    <tbody>
+                                        {previewData.slice(0, 10).map((row, i) => (
+                                            <tr key={i}>
+                                                {Object.values(row).map((val, j) => (
+                                                    <td key={j}>{val}</td>
+                                                ))}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
 
-                            {/* PRICE BOX */}
-                            <div className="summary-card">
-                                <p>Selling: ₹{selling}</p>
-                                <p className={profit >= 0 ? "profit" : "loss"}>
-                                    Profit: ₹{profit}
-                                </p>
-                            </div>
-
-                            {/* EXTRA COST */}
-                            <div className="extra-cost-grid">
-                                {Object.keys(s.extraCosts).map((key) => (
-                                    <div className="input-group">
-                                        <label>{key.toUpperCase()}</label>
-                                        <input
-                                            type="number"
-                                            value={s.extraCosts[key]}
-                                            onChange={(e) =>
-                                                handleExtraCostChange(index, key, e.target.value)
-                                            }
+                            {loading && (
+                                <div>
+                                    <div className="progress-bar">
+                                        <div
+                                            className="progress-fill"
+                                            style={{ width: `${uploadProgress}%` }}
                                         />
                                     </div>
-                                ))}
-                            </div>
 
+                                    <p>{uploadProgress}% Completed</p>
+                                    <p>Processed: {processedCount} / {totalCount}</p>
+                                </div>
+                            )}
+
+                            <button className="btn success" onClick={confirmUpload}>
+                                Confirm Upload
+                            </button>
+
+                            <button className="btn danger"
+                                onClick={() => { setPreviewData([]); resetFileInput(); }}>
+                                Cancel
+                            </button>
                         </div>
-                    );
-                })}
+                    )}
+                </div>
+            </FeatureGate>
 
-                <button className="btn secondary" onClick={addSizeRow}>
-                    + Add Size
+            <FeatureGate
+                user={user}
+                feature="buildInventory"
+                title="Invetnory Build"
+                description="Upgrade your plan to unlock Invetnory Build System."
+            >
+                {/* 🔹 Product Info */}
+                <div className="stock-card stock-grid">
+
+                    <select value={category}
+                        onChange={(e) => {
+                            setCategory(e.target.value);
+                            setSubCategory("");
+                        }}>
+                        <option value="">Category</option>
+                        {Object.keys(categoryMap).map(cat => (
+                            <option key={cat}>{cat}</option>
+                        ))}
+                    </select>
+
+                    <select value={subCategory}
+                        onChange={(e) => setSubCategory(e.target.value)}>
+                        <option value="">Sub Category</option>
+                        {(categoryMap[category] || []).map(sub => (
+                            <option key={sub}>{sub}</option>
+                        ))}
+                    </select>
+
+                    <select value={productType}
+                        onChange={(e) => setProductType(e.target.value)}>
+                        <option value="">Product Type</option>
+                        {productTypes.map(type => (
+                            <option key={type}>{type}</option>
+                        ))}
+                    </select>
+
+                    <select value={color}
+                        onChange={(e) => setColor(e.target.value)}>
+                        <option value="">Color</option>
+                        {colorOptions.map(c => (
+                            <option key={c}>{c}</option>
+                        ))}
+                        <option value="custom">Other</option>
+                    </select>
+
+                    {color === "custom" && (
+                        <input
+                            placeholder="Custom Color"
+                            value={customColor}
+                            onChange={(e) => setCustomColor(e.target.value)}
+                        />
+                    )}
+                </div>
+
+                {/* 🔹 Sizes */}
+                <div className="stock-card">
+
+                    <h4>Sizes & Pricing</h4>
+
+                    {sizes.map((s, index) => {
+                        const selling = getSellingPrice(s.buyingPrice, s.margin, s.extraCosts);
+                        const profit = (s.buyingPrice * s.margin) / 100;
+
+                        return (
+                            <div className="size-row" key={index}>
+
+                                {/* LEFT */}
+                                <div className="stock-grid">
+
+                                    <div className="input-group">
+                                        <label>Size</label>
+                                        <input
+                                            value={s.size}
+                                            onChange={(e) => handleSizeNameChange(index, e.target.value)}
+                                        />
+                                    </div>
+
+                                    <div className="input-group">
+                                        <label>Qty</label>
+                                        <input
+                                            type="number"
+                                            value={s.qty}
+                                            onChange={(e) => handleSizeChange(index, e.target.value)}
+                                        />
+                                    </div>
+
+                                    <div className="input-group">
+                                        <label>Buying Price (₹)</label>
+                                        <input
+                                            type="number"
+                                            value={s.buyingPrice}
+                                            onChange={(e) => handleBuyingPriceChange(index, e.target.value)}
+                                        />
+                                    </div>
+
+                                    <div className="input-group">
+                                        <label>Margin (%)</label>
+                                        <input
+                                            type="number"
+                                            value={s.margin}
+                                            onChange={(e) => handleMarginChange(index, e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* PRICE BOX */}
+                                <div className="summary-card">
+                                    <p>Selling: ₹{selling}</p>
+                                    <p className={profit >= 0 ? "profit" : "loss"}>
+                                        Profit: ₹{profit}
+                                    </p>
+                                </div>
+
+                                {/* EXTRA COST */}
+                                <div className="extra-cost-grid">
+                                    {Object.keys(s.extraCosts).map((key) => (
+                                        <div className="input-group">
+                                            <label>{key.toUpperCase()}</label>
+                                            <input
+                                                type="number"
+                                                value={s.extraCosts[key]}
+                                                onChange={(e) =>
+                                                    handleExtraCostChange(index, key, e.target.value)
+                                                }
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+
+                            </div>
+                        );
+                    })}
+
+                    <button className="btn secondary" onClick={addSizeRow}>
+                        + Add Size
+                    </button>
+
+                    <textarea
+                        placeholder="Remarks"
+                        value={remarks}
+                        onChange={(e) => setRemarks(e.target.value)}
+                    />
+                </div>
+
+                {/* 🔹 Summary */}
+                <div className="summary-card">
+                    <h4>Summary</h4>
+
+                    <p>Total Qty: <b>{totalQty}</b></p>
+                    <p>Investment: <b>₹{totalInvestment}</b></p>
+                    <p>Extra Cost: <b>₹{totalExtraCost}</b></p>
+                    <p>Selling: <b>₹{totalSellingValue}</b></p>
+
+                    <p className="profit">
+                        Profit: ₹{totalProfit}
+                    </p>
+                </div>
+                {/* 🔹 Save */}
+                <button className="btn primary" onClick={handleSave}>
+                    {isSaving ? "Saving..." : "Save Stock"}
                 </button>
 
-                <textarea
-                    placeholder="Remarks"
-                    value={remarks}
-                    onChange={(e) => setRemarks(e.target.value)}
-                />
-            </div>
-
-            {/* 🔹 Summary */}
-            <div className="summary-card">
-                <h4>Summary</h4>
-
-                <p>Total Qty: <b>{totalQty}</b></p>
-                <p>Investment: <b>₹{totalInvestment}</b></p>
-                <p>Extra Cost: <b>₹{totalExtraCost}</b></p>
-                <p>Selling: <b>₹{totalSellingValue}</b></p>
-
-                <p className="profit">
-                    Profit: ₹{totalProfit}
-                </p>
-            </div>
-
-            {/* 🔹 Save */}
-            <button className="btn primary" onClick={handleSave}>
-                {isSaving ? "Saving..." : "Save Stock"}
-            </button>
+            </FeatureGate>
 
         </div>
     );

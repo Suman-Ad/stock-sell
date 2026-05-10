@@ -4,14 +4,20 @@ import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { updatePassword } from "firebase/auth";
 import "../assets/Profile.css";
+import FeatureGate from "../components/FeatureGate";
 
-const Profile = () => {
+
+const Profile = ({}) => {
     const [userData, setUserData] = useState(null);
     const [editing, setEditing] = useState(false);
     const [newPassword, setNewPassword] = useState("");
     const [uploading, setUploading] = useState(false);
 
     const user = auth.currentUser;
+
+    const subscription = userData?.subscription || {};
+    const isExpired =
+        subscription.status === "expired";
 
     // 🔴 REAL-TIME DATA (auto refresh)
     useEffect(() => {
@@ -53,41 +59,117 @@ const Profile = () => {
 
     // 🔹 Upload Profile Image
     const handleImageUpload = async (file) => {
+
         try {
+
             if (!file) return;
+
+            // =====================
+            // VALIDATION
+            // =====================
+
+            if (
+                !file.type.startsWith("image/")
+            ) {
+
+                alert("Only image allowed");
+
+                return;
+            }
+
+            if (
+                file.size >
+                5 * 1024 * 1024
+            ) {
+
+                alert("Image must be under 5MB");
+
+                return;
+            }
 
             setUploading(true);
 
-            const storageRef = ref(storage, `profileImages/${user.uid}`);
-            await uploadBytes(storageRef, file);
+            const storageRef = ref(
+                storage,
+                `profileImages/${user.uid}`
+            );
 
-            const downloadURL = await getDownloadURL(storageRef);
+            await uploadBytes(
+                storageRef,
+                file
+            );
 
-            await updateDoc(doc(db, "users", user.uid), {
-                photoURL: downloadURL
-            });
+            const downloadURL =
+                await getDownloadURL(
+                    storageRef
+                );
+
+            await updateDoc(
+                doc(db, "users", user.uid),
+                {
+                    photoURL: downloadURL
+                }
+            );
 
             alert("Profile image updated!");
-            setUploading(false);
+
         } catch (err) {
+
+            console.log(err);
+
             alert(err.message);
+
+        } finally {
+
             setUploading(false);
+
         }
     };
 
     // 🔹 Change password
     const handlePasswordChange = async () => {
+
         try {
-            if (newPassword.length < 6) {
-                alert("Min 6 characters required");
+
+            if (
+                newPassword.length < 6
+            ) {
+
+                alert(
+                    "Min 6 characters required"
+                );
+
                 return;
             }
 
-            await updatePassword(user, newPassword);
+            await updatePassword(
+                user,
+                newPassword
+            );
+
             alert("Password updated!");
+
             setNewPassword("");
+
         } catch (err) {
+
+            console.log(err);
+
+            // Firebase secure login error
+            if (
+                err.code ===
+                "auth/requires-recent-login"
+            ) {
+
+                alert(
+                    "Please logout and login again before changing password."
+                );
+
+                return;
+            }
+
             alert(err.message);
+
         }
     };
 
@@ -107,11 +189,20 @@ const Profile = () => {
 
                 <br /><br />
 
-                <input
-                    type="file"
-                    onChange={(e) => handleImageUpload(e.target.files[0])}
-                />
-                {uploading && <p>Uploading...</p>}
+                <FeatureGate
+                    user={userData}
+                    feature="imageUpload"
+                    title="Image Upload"
+                    description="Upgrade your plan to unlock Image Uplad."
+                >
+                    <input
+                        type="file"
+                        onChange={(e) => handleImageUpload(e.target.files[0])}
+                    />
+                    {uploading && <p>Uploading...</p>}
+                </FeatureGate>
+
+
 
                 <br /><br />
 
@@ -191,14 +282,14 @@ const Profile = () => {
 
                         <div
                             className={
-                                userData.subscription?.status === "active"
+                                subscription.status === "active"
                                     ? "plan-badge active"
                                     : "plan-badge expired"
                             }
                         >
 
                             {
-                                userData.subscription?.status || "inactive"
+                                subscription.status || "inactive"
                             }
 
                         </div>
@@ -209,10 +300,16 @@ const Profile = () => {
 
                     <div className="subscription-plan">
 
-                        <h2>
+                        <h2 style={{
+                            color: isExpired
+                                ? "#ef4444"
+                                : "#22c55e"
+                        }}>
 
                             {
-                                userData.subscription?.planId?.toUpperCase() || "FREE"
+                                subscription.planName ||
+                                subscription.planId ||
+                                "Free"
                             }
 
                         </h2>
@@ -232,7 +329,7 @@ const Profile = () => {
                             <strong>
 
                                 {
-                                    userData.subscription?.startDate
+                                    subscription.startDate
                                         ?.toDate?.()
                                         ?.toLocaleDateString?.() || "N/A"
                                 }
@@ -250,7 +347,7 @@ const Profile = () => {
                             <strong>
 
                                 {
-                                    userData.subscription?.endDate
+                                    subscription.endDate
                                         ?.toDate?.()
                                         ?.toLocaleDateString?.() || "N/A"
                                 }
@@ -282,34 +379,42 @@ const Profile = () => {
 
                         <div className="feature-list">
 
-                            <div>
-                                ✅ Stock Management
-                            </div>
-
-                            <div>
-                                ✅ QR Code System
-                            </div>
-
-                            <div>
-                                ✅ Sales Tracking
-                            </div>
-
                             {
-                                userData.subscription?.planId !== "free" && (
+                                subscription.features &&
+                                    Object.keys(subscription.features)
+                                        .length > 0 ? (
 
-                                    <>
-                                        <div>
-                                            ✅ Excel Export
-                                        </div>
+                                    Object.entries(
+                                        subscription.features
+                                    ).map(([key, value]) => {
 
-                                        <div>
-                                            ✅ Bulk QR Print
-                                        </div>
+                                        if (!value) return null;
 
-                                        <div>
-                                            ✅ Advanced Reports
-                                        </div>
-                                    </>
+                                        return (
+
+                                            <div key={key}>
+
+                                                ✅ {
+                                                    key
+                                                        .replace(
+                                                            /([A-Z])/g,
+                                                            " $1"
+                                                        )
+                                                        .replace(/^./, str =>
+                                                            str.toUpperCase()
+                                                        )
+                                                }
+
+                                            </div>
+                                        );
+                                    })
+
+                                ) : (
+
+                                    <div>
+                                        No features available
+                                    </div>
+
                                 )
                             }
 
@@ -322,7 +427,7 @@ const Profile = () => {
                     <button
                         className="subscription-btn"
                         onClick={() =>
-                            window.location.href = "/plans"
+                            window.location.assign("/plans")
                         }
                     >
 

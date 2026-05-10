@@ -156,6 +156,20 @@ const Dashboard = ({ user }) => {
             });
         });
 
+    const filteredStocks = stocks.filter(item => {
+
+        // 🔥 User filter
+        if (
+            (role === "admin" || role === "superadmin") &&
+            selectedUser !== "all" &&
+            item.userId !== selectedUser
+        ) {
+            return false;
+        }
+
+        return true;
+    });
+
     // Filter Salse
     const [filter, setFilter] = useState("all");
 
@@ -290,9 +304,9 @@ const Dashboard = ({ user }) => {
                 <div className="dashboard-actions" >
                     <FeatureGate
                         user={user}
-                        feature="analytics"
-                        title="Analytics Dashboard"
-                        description="Upgrade to Pro plan to unlock advanced analytics."
+                        feature="scan"
+                        title="Scanner"
+                        description="Upgrade your plan to unlock QR mobile product scanning."
                     >
                         <button className="summary-card" style={{ background: "#6bd7ebb2" }} onClick={() => navigate("/sell-product")}>
                             <img src="/gemini-svg.svg" alt="Scan QR" />
@@ -351,68 +365,75 @@ const Dashboard = ({ user }) => {
             </div>
 
 
+            <FeatureGate
+                user={user}
+                feature="analytics"
+                title="Dashboard Analytics"
+                description="Upgrade your plan to unlock analytics."
+            >
+                {/* 🔹 Stats Cards */}
+                <div className="dashboard-grid" >
 
-            {/* 🔹 Stats Cards */}
-            <div className="dashboard-grid" >
+                    {/* Total Sales */}
+                    <div className="stat-card blue">
+                        <h4>📦 Total Sales</h4>
+                        <h2>{totalSales}</h2>
+                    </div>
 
-                {/* Total Sales */}
-                <div className="stat-card blue">
-                    <h4>📦 Total Sales</h4>
-                    <h2>{totalSales}</h2>
+                    {/* Revenue */}
+                    <div className="stat-card green">
+                        <h4>💰 Revenue</h4>
+                        <h2>₹{totalRevenue.toFixed(2)}</h2>
+                    </div>
+
+                    {/* Cost */}
+                    <div className="stat-card orange">
+                        <h4>💸 Cost</h4>
+                        <h2>₹{(totalCost + totalExtraCost).toFixed(2)}</h2>
+                    </div>
+
+                    {/* Profit */}
+                    <div className="stat-card red">
+                        <h4>📈 Profit</h4>
+                        <h2 style={{ color: profitColor }}>
+                            ₹{totalProfit.toFixed(2)}
+                        </h2>
+                    </div>
+
+                    {/* Stock Items */}
+                    <div className="stat-card blue">
+                        <h4>📦 Stock Available</h4>
+                        <h4>Total Catalogues: {filteredStocks.length}</h4>
+                        <h4>Total Qty: {totalStockQty}<small>/units</small></h4>
+                    </div>
+
+                    {/* Stock Value */}
+                    <div className="stat-card orange">
+                        <h4>💼 Stock Investment</h4>
+                        <h2>₹{totalStockValue.toFixed(2)}</h2>
+                    </div>
+
+                    {/* Stock Extra Cost */}
+                    <div className="stat-card red">
+                        <h4>📦 Extra Cost</h4>
+                        <h2>₹{totalStockExtraCost.toFixed(2)}</h2>
+                    </div>
+
+                    {/* Stock Sellinng value */}
+                    <div className="stat-card green">
+                        <h4>💰 Stock Selling Value</h4>
+                        <h2>₹{totalSellingValue.toFixed(2)}</h2>
+                    </div>
+
+                    {/* Expected Profit */}
+                    <div className={`stat-card ${totalExpectedProfit >= 0 ? "green" : "red"}`}>
+                        <h4>📈 Expected Profit</h4>
+                        <h2>
+                            ₹{totalExpectedProfit.toFixed(2)}
+                        </h2>
+                    </div>
                 </div>
-
-                {/* Revenue */}
-                <div className="stat-card green">
-                    <h4>💰 Revenue</h4>
-                    <h2>₹{totalRevenue.toFixed(2)}</h2>
-                </div>
-
-                {/* Cost */}
-                <div className="stat-card orange">
-                    <h4>💸 Cost</h4>
-                    <h2>₹{(totalCost + totalExtraCost).toFixed(2)}</h2>
-                </div>
-
-                {/* Profit */}
-                <div className="stat-card red">
-                    <h4>📈 Profit</h4>
-                    <h2 style={{ color: profitColor }}>
-                        ₹{totalProfit.toFixed(2)}
-                    </h2>
-                </div>
-
-                {/* Stock Items */}
-                <div className="stat-card blue">
-                    <h4>📦 Stock Available</h4>
-                    <h2>{totalStockQty.toFixed(2)}</h2>
-                </div>
-
-                {/* Stock Value */}
-                <div className="stat-card orange">
-                    <h4>💼 Stock Investment</h4>
-                    <h2>₹{totalStockValue.toFixed(2)}</h2>
-                </div>
-
-                {/* Stock Extra Cost */}
-                <div className="stat-card red">
-                    <h4>📦 Extra Cost</h4>
-                    <h2>₹{totalStockExtraCost.toFixed(2)}</h2>
-                </div>
-
-                {/* Stock Sellinng value */}
-                <div className="stat-card green">
-                    <h4>💰 Stock Selling Value</h4>
-                    <h2>₹{totalSellingValue.toFixed(2)}</h2>
-                </div>
-
-                {/* Expected Profit */}
-                <div className={`stat-card ${totalExpectedProfit >= 0 ? "green" : "red"}`}>
-                    <h4>📈 Expected Profit</h4>
-                    <h2>
-                        ₹{totalExpectedProfit.toFixed(2)}
-                    </h2>
-                </div>
-            </div>
+            </FeatureGate>
 
             <div className="filter-bar">
                 {["all", "today", "week", "month"].map((f) => (

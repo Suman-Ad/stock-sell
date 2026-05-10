@@ -14,68 +14,11 @@ import {
 import { db } from "../firebase";
 import "../assets/SubscriptionManager.css";
 
-const defaultPlans = {
-    free: {
-        planId: "free",
-        planName: "Free",
-        price: 0,
-        durationDays: 30,
-        maxProducts: 25,
-        maxUsers: 1,
-        features: {
-            qrCode: true,
-            exportExcel: false,
-            analytics: false,
-            bulkPrint: false,
-        }
-    },
-
-    starter: {
-        planId: "starter",
-        planName: "Starter",
-        price: 199,
-        durationDays: 30,
-        maxProducts: 500,
-        maxUsers: 1,
-        features: {
-            qrCode: true,
-            exportExcel: true,
-            analytics: false,
-            bulkPrint: false,
-        }
-    },
-
-    pro: {
-        planId: "pro",
-        planName: "Pro",
-        price: 499,
-        durationDays: 30,
-        maxProducts: 5000,
-        maxUsers: 5,
-        features: {
-            qrCode: true,
-            exportExcel: true,
-            analytics: true,
-            bulkPrint: true,
-        }
-    },
-
-    enterprise: {
-        planId: "enterprise",
-        planName: "Enterprise",
-        price: 1999,
-        durationDays: 30,
-        maxProducts: -1,
-        maxUsers: -1,
-        features: {
-            all: true
-        }
-    }
-};
 
 const SubscriptionManager = () => {
 
     const [users, setUsers] = useState([]);
+    const [plans, setPlans] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [updating, setUpdating] = useState("");
@@ -118,10 +61,33 @@ const SubscriptionManager = () => {
             }
         );
 
+        // ==========================
+        // LOAD PLANS
+        // ==========================
+
+        const unsubPlans = onSnapshot(
+            collection(db, "plans"),
+            (snap) => {
+
+                const data = snap.docs.map(d => ({
+                    id: d.id,
+                    ...d.data()
+                }));
+
+                // active only
+                const activePlans = data.filter(
+                    p => p.active !== false
+                );
+
+                setPlans(activePlans);
+            }
+        );
+
         return () => {
 
             unsubUsers();
             unsubRequests();
+            unsubPlans();
 
         };
 
@@ -137,8 +103,11 @@ const SubscriptionManager = () => {
 
             setUpdating(request.userId);
 
-            const selectedPlan =
-                defaultPlans[request.planId];
+            const selectedPlan = plans.find(
+                p =>
+                    p.planId === request.planId ||
+                    p.id === request.planId
+            );
 
             if (!selectedPlan) {
 
@@ -173,7 +142,15 @@ const SubscriptionManager = () => {
 
                         status: "active",
 
-                        paymentStatus: "paid",
+                        paymentStatus:
+                            Number(selectedPlan.price) <= 0
+                                ? "free"
+                                : "paid",
+                        maxProducts:
+                            selectedPlan.maxProducts ?? -1,
+
+                        maxUsers:
+                            selectedPlan.maxUsers ?? 1,
 
                         autoRenew: false,
 
@@ -308,7 +285,18 @@ const SubscriptionManager = () => {
 
             setUpdating(userId);
 
-            const selectedPlan = defaultPlans[planKey];
+            const selectedPlan = plans.find(
+                p =>
+                    p.planId === planKey ||
+                    p.id === planKey
+            );
+
+            if (!selectedPlan) {
+
+                alert("Plan not found");
+
+                return;
+            }
 
             const startDate = new Date();
 
@@ -330,9 +318,16 @@ const SubscriptionManager = () => {
 
                     status: "active",
 
-                    paymentStatus: selectedPlan.price === 0
-                        ? "free"
-                        : "paid",
+                    paymentStatus:
+                        Number(selectedPlan.price) <= 0
+                            ? "free"
+                            : "paid",
+
+                    maxProducts:
+                        selectedPlan.maxProducts ?? -1,
+
+                    maxUsers:
+                        selectedPlan.maxUsers ?? 1,
 
                     autoRenew: false,
 
@@ -679,27 +674,27 @@ const SubscriptionManager = () => {
 
                                 <div className="plan-buttons">
 
-                                    {Object.keys(defaultPlans).map(plan => (
+                                    {plans.map(plan => (
 
                                         <button
-                                            key={plan}
+                                            key={plan.id}
                                             disabled={updating === user.id}
                                             className={
-                                                sub.planId === plan
+                                                sub.planId === plan.planId
                                                     ? "selected-plan"
                                                     : ""
                                             }
                                             onClick={() =>
                                                 handlePlanChange(
                                                     user.id,
-                                                    plan
+                                                    plan.planId || plan.id
                                                 )
                                             }
                                         >
                                             {
                                                 updating === user.id
                                                     ? "Updating..."
-                                                    : plan.toUpperCase()
+                                                    : plan.planName
                                             }
                                         </button>
 

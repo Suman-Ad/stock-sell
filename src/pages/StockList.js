@@ -19,6 +19,7 @@ import { QRCodeCanvas } from "qrcode.react";
 import useUserRole from "../hooks/useUserRole";
 import StockInventory from "./StockInventory";
 import "../assets/StockList.css";
+import FeatureGate from "../components/FeatureGate";
 
 const createQRCodes = async (item, sizeKey, quantity) => {
     const batch = writeBatch(db);
@@ -656,7 +657,7 @@ const StockList = ({ user }) => {
 
     return (
         <div className="stock-page" >
-            <StockSummary stocks={filteredStocks} />
+            <StockSummary stocks={filteredStocks} user={user} />
             <>
                 <button className="summary-card" style={{ color: "white" }} onClick={() => setShowInventory(true)}>
                     + Add New Items
@@ -739,376 +740,392 @@ const StockList = ({ user }) => {
                         </select>
                     </div>
                 )}
-                <input
-                    placeholder="Search by Catalog ID..."
-                    value={searchId}
-                    onChange={(e) => setSearchId(e.target.value.toUpperCase())}
-                    style={{ marginBottom: "15px", padding: "8px", width: "250px" }}
-                    className="summary-card"
-                />
+                <FeatureGate
+                    user={user}
+                    feature="tools"
+                    title="Easy Searching Bar"
+                    description="Upgrade your plan to unlock Easy Searching Tools Bar."
+                >
+                    <input
+                        placeholder="Search by Catalog ID..."
+                        value={searchId}
+                        onChange={(e) => setSearchId(e.target.value.toUpperCase())}
+                        style={{ marginBottom: "15px", padding: "8px", width: "250px" }}
+                        className="summary-card"
+                    />
+                </FeatureGate>
+
             </div>
-            <div className="table-wrapper">
-                {stockLoading ? (
-                    <div
-                        style={{
-                            padding: "40px",
-                            textAlign: "center",
-                            fontSize: "18px",
-                            fontWeight: "bold"
-                        }}
-                    >
-                        Loading Stocks...
-                    </div>
-                ) : (
-                    <table className="stock-table" border="1" cellPadding="10" >
-                        <thead>
-                            <tr>
-                                {isAdmin && (
-                                    <th>Shop Name</th>
-                                )}
-                                {isAdmin && (
-                                    <th>Proprietor Name</th>
-                                )}
-                                <th>Product Name</th>
-                                <th>Product ID</th>
-                                <th>Catalog ID</th>
-                                <th>Sizes - Quantity - Prices - Margin%</th>
-                                <th>Total Qty</th>
-                                <th>Total Investment</th>
-                                <th>Total Extra Cost</th>
-                                <th>Avg Selling Price</th>
-                                <th>Total Selling Value</th>
-                                <th>Profit</th>
-                                <th>QR Codes</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
+            <FeatureGate
+                user={user}
+                feature="stockInventory"
+                title="Stock List"
+                description="Upgrade your plan to unlock Stock List."
+            >
+                <div className="table-wrapper">
+                    {stockLoading ? (
+                        <div
+                            style={{
+                                padding: "40px",
+                                textAlign: "center",
+                                fontSize: "18px",
+                                fontWeight: "bold"
+                            }}
+                        >
+                            Loading Stocks...
+                        </div>
+                    ) : (
+                        <table className="stock-table" border="1" cellPadding="10" >
+                            <thead>
+                                <tr>
+                                    {isAdmin && (
+                                        <th>Shop Name</th>
+                                    )}
+                                    {isAdmin && (
+                                        <th>Proprietor Name</th>
+                                    )}
+                                    <th>Product Name</th>
+                                    <th>Product ID</th>
+                                    <th>Catalog ID</th>
+                                    <th>Sizes - Quantity - Prices - Margin%</th>
+                                    <th>Total Qty</th>
+                                    <th>Total Investment</th>
+                                    <th>Total Extra Cost</th>
+                                    <th>Avg Selling Price</th>
+                                    <th>Total Selling Value</th>
+                                    <th>Profit</th>
+                                    <th>QR Codes</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
 
-                        <tbody>
-                            {filteredStocks.map((item) => {
-                                const totalQty = getTotalQty(item.sizes);
-                                const totalInvestment = getTotalInvestment(item.sizes);
-                                const totalExtraCost = getTotalExtraCost(item.sizes);
-                                const totalSelling = getTotalSellingValue(item.sizes);
-                                const profit = getTotalProfit(item.sizes);
-                                const avgSelling = getAvgSellingPrice(item.sizes);
-                                const qrCodes = getItemQR(item);
-                                const editable = canEditStock(item);
+                            <tbody>
+                                {filteredStocks.map((item) => {
+                                    const totalQty = getTotalQty(item.sizes);
+                                    const totalInvestment = getTotalInvestment(item.sizes);
+                                    const totalExtraCost = getTotalExtraCost(item.sizes);
+                                    const totalSelling = getTotalSellingValue(item.sizes);
+                                    const profit = getTotalProfit(item.sizes);
+                                    const avgSelling = getAvgSellingPrice(item.sizes);
+                                    const qrCodes = getItemQR(item);
+                                    const editable = canEditStock(item);
 
-                                return (
-                                    <tr key={item.id}>
-                                        {isAdmin && (
-                                            <td>{item.createdBy?.shopName || "N/A"}</td>
-                                        )}
-                                        {isAdmin && (
-                                            <td>{item.createdBy?.name || "N/A"}</td>
-                                        )}
-                                        <td>{item.productName}</td>
-                                        <td>{item.productId}</td>
-                                        <td>{item.catalogId}</td>
+                                    return (
+                                        <tr key={item.id}>
+                                            {isAdmin && (
+                                                <td>{item.createdBy?.shopName || "N/A"}</td>
+                                            )}
+                                            {isAdmin && (
+                                                <td>{item.createdBy?.name || "N/A"}</td>
+                                            )}
+                                            <td>{item.productName}</td>
+                                            <td>{item.productId}</td>
+                                            <td>{item.catalogId}</td>
 
-                                        <td>
-                                            <div style={{ overflowY: "auto", maxHeight: "365px", scrollbarWidth: "thin" }} >
-                                                {Object.entries(item.sizes || {}).map(([size, data]) => {
-                                                    const soldCount = getSoldCount(item, size);
-                                                    const total = data.initialQty ?? 0;
-                                                    const available = data.qty ?? 0;
-                                                    const removedCount = qrData.reduce((count, qr) => {
-                                                        if (
-                                                            qr.stockId === item.id &&
-                                                            qr.size === size &&
-                                                            qr.status === "removed"
-                                                        ) {
-                                                            return count + 1;
-                                                        }
-                                                        return count;
-                                                    }, 0);
-                                                    return (
-                                                        <div clas key={size} style={{ marginBottom: "8px", alignItems: "center", gap: "5px", border: "1px solid #3b82f6", padding: "5px 10px", borderRadius: "5px", transform: 'translateY(-3px)', boxShadow: '0 6px 20px rgba(59,130,246,0.25)' }}>
-                                                            <label><strong>Size: {size}</strong></label>
-                                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "5px", fontSize: "12px" }}>
-                                                                <span style={{ marginLeft: "8px" }}>
-                                                                    <small>Listing Price:</small> ₹{(data.sellingPrice || 0).toFixed(2)}<small>/Unit</small>
-                                                                </span>
-                                                                |
-                                                                <span>
-                                                                    <small>Extra Cost:</small> ₹
-                                                                    {(
-                                                                        (data.extraCosts.packaging +
-                                                                            data.extraCosts.labeling +
-                                                                            data.extraCosts.rto +
-                                                                            data.extraCosts.returnCost +
-                                                                            data.extraCosts.advertisementCost +
-                                                                            data.extraCosts.delivery +
-                                                                            data.extraCosts.others) || 0
-                                                                    ).toFixed(2)}
-                                                                    <small>/Unit</small>
-                                                                </span>
-                                                                |
-                                                                <span>
-                                                                    <small>Gst Amount:</small> ₹
-                                                                    {
-                                                                        ((((data.buyingPrice * (1 + data.margin / 100)) +
-                                                                            (
-                                                                                data.extraCosts.packaging +
+                                            <td>
+                                                <div style={{ overflowY: "auto", maxHeight: "365px", scrollbarWidth: "thin" }} >
+                                                    {Object.entries(item.sizes || {}).map(([size, data]) => {
+                                                        const soldCount = getSoldCount(item, size);
+                                                        const total = data.initialQty ?? 0;
+                                                        const available = data.qty ?? 0;
+                                                        const removedCount = qrData.reduce((count, qr) => {
+                                                            if (
+                                                                qr.stockId === item.id &&
+                                                                qr.size === size &&
+                                                                qr.status === "removed"
+                                                            ) {
+                                                                return count + 1;
+                                                            }
+                                                            return count;
+                                                        }, 0);
+                                                        return (
+                                                            <div clas key={size} style={{ marginBottom: "8px", alignItems: "center", gap: "5px", border: "1px solid #3b82f6", padding: "5px 10px", borderRadius: "5px", transform: 'translateY(-3px)', boxShadow: '0 6px 20px rgba(59,130,246,0.25)' }}>
+                                                                <label><strong>Size: {size}</strong></label>
+                                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "5px", fontSize: "12px" }}>
+                                                                    <span style={{ marginLeft: "8px" }}>
+                                                                        <small>Listing Price:</small> ₹{(data.sellingPrice || 0).toFixed(2)}<small>/Unit</small>
+                                                                    </span>
+                                                                    |
+                                                                    <span>
+                                                                        <small>Extra Cost:</small> ₹
+                                                                        {(
+                                                                            (data.extraCosts.packaging +
                                                                                 data.extraCosts.labeling +
                                                                                 data.extraCosts.rto +
                                                                                 data.extraCosts.returnCost +
                                                                                 data.extraCosts.advertisementCost +
                                                                                 data.extraCosts.delivery +
-                                                                                data.extraCosts.others
-                                                                            )) * data.extraCosts.gst) / 100).toFixed(2)
-                                                                    }
-                                                                    <small>/Unit</small>
-                                                                </span>
-                                                                |
-                                                                <span><small>Profit:</small> ₹{((data.buyingPrice * data.margin) / 100).toFixed(2)}<small>/Unit</small></span>
-                                                                {data.sellingPrice <
-                                                                    data.buyingPrice && (
-                                                                        <span style={{ color: "red", fontSize: "10px" }}>
-                                                                            ⚠ Loss
-                                                                        </span>
+                                                                                data.extraCosts.others) || 0
+                                                                        ).toFixed(2)}
+                                                                        <small>/Unit</small>
+                                                                    </span>
+                                                                    |
+                                                                    <span>
+                                                                        <small>Gst Amount:</small> ₹
+                                                                        {
+                                                                            ((((data.buyingPrice * (1 + data.margin / 100)) +
+                                                                                (
+                                                                                    data.extraCosts.packaging +
+                                                                                    data.extraCosts.labeling +
+                                                                                    data.extraCosts.rto +
+                                                                                    data.extraCosts.returnCost +
+                                                                                    data.extraCosts.advertisementCost +
+                                                                                    data.extraCosts.delivery +
+                                                                                    data.extraCosts.others
+                                                                                )) * data.extraCosts.gst) / 100).toFixed(2)
+                                                                        }
+                                                                        <small>/Unit</small>
+                                                                    </span>
+                                                                    |
+                                                                    <span><small>Profit:</small> ₹{((data.buyingPrice * data.margin) / 100).toFixed(2)}<small>/Unit</small></span>
+                                                                    {data.sellingPrice <
+                                                                        data.buyingPrice && (
+                                                                            <span style={{ color: "red", fontSize: "10px" }}>
+                                                                                ⚠ Loss
+                                                                            </span>
+                                                                        )}
+                                                                    |
+                                                                    {forceQRPrint[`${item.id}-${size}`] && (
+                                                                        <>
+                                                                            <button
+                                                                                onClick={() => handleForceQRUpdate(item, size)}
+                                                                                style={{
+                                                                                    background: "red",
+                                                                                    color: "white",
+                                                                                    padding: "4px 8px",
+                                                                                    borderRadius: "5px",
+                                                                                    marginTop: "5px"
+                                                                                }}
+                                                                                disabled={!editable}
+                                                                            >
+                                                                                🔄QR
+                                                                            </button>
+                                                                            |
+                                                                        </>
                                                                     )}
-                                                                |
-                                                                {forceQRPrint[`${item.id}-${size}`] && (
-                                                                    <>
-                                                                        <button
-                                                                            onClick={() => handleForceQRUpdate(item, size)}
-                                                                            style={{
-                                                                                background: "red",
-                                                                                color: "white",
-                                                                                padding: "4px 8px",
-                                                                                borderRadius: "5px",
-                                                                                marginTop: "5px"
-                                                                            }}
-                                                                            disabled={!editable}
-                                                                        >
-                                                                            🔄QR
-                                                                        </button>
-                                                                        |
-                                                                    </>
-                                                                )}
 
-                                                                <button
-                                                                    onClick={async () => {
-                                                                        const updatedSizes = { ...item.sizes };
-                                                                        delete updatedSizes[size];
+                                                                    <button
+                                                                        onClick={async () => {
+                                                                            const updatedSizes = { ...item.sizes };
+                                                                            delete updatedSizes[size];
 
-                                                                        if (Object.keys(updatedSizes).length === 0) {
-                                                                            alert("At least one size required");
-                                                                            return;
-                                                                        }
-                                                                        if (user.uid !== item.userId) {
-                                                                            alert("You are not authorizes");
-                                                                            return
-                                                                        }
-                                                                        await updateDoc(doc(db, "stocks", item.id), {
-                                                                            sizes: updatedSizes
-                                                                        });
-                                                                    }}
-                                                                    style={{ marginLeft: "5px" }}
-                                                                    disabled={!editable}
-                                                                >
-                                                                    ❌
-                                                                </button>
-
-
-                                                            </div>
-
-                                                            <div style={{ fontSize: "10px", color: "gray" }}>
-                                                                Sold: {soldCount} | Available: {available} | Total: {total} | Removed: {removedCount}
-                                                            </div>
-                                                            <div key={size} style={{ marginBottom: "8px", display: "flex", alignItems: "center", gap: "5px" }}>
-
-                                                                <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
-                                                                    <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Qty:-
-                                                                        <button
-                                                                            onClick={() => handleReduceStock(item, size, 1)}
-                                                                            style={{ padding: "2px 2px" }}
-                                                                            disabled={!editable}
-                                                                        >
-                                                                            ➖
-                                                                        </button>
-                                                                        <input
-                                                                            type="number"
-                                                                            value={data.qty}
-                                                                            readOnly
-                                                                            style={{ width: "60px", marginLeft: "5px", marginLeft: "2px" }}
-                                                                        />
-                                                                        <button
-                                                                            style={{ padding: "2px 2px" }}
-                                                                            onClick={() => handleAddStock(item, size, 1)}
-                                                                            disabled={!editable}
-                                                                        >
-                                                                            ➕
-                                                                        </button>
-                                                                    </legend>
-                                                                    <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Buy:-
-                                                                        <input
-                                                                            type="number"
-                                                                            value={data.buyingPrice || 0}
-                                                                            placeholder="Buy"
-                                                                            style={{ width: "70px", marginLeft: "5px" }}
-                                                                            onChange={(e) =>
-                                                                                handleSizeUpdate(item, size, "buyingPrice", e.target.value)
+                                                                            if (Object.keys(updatedSizes).length === 0) {
+                                                                                alert("At least one size required");
+                                                                                return;
                                                                             }
-                                                                            disabled={!editable}
-                                                                        />
-                                                                    </legend>
-                                                                    <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Margin%:-
-                                                                        <input
-                                                                            type="number"
-                                                                            value={data.margin || 0}
-                                                                            placeholder="%"
-                                                                            style={{ width: "60px", marginLeft: "5px" }}
-                                                                            onChange={(e) =>
-                                                                                handleSizeUpdate(item, size, "margin", e.target.value)
+                                                                            if (user.uid !== item.userId) {
+                                                                                alert("You are not authorizes");
+                                                                                return
                                                                             }
-                                                                            disabled={!editable}
-                                                                        />
-                                                                    </legend>
+                                                                            await updateDoc(doc(db, "stocks", item.id), {
+                                                                                sizes: updatedSizes
+                                                                            });
+                                                                        }}
+                                                                        style={{ marginLeft: "5px" }}
+                                                                        disabled={!editable}
+                                                                    >
+                                                                        ❌
+                                                                    </button>
+
+
                                                                 </div>
-                                                                <div style={{
-                                                                    display: "grid",
-                                                                    gridTemplateColumns: "repeat(4, 1fr)", // ✅ 5 columns
-                                                                    gap: "6px",
-                                                                    marginTop: "6px",
-                                                                    borderTop: "1px dashed #ccc",
-                                                                    paddingTop: "6px",
-                                                                    width: "100%"
-                                                                }}>
-                                                                    {["packaging", "labeling", "rto", "returnCost", "advertisementCost", "delivery", "others", "gst"].map((key) => (
-                                                                        <div key={key} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                                                                            <legend key={key} style={{ fontSize: "10px", color: "gray" }}>{key.toUpperCase()}</legend>
+
+                                                                <div style={{ fontSize: "10px", color: "gray" }}>
+                                                                    Sold: {soldCount} | Available: {available} | Total: {total} | Removed: {removedCount}
+                                                                </div>
+                                                                <div key={size} style={{ marginBottom: "8px", display: "flex", alignItems: "center", gap: "5px" }}>
+
+                                                                    <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
+                                                                        <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Qty:-
+                                                                            <button
+                                                                                onClick={() => handleReduceStock(item, size, 1)}
+                                                                                style={{ padding: "2px 2px" }}
+                                                                                disabled={!editable}
+                                                                            >
+                                                                                ➖
+                                                                            </button>
                                                                             <input
-                                                                                key={key}
                                                                                 type="number"
-                                                                                placeholder={key}
-                                                                                value={data.extraCosts?.[key] || 0}
-                                                                                style={{ width: "65px", fontSize: "10px" }}
+                                                                                value={data.qty}
+                                                                                readOnly
+                                                                                style={{ width: "60px", marginLeft: "5px", marginLeft: "2px" }}
+                                                                            />
+                                                                            <button
+                                                                                style={{ padding: "2px 2px" }}
+                                                                                onClick={() => handleAddStock(item, size, 1)}
+                                                                                disabled={!editable}
+                                                                            >
+                                                                                ➕
+                                                                            </button>
+                                                                        </legend>
+                                                                        <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Buy:-
+                                                                            <input
+                                                                                type="number"
+                                                                                value={data.buyingPrice || 0}
+                                                                                placeholder="Buy"
+                                                                                style={{ width: "70px", marginLeft: "5px" }}
                                                                                 onChange={(e) =>
-                                                                                    handleSizeUpdate(
-                                                                                        item,
-                                                                                        size,
-                                                                                        `extraCosts.${key}`,
-                                                                                        e.target.value
-                                                                                    )
+                                                                                    handleSizeUpdate(item, size, "buyingPrice", e.target.value)
                                                                                 }
                                                                                 disabled={!editable}
                                                                             />
-                                                                        </div>
-                                                                    ))}
+                                                                        </legend>
+                                                                        <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Margin%:-
+                                                                            <input
+                                                                                type="number"
+                                                                                value={data.margin || 0}
+                                                                                placeholder="%"
+                                                                                style={{ width: "60px", marginLeft: "5px" }}
+                                                                                onChange={(e) =>
+                                                                                    handleSizeUpdate(item, size, "margin", e.target.value)
+                                                                                }
+                                                                                disabled={!editable}
+                                                                            />
+                                                                        </legend>
+                                                                    </div>
+                                                                    <div style={{
+                                                                        display: "grid",
+                                                                        gridTemplateColumns: "repeat(4, 1fr)", // ✅ 5 columns
+                                                                        gap: "6px",
+                                                                        marginTop: "6px",
+                                                                        borderTop: "1px dashed #ccc",
+                                                                        paddingTop: "6px",
+                                                                        width: "100%"
+                                                                    }}>
+                                                                        {["packaging", "labeling", "rto", "returnCost", "advertisementCost", "delivery", "others", "gst"].map((key) => (
+                                                                            <div key={key} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                                                                                <legend key={key} style={{ fontSize: "10px", color: "gray" }}>{key.toUpperCase()}</legend>
+                                                                                <input
+                                                                                    key={key}
+                                                                                    type="number"
+                                                                                    placeholder={key}
+                                                                                    value={data.extraCosts?.[key] || 0}
+                                                                                    style={{ width: "65px", fontSize: "10px" }}
+                                                                                    onChange={(e) =>
+                                                                                        handleSizeUpdate(
+                                                                                            item,
+                                                                                            size,
+                                                                                            `extraCosts.${key}`,
+                                                                                            e.target.value
+                                                                                        )
+                                                                                    }
+                                                                                    disabled={!editable}
+                                                                                />
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    )
-                                                })}
-                                            </div>
-                                        </td>
+                                                        )
+                                                    })}
+                                                </div>
+                                            </td>
 
-                                        <td>{totalQty}</td>
-                                        <td>₹{totalInvestment.toFixed(2)}</td>
-                                        <td>₹{totalExtraCost.toFixed(2)}</td>
-                                        <td>₹{avgSelling.toFixed(2)}</td>
-                                        <td>₹{totalSelling.toFixed(2)}</td>
-                                        <td style={{
-                                            color: profit < 0 ? "red" : "green",
-                                            fontWeight: "bold"
-                                        }}>
-                                            ₹{profit.toFixed(2)}
-                                        </td>
-                                        <td>
-                                            <div key={item.catalogId} style={{
-                                                border: "1px solid #ccc",
-                                                marginBottom: "20px",
-                                                padding: "10px",
-                                                height: "inherit",
+                                            <td>{totalQty}</td>
+                                            <td>₹{totalInvestment.toFixed(2)}</td>
+                                            <td>₹{totalExtraCost.toFixed(2)}</td>
+                                            <td>₹{avgSelling.toFixed(2)}</td>
+                                            <td>₹{totalSelling.toFixed(2)}</td>
+                                            <td style={{
+                                                color: profit < 0 ? "red" : "green",
+                                                fontWeight: "bold"
                                             }}>
-                                                <button
-                                                    onClick={() => toggleQR(item.catalogId)}
-                                                >
-                                                    {qrLoading[item.catalogId]
-                                                        ? "Loading..."
-                                                        : showQR[item.catalogId]
-                                                            ? "Hide QR"
-                                                            : "Show QR"}
+                                                ₹{profit.toFixed(2)}
+                                            </td>
+                                            <td>
+                                                <div key={item.catalogId} style={{
+                                                    border: "1px solid #ccc",
+                                                    marginBottom: "20px",
+                                                    padding: "10px",
+                                                    height: "inherit",
+                                                }}>
+                                                    <button
+                                                        onClick={() => toggleQR(item.catalogId)}
+                                                    >
+                                                        {qrLoading[item.catalogId]
+                                                            ? "Loading..."
+                                                            : showQR[item.catalogId]
+                                                                ? "Hide QR"
+                                                                : "Show QR"}
+                                                    </button>
+
+                                                    {showQR[item.catalogId] && (
+                                                        <div className="qr-box">
+                                                            <p><b>Catalog ID:</b> {item.catalogId}</p>
+                                                            <p><b>Count:</b> {qrCodes.length}</p>
+                                                            <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "4px", overflow: "auto", maxHeight: "190px", scrollbarWidth: "thin" }}>
+                                                                {qrCodes.map((qr, index) => {
+                                                                    const qrObj = qr;
+                                                                    const isNew = !qr.printed;
+
+                                                                    return (
+                                                                        <div key={qr.id} className={`qr-card ${!qr.printed ? "new" : ""}`}
+                                                                            onClick={() => setQrPopup({ open: true, value: JSON.stringify(qr) })}
+                                                                        >
+
+                                                                            <QRCodeCanvas value={JSON.stringify(qr)} size={100} />
+                                                                            {!qr.printed && (
+                                                                                <div style={{ color: "green", fontWeight: "bold" }}>
+                                                                                    NEW
+                                                                                </div>
+                                                                            )}
+
+                                                                            {qr.reprintRequired && (
+                                                                                <div style={{
+                                                                                    color: "red",
+                                                                                    fontWeight: "bold",
+                                                                                    fontSize: "10px"
+                                                                                }}>
+                                                                                    REPRINT REQUIRED
+                                                                                </div>
+                                                                            )}
+
+                                                                            <div style={{ fontWeight: "bold" }}>
+                                                                                {qrObj.productType}
+                                                                            </div>
+
+                                                                            <div>{qrObj.color}</div>
+
+                                                                            <div style={{ fontWeight: "bold" }}>
+                                                                                Size: {qrObj.size}
+                                                                            </div>
+
+                                                                            <div>₹{qrObj.sellingPrice}</div>
+
+                                                                            <div style={{ fontSize: "8px" }}>
+                                                                                {qrObj.catalogId}
+                                                                            </div>
+                                                                        </div>
+
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                            </td>
+
+                                            <td>
+                                                <button onClick={() => {
+                                                    setSelectedSize("ALL");
+                                                    setPrintItem(item);
+                                                }}>
+                                                    🖨 Print
                                                 </button>
+                                                <button onClick={() => handleDelete(item)}>
+                                                    Delete
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            </FeatureGate>
 
-                                                {showQR[item.catalogId] && (
-                                                    <div className="qr-box">
-                                                        <p><b>Catalog ID:</b> {item.catalogId}</p>
-                                                        <p><b>Count:</b> {qrCodes.length}</p>
-                                                        <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "4px", overflow: "auto", maxHeight: "190px", scrollbarWidth: "thin" }}>
-                                                            {qrCodes.map((qr, index) => {
-                                                                const qrObj = qr;
-                                                                const isNew = !qr.printed;
-
-                                                                return (
-                                                                    <div key={qr.id} className={`qr-card ${!qr.printed ? "new" : ""}`}
-                                                                        onClick={() => setQrPopup({ open: true, value: JSON.stringify(qr) })}
-                                                                    >
-
-                                                                        <QRCodeCanvas value={JSON.stringify(qr)} size={100} />
-                                                                        {!qr.printed && (
-                                                                            <div style={{ color: "green", fontWeight: "bold" }}>
-                                                                                NEW
-                                                                            </div>
-                                                                        )}
-
-                                                                        {qr.reprintRequired && (
-                                                                            <div style={{
-                                                                                color: "red",
-                                                                                fontWeight: "bold",
-                                                                                fontSize: "10px"
-                                                                            }}>
-                                                                                REPRINT REQUIRED
-                                                                            </div>
-                                                                        )}
-
-                                                                        <div style={{ fontWeight: "bold" }}>
-                                                                            {qrObj.productType}
-                                                                        </div>
-
-                                                                        <div>{qrObj.color}</div>
-
-                                                                        <div style={{ fontWeight: "bold" }}>
-                                                                            Size: {qrObj.size}
-                                                                        </div>
-
-                                                                        <div>₹{qrObj.sellingPrice}</div>
-
-                                                                        <div style={{ fontSize: "8px" }}>
-                                                                            {qrObj.catalogId}
-                                                                        </div>
-                                                                    </div>
-
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                        </td>
-
-                                        <td>
-                                            <button onClick={() => {
-                                                setSelectedSize("ALL");
-                                                setPrintItem(item);
-                                            }}>
-                                                🖨 Print
-                                            </button>
-                                            <button onClick={() => handleDelete(item)}>
-                                                Delete
-                                            </button>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                )}
-            </div>
 
             {qrPopup.open && (
                 <div className="qr-overlay">

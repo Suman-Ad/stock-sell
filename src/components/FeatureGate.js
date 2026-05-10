@@ -1,7 +1,10 @@
 import React from "react";
 
 import {
-    hasFeature
+    hasFeature,
+    isSubscriptionActive,
+    getSubscription,
+    isFreePlan
 } from "../utils/subscription";
 
 import {
@@ -28,8 +31,98 @@ const FeatureGate = ({
     }
 
     // ==========================
-    // BLOCKED
+    // SUBSCRIPTION INFO
     // ==========================
+
+    const sub =
+        getSubscription(user);
+
+    const active =
+        isSubscriptionActive(user);
+
+    const freePlan =
+        isFreePlan(user);
+
+    // ==========================
+    // NOT LOGGED IN
+    // ==========================
+
+    if (!user) {
+
+        return (
+
+            <BlockedView
+                title="Login Required"
+                description="Please login to continue."
+                buttonText="Login"
+                link="/login"
+            />
+
+        );
+    }
+
+    // ==========================
+    // EXPIRED / INACTIVE
+    // ==========================
+
+    if (!active) {
+
+        return (
+
+            <BlockedView
+                title="Subscription Expired"
+                description="Your subscription is inactive or expired."
+                buttonText="Renew Subscription"
+                link="/subscription-expired"
+            />
+
+        );
+    }
+
+    // ==========================
+    // FREE PLAN BLOCK
+    // ==========================
+
+    if (freePlan) {
+
+        return (
+
+            <BlockedView
+                title={title}
+                description={description}
+                buttonText="Upgrade Plan"
+                link="/plans"
+            />
+
+        );
+    }
+
+    // ==========================
+    // FEATURE NOT INCLUDED
+    // ==========================
+
+    return (
+
+        <BlockedView
+            title={`${title} Feature Not Included`}
+            description={`Your ${sub.planName} plan does not include this feature.\n${description}`}
+            buttonText="Upgrade Plan"
+            link="/plans"
+        />
+
+    );
+};
+
+// ==============================
+// BLOCKED VIEW
+// ==============================
+
+const BlockedView = ({
+    title,
+    description,
+    buttonText,
+    link
+}) => {
 
     return (
 
@@ -54,9 +147,7 @@ const FeatureGate = ({
         >
 
             <h2>
-
                 🔒 {title}
-
             </h2>
 
             <p
@@ -65,14 +156,10 @@ const FeatureGate = ({
                     marginTop: "10px"
                 }}
             >
-
                 {description}
-
             </p>
 
-            <Link
-                to="/subscription-expired"
-            >
+            <Link to={link}>
 
                 <button
                     style={{
@@ -97,7 +184,7 @@ const FeatureGate = ({
                     }}
                 >
 
-                    Upgrade Plan
+                    {buttonText}
 
                 </button>
 

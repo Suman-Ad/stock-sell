@@ -1,7 +1,8 @@
 import React from "react";
 import "../assets/StockSummery.css";
+import FeatureGate from "../components/FeatureGate";
 
-const StockSummary = ({ stocks }) => {
+const StockSummary = ({ stocks, user }) => {
 
     let totalItems = stocks.length;
     let totalQty = 0;
@@ -45,40 +46,47 @@ const StockSummary = ({ stocks }) => {
     return (
         <div className="summary-container">
             <h3 className="summary-title">📊 Inventory Summary</h3>
+            <FeatureGate
+                user={user}
+                feature="inventorySummary"
+                title="Inventory Summary"
+                description="Upgrade your plan to unlock Inventory Summary."
+            >
+                <div className="summary-grid">
 
-            <div className="summary-grid">
+                    <div className="summary-card">
+                        <span>Total Products</span>
+                        <h2>{totalItems}</h2>
+                    </div>
 
-                <div className="summary-card">
-                    <span>Total Products</span>
-                    <h2>{totalItems}</h2>
+                    <div className="summary-card">
+                        <span>Total Quantity</span>
+                        <h2>{totalQty}</h2>
+                    </div>
+
+                    <div className="summary-card">
+                        <span>Total Investment</span>
+                        <h2>₹{totalInvestment.toFixed(0)}</h2>
+                    </div>
+
+                    <div className="summary-card">
+                        <span>Total Extra Cost</span>
+                        <h2>₹{totalExtraCost.toFixed(0)}</h2>
+                    </div>
+
+                    <div className="summary-card">
+                        <span>Total Selling</span>
+                        <h2>₹{totalSelling.toFixed(0)}</h2>
+                    </div>
+
+                    <div className={`summary-card ${totalProfit < 0 ? "loss" : "profit"}`}>
+                        <span>Total Profit</span>
+                        <h2>₹{totalProfit.toFixed(0)}</h2>
+                    </div>
+
                 </div>
+            </FeatureGate>
 
-                <div className="summary-card">
-                    <span>Total Quantity</span>
-                    <h2>{totalQty}</h2>
-                </div>
-
-                <div className="summary-card">
-                    <span>Total Investment</span>
-                    <h2>₹{totalInvestment.toFixed(0)}</h2>
-                </div>
-
-                <div className="summary-card">
-                    <span>Total Extra Cost</span>
-                    <h2>₹{totalExtraCost.toFixed(0)}</h2>
-                </div>
-
-                <div className="summary-card">
-                    <span>Total Selling</span>
-                    <h2>₹{totalSelling.toFixed(0)}</h2>
-                </div>
-
-                <div className={`summary-card ${totalProfit < 0 ? "loss" : "profit"}`}>
-                    <span>Total Profit</span>
-                    <h2>₹{totalProfit.toFixed(0)}</h2>
-                </div>
-
-            </div>
         </div>
     );
 };
