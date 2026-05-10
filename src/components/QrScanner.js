@@ -8,10 +8,11 @@ const QRScanner = ({ onScan }) => {
     const scannedRef = useRef(false);
 
     const runningRef = useRef(false);
+    const readerId = useRef(`reader-${Date.now()}`);
 
     useEffect(() => {
 
-        const html5QrCode = new Html5Qrcode("reader");
+        const html5QrCode = new Html5Qrcode(readerId.current);
 
         scannerRef.current = html5QrCode;
 
@@ -26,7 +27,7 @@ const QRScanner = ({ onScan }) => {
                     },
 
                     {
-                        fps: 20,
+                        fps: 10,
 
                         qrbox: {
                             width: 250,
@@ -116,7 +117,7 @@ const QRScanner = ({ onScan }) => {
     return (
 
         <div
-            id="reader"
+            id={readerId.current}
             style={{
                 width: "100%",
                 maxWidth: "420px",

@@ -22,6 +22,10 @@ const SellProduct = ({ user }) => {
     const scanLock = useRef(false);
     const [scanMode, setScanMode] = useState("device");
     const [scannerValue, setScannerValue] = useState("");
+    const customerScannerInputRef = useRef(null);
+    const customerScanLock = useRef(false);
+    const [customerScannerValue, setCustomerScannerValue] = useState("");
+    const [customerScanMode, setCustomerScanMode] = useState("device");
     const [loading, setLoading] = useState(false);
     const [scanned, setScanned] = useState(false);
     const [stockOwner, setStockOwner] = useState(null);
@@ -127,6 +131,41 @@ const SellProduct = ({ user }) => {
 
         } catch {
             alert("Invalid Customer QR");
+        }
+    };
+
+    // =========================
+    // CUSTOMER QR SCAN FROM DEVICE
+    // =========================
+
+    const handleCustomerScannerKeyDown = async (e) => {
+
+        if (
+            e.key === "Enter" ||
+            e.key === "NumpadEnter" ||
+            e.keyCode === 13
+        ) {
+
+            e.preventDefault();
+
+            if (customerScanLock.current) return;
+
+            customerScanLock.current = true;
+
+            const value = customerScannerValue.trim();
+
+            if (!value) {
+                customerScanLock.current = false;
+                return;
+            }
+
+            handleCustomerQR(value);
+
+            setCustomerScannerValue("");
+
+            setTimeout(() => {
+                customerScanLock.current = false;
+            }, 500);
         }
     };
 
@@ -282,18 +321,46 @@ const SellProduct = ({ user }) => {
 
     useEffect(() => {
 
-        if (
-            document.activeElement.tagName !== "INPUT" &&
-            document.activeElement.tagName !== "TEXTAREA"
-        ) {
-            scannerInputRef.current?.focus();
-        }
+        const focusProductInput = () => {
+            if (
+                scanMode === "device" &&
+                !scanned
+            ) {
+                scannerInputRef.current?.focus();
+            }
+        };
 
-    }, [scanned]);
+        const focusCustomerInput = () => {
+            if (
+                customerScanMode === "device" &&
+                showCustomerScanner
+            ) {
+                customerScannerInputRef.current?.focus();
+            }
+        };
+
+        focusProductInput();
+        focusCustomerInput();
+
+        const interval = setInterval(() => {
+            focusProductInput();
+            focusCustomerInput();
+        }, 500);
+
+        return () => clearInterval(interval);
+
+    }, [
+        scanMode,
+        scanned,
+        customerScanMode,
+        showCustomerScanner
+    ]);
 
     const handleScannerKeyDown = async (e) => {
 
-        if (e.key === "Enter") {
+        if (e.key === "Enter" ||
+            e.key === "NumpadEnter" ||
+            e.keyCode === 13) {
 
             e.preventDefault();
 
@@ -415,11 +482,17 @@ const SellProduct = ({ user }) => {
                         value={scannerValue}
                         onChange={(e) => setScannerValue(e.target.value)}
                         onKeyDown={handleScannerKeyDown}
+                        onBlur={() => {
+                            setTimeout(() => {
+                                scannerInputRef.current?.focus();
+                            }, 100);
+                        }}
                         autoFocus
                         style={{
-                            position: "absolute",
-                            top: "-1000px",
-                            left: "-1000px"
+                            opacity: 0,
+                            position: "fixed",
+                            pointerEvents: "none",
+                            zIndex: -1
                         }}
                     />
 
@@ -588,8 +661,98 @@ const SellProduct = ({ user }) => {
 
                             {/* CUSTOMER QR */}
                             {showCustomerScanner && (
+
                                 <div style={{ marginTop: "15px" }}>
-                                    <QRScanner onScan={handleCustomerQR} />
+
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            gap: "10px",
+                                            marginBottom: "10px"
+                                        }}
+                                    >
+
+                                        <button
+                                            onClick={() =>
+                                                setCustomerScanMode("device")
+                                            }
+                                            style={{
+                                                background:
+                                                    customerScanMode === "device"
+                                                        ? "#4caf50"
+                                                        : "#ddd"
+                                            }}
+                                        >
+                                            🔳 Device Scanner
+                                        </button>
+
+                                        <button
+                                            onClick={() =>
+                                                setCustomerScanMode("camera")
+                                            }
+                                            style={{
+                                                background:
+                                                    customerScanMode === "camera"
+                                                        ? "#2196f3"
+                                                        : "#ddd"
+                                            }}
+                                        >
+                                            📷 Camera Scanner
+                                        </button>
+
+                                    </div>
+
+                                    {/* CAMERA SCANNER */}
+                                    {customerScanMode === "camera" && (
+                                        <QRScanner onScan={handleCustomerQR} />
+                                    )}
+
+                                    {/* HARDWARE SCANNER */}
+                                    {customerScanMode === "device" && (
+
+                                        <div
+                                            style={{
+                                                border: "2px dashed #2196f3",
+                                                padding: "20px",
+                                                borderRadius: "12px",
+                                                textAlign: "center",
+                                                background: "#101828"
+                                            }}
+                                        >
+
+                                            <h3 style={{ color: "#2196f3" }}>
+                                                🔳 Customer Hardware Scanner Ready
+                                            </h3>
+
+                                            <p style={{ color: "#aaa" }}>
+                                                Scan Customer QR using USB/Bluetooth Scanner
+                                            </p>
+
+                                            <input
+                                                ref={customerScannerInputRef}
+                                                type="text"
+                                                value={customerScannerValue}
+                                                onChange={(e) =>
+                                                    setCustomerScannerValue(e.target.value)
+                                                }
+                                                onKeyDown={handleCustomerScannerKeyDown}
+                                                onBlur={() => {
+                                                    setTimeout(() => {
+                                                        customerScannerInputRef.current?.focus();
+                                                    }, 100);
+                                                }}
+                                                autoFocus
+                                                style={{
+                                                    opacity: 0,
+                                                    position: "fixed",
+                                                    pointerEvents: "none",
+                                                    zIndex: -1
+                                                }}
+                                            />
+
+                                        </div>
+                                    )}
+
                                 </div>
                             )}
 

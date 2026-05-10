@@ -15,6 +15,7 @@ import {
   Timestamp
 } from "firebase/firestore";
 import SubscriptionManager from "./SubscriptionManager";
+import PlanEditor from "./PlanEditor";
 
 const rolesColor = {
   user: "#6b7280",
@@ -31,6 +32,7 @@ const AdminDashboard = ({ user }) => {
   const [filterRole, setFilterRole] = useState("all");
   const [page, setPage] = useState(1);
   const [showPlan, setShowPlan] = useState(false);
+  const [editPlans, setEditPlans] = useState(false);
   const [subscriptionRequests, setSubscriptionRequests] = useState({});
 
   // 🔥 Load Users
@@ -247,7 +249,7 @@ const AdminDashboard = ({ user }) => {
 
   }, []);
 
-  
+
   return (
     <div className="container">
 
@@ -267,6 +269,13 @@ const AdminDashboard = ({ user }) => {
         <SubscriptionManager />
       )}
 
+      <div>
+        <button onClick={() => setEditPlans(!editPlans)}>Manage Plans</button>
+      </div>
+
+      {editPlans && (
+        <PlanEditor />
+      )}
       {/* 🔍 CONTROLS */}
       <div className="controls">
         <input

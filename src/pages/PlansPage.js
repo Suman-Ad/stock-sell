@@ -201,7 +201,89 @@ const PlansPage = ({ user }) => {
             }
 
             // ======================
-            // VALIDATE FILE
+            // FREE PLAN DIRECT APPLY
+            // ======================
+
+            if (plan.planName === "Free") {
+
+                // prevent duplicate pending
+                const existingPending = await getDocs(
+                    query(
+                        collection(db, "subscriptionRequests"),
+                        where("userId", "==", user.uid),
+                        where("status", "==", "pending")
+                    )
+                );
+
+                if (!existingPending.empty) {
+
+                    alert(
+                        "You already have a pending request."
+                    );
+
+                    return;
+                }
+
+                await addDoc(
+                    collection(
+                        db,
+                        "subscriptionRequests"
+                    ),
+                    {
+                        userId: user.uid,
+
+                        userName:
+                            user.displayName || "",
+
+                        userEmail:
+                            user.email || "",
+
+                        currentPlan:
+                            user.subscription?.planName || "free",
+
+                        planId:
+                            plan.planId || plan.id,
+
+                        planName:
+                            plan.planName,
+
+                        price: 0,
+
+                        duration:
+                            plan.durationDays || 30,
+
+                        features:
+                            plan.features || {},
+
+                        paymentImage: "",
+
+                        transactionId: "",
+
+                        paymentMethod: "FREE",
+
+                        paymentStatus: "not_required",
+
+                        status: "pending",
+
+                        createdAt:
+                            serverTimestamp()
+                    }
+                );
+
+                alert(
+                    "Free plan activated successfully!"
+                );
+
+                setExistingRequest({
+                    planName:
+                        plan.planName
+                });
+
+                return;
+            }
+
+            // ======================
+            // PAID PLAN VALIDATION
             // ======================
 
             const paymentFile =
@@ -240,10 +322,6 @@ const PlansPage = ({ user }) => {
 
                 return;
             }
-
-            setSelectedPlan(
-                plan.id
-            );
 
             if (
                 !paymentFile.type.startsWith("image/")
@@ -463,6 +541,55 @@ const PlansPage = ({ user }) => {
                     maxWidth: "1200px"
                 }}
             >
+                {
+                    user?.subscription && (
+
+                        <div
+                            className="auth-box"
+                            style={{
+                                marginBottom: "30px"
+                            }}
+                        >
+
+                            <h3
+                                style={{
+                                    color: "#fff"
+                                }}
+                            >
+                                Current Subscription
+                            </h3>
+
+                            <p
+                                style={{
+                                    color: "#cbd5e1"
+                                }}
+                            >
+                                Plan:
+                                {" "}
+                                <b>
+                                    {
+                                        user.subscription.planName
+                                    }
+                                </b>
+                            </p>
+
+                            <p
+                                style={{
+                                    color: "#cbd5e1"
+                                }}
+                            >
+                                Status:
+                                {" "}
+                                <b>
+                                    {
+                                        user.subscription.status
+                                    }
+                                </b>
+                            </p>
+
+                        </div>
+                    )
+                }
 
                 {/* TITLE */}
 
@@ -637,114 +764,118 @@ const PlansPage = ({ user }) => {
                                 </div>
 
                                 {/* QR PAYMENT */}
-                                <div
-                                    style={{
-                                        marginTop: "20px",
-                                        padding: "15px",
-                                        borderRadius: "12px",
-                                        background: "#0f172a",
-                                        border: "1px solid #334155",
-                                        textAlign: "center"
-                                    }}
-                                >
-
-                                    <img
-                                        src="/UPI.png"
-                                        alt="UPI QR"
-                                        style={{
-                                            width: "180px",
-                                            borderRadius: "12px"
-                                        }}
-                                    />
-
-                                    <p
-                                        style={{
-                                            marginTop: "10px",
-                                            color: "#cbd5e1",
-                                            fontSize: "14px"
-                                        }}
-                                    >
-                                        UPI ID: {paymentInfo.upiId}
-                                    </p>
-
-                                </div>
-
-                                <input
-                                    type="text"
-                                    placeholder="Enter UPI Transaction ID"
-                                    value={transactionIds[plan.id] || ""}
-                                    onChange={(e) =>
-                                        handleTransactionIdChange(
-                                            plan.id,
-                                            e.target.value
-                                        )
-                                    }
-                                    style={{
-                                        marginTop: "12px",
-                                        width: "100%",
-                                        padding: "12px",
-                                        borderRadius: "10px",
-                                        border: "1px solid #334155",
-                                        background: "#0f172a",
-                                        color: "#fff"
-                                    }}
-                                />
-
-                                <div
-                                    style={{
-                                        marginTop: "25px"
-                                    }}
-                                >
-
-                                    <p
-                                        style={{
-                                            color: "#cbd5e1",
-                                            marginBottom: "10px"
-                                        }}
-                                    >
-
-                                        Upload Payment Screenshot
-
-                                    </p>
-
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={(e) =>
-                                            handleFileChange(
-                                                plan.id,
-                                                e.target.files[0]
-                                            )
-                                        }
-                                        style={{
-                                            color: "#fff",
-                                            width: "100%"
-                                        }}
-                                    />
-
-                                    {
-                                        paymentFiles[plan.id] && (
+                                {plan.planName !== "Free" && (
+                                    <div>
+                                        <div
+                                            style={{
+                                                marginTop: "20px",
+                                                padding: "15px",
+                                                borderRadius: "12px",
+                                                background: "#0f172a",
+                                                border: "1px solid #334155",
+                                                textAlign: "center"
+                                            }}
+                                        >
 
                                             <img
-                                                src={
-                                                    URL.createObjectURL(
-                                                        paymentFiles[plan.id]
-                                                    )
-                                                }
-                                                alt="preview"
+                                                src="/UPI.png"
+                                                alt="UPI QR"
                                                 style={{
-                                                    width: "100%",
-                                                    marginTop: "12px",
-                                                    borderRadius: "10px",
-                                                    maxHeight: "220px",
-                                                    objectFit: "cover"
+                                                    width: "180px",
+                                                    borderRadius: "12px"
                                                 }}
                                             />
 
-                                        )
-                                    }
+                                            <p
+                                                style={{
+                                                    marginTop: "10px",
+                                                    color: "#cbd5e1",
+                                                    fontSize: "14px"
+                                                }}
+                                            >
+                                                UPI ID: {paymentInfo.upiId}
+                                            </p>
 
-                                </div>
+                                        </div>
+
+                                        <input
+                                            type="text"
+                                            placeholder="Enter UPI Transaction ID"
+                                            value={transactionIds[plan.id] || ""}
+                                            onChange={(e) =>
+                                                handleTransactionIdChange(
+                                                    plan.id,
+                                                    e.target.value
+                                                )
+                                            }
+                                            style={{
+                                                marginTop: "12px",
+                                                width: "100%",
+                                                padding: "12px",
+                                                borderRadius: "10px",
+                                                border: "1px solid #334155",
+                                                background: "#0f172a",
+                                                color: "#fff"
+                                            }}
+                                        />
+
+                                        <div
+                                            style={{
+                                                marginTop: "25px"
+                                            }}
+                                        >
+
+                                            <p
+                                                style={{
+                                                    color: "#cbd5e1",
+                                                    marginBottom: "10px"
+                                                }}
+                                            >
+
+                                                Upload Payment Screenshot
+
+                                            </p>
+
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={(e) =>
+                                                    handleFileChange(
+                                                        plan.id,
+                                                        e.target.files[0]
+                                                    )
+                                                }
+                                                style={{
+                                                    color: "#fff",
+                                                    width: "100%"
+                                                }}
+                                            />
+
+                                            {
+                                                paymentFiles[plan.id] && (
+
+                                                    <img
+                                                        src={
+                                                            URL.createObjectURL(
+                                                                paymentFiles[plan.id]
+                                                            )
+                                                        }
+                                                        alt="preview"
+                                                        style={{
+                                                            width: "100%",
+                                                            marginTop: "12px",
+                                                            borderRadius: "10px",
+                                                            maxHeight: "220px",
+                                                            objectFit: "cover"
+                                                        }}
+                                                    />
+
+                                                )
+                                            }
+
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* BUTTON */}
 
@@ -764,7 +895,10 @@ const PlansPage = ({ user }) => {
                                     {
                                         selectedPlan === plan.id
                                             ? "Processing..."
-                                            : `Subscribe ${plan.planName}`
+                                            : plan.planName === "Free"
+                                                ? "Activate Free Plan"
+                                                : `Subscribe ${plan.planName}`
+
                                     }
 
                                 </button>
@@ -774,60 +908,7 @@ const PlansPage = ({ user }) => {
                     }
 
                 </div>
-                {
-                    user?.subscription && (
-
-                        <div
-                            className="auth-box"
-                            style={{
-                                marginBottom: "30px"
-                            }}
-                        >
-
-                            <h3
-                                style={{
-                                    color: "#fff"
-                                }}
-                            >
-                                Current Subscription
-                            </h3>
-
-                            <p
-                                style={{
-                                    color: "#cbd5e1"
-                                }}
-                            >
-                                Plan:
-                                {" "}
-                                <b>
-                                    {
-                                        user.subscription.planName
-                                    }
-                                </b>
-                            </p>
-
-                            <p
-                                style={{
-                                    color: "#cbd5e1"
-                                }}
-                            >
-                                Status:
-                                {" "}
-                                <b>
-                                    {
-                                        user.subscription.status
-                                    }
-                                </b>
-                            </p>
-
-                        </div>
-                    )
-                }
-
             </div>
-
-
-
         </div>
     );
 };
