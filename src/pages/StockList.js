@@ -62,6 +62,7 @@ const StockList = ({ user }) => {
     const [qrData, setQrData] = useState([]);
     const [forceQRPrint, setForceQRPrint] = useState({});
 
+
     const canEditStock = (item) => {
         if (!user) return false;
 
@@ -104,6 +105,7 @@ const StockList = ({ user }) => {
     const [stocks, setStocks] = useState([]);
     const [searchId, setSearchId] = useState("");
     const [selectedUser, setSelectedUser] = useState("all");
+    const [popularityFilter, setPopularityFilter] = useState("");
 
     useEffect(() => {
 
@@ -566,24 +568,45 @@ const StockList = ({ user }) => {
 
     const filteredStocks = stocks.filter(item => {
 
-        // 🔥 User filter
-        if (
-            (role === "admin" || role === "superadmin") &&
-            selectedUser !== "all" &&
-            item.userId !== selectedUser
-        ) {
-            return false;
-        }
+        // ========================================
+        // POPULARITY FILTER
+        // ========================================
 
-        // 🔥 Catalog filter
-        if (
-            searchId &&
-            !item.catalogId?.toUpperCase().includes(searchId.toUpperCase())
-        ) {
-            return false;
-        }
+        const matchesPopularity =
+            !popularityFilter ||
+            item.catalogPopularity === popularityFilter;
 
-        return true;
+        // ========================================
+        // USER FILTER
+        // ========================================
+
+        const matchesUser =
+            role !== "admin" &&
+                role !== "superadmin"
+                ? true
+                : selectedUser === "all"
+                    ? true
+                    : item.userId === selectedUser;
+
+        // ========================================
+        // CATALOG SEARCH
+        // ========================================
+
+        const matchesCatalog =
+            !searchId ||
+            item.catalogId
+                ?.toUpperCase()
+                .includes(searchId.toUpperCase());
+
+        // ========================================
+        // FINAL
+        // ========================================
+
+        return (
+            matchesPopularity &&
+            matchesUser &&
+            matchesCatalog
+        );
     });
 
     const getItemQR = (item) => {
@@ -692,67 +715,89 @@ const StockList = ({ user }) => {
                 // marginBottom: "15px",
                 width: "100%"
             }}>
-                {/* 👤 User Filter */}
-                {(role === "admin" || role === "superadmin") && (
-                    <div>
-                        <select
-                            value={selectedUser}
-                            onChange={(e) => setSelectedUser(e.target.value)}
-                            style={{
-                                padding: "10px",
-                                borderRadius: "8px",
-                                flex: "1 1 220px",
-                                minWidth: "0",
-                                maxWidth: "100%",
-                                border: "1px solid #3b82f6",
-                                outline: "none",
-                                background: "#1e293b",
-                                color: "#fff",
-                                width: "80%",
-                                cursor: "pointer",
-                                transform: "translateY(-3px)",
-                                boxShadow: "0 6px 20px rgba(59,130,246,0.25)",
-                                transition: "all 0.2s ease"
-                            }}
-                        >
 
-                            <option
-                                value={user?.uid}
-                            >
-                                My Stocks
-                            </option>
+                <input
+                    placeholder="Search by Catalog ID..."
+                    value={searchId}
+                    onChange={(e) => setSearchId(e.target.value.toUpperCase())}
+                    style={{ marginBottom: "15px", padding: "8px", width: "250px" }}
+                    className="summary-card"
+                />
 
-                            <option
-                                value="all"
-                            >
-                                All Users
-                            </option>
-
-                            {userList.map((u) => (
-                                <option
-                                    key={u.userId}
-                                    value={u.userId}
-                                >
-                                    {u.userShopName}: ({u.userName} - {u.userEmail} - {u.userMobile})
-                                </option>
-                            ))}
-
-                        </select>
-                    </div>
-                )}
                 <FeatureGate
                     user={user}
                     feature="tools"
                     title="Easy Searching Bar"
                     description="Upgrade your plan to unlock Easy Searching Tools Bar."
                 >
-                    <input
-                        placeholder="Search by Catalog ID..."
-                        value={searchId}
-                        onChange={(e) => setSearchId(e.target.value.toUpperCase())}
-                        style={{ marginBottom: "15px", padding: "8px", width: "250px" }}
-                        className="summary-card"
-                    />
+                    <div style={{ display: "flex" }}>
+                        {/* 👤 User Filter */}
+                        {(role === "admin" || role === "superadmin") && (
+                            <div>
+                                <select
+                                    value={selectedUser}
+                                    onChange={(e) => setSelectedUser(e.target.value)}
+                                    style={{
+
+                                        color: "#fff",
+                                        width: "50%",
+                                    }}
+                                    className="summary-card"
+
+                                >
+
+                                    <option
+                                        value={user?.uid}
+                                    >
+                                        My Stocks
+                                    </option>
+
+                                    <option
+                                        value="all"
+                                    >
+                                        All Users
+                                    </option>
+
+                                    {userList.map((u) => (
+                                        <option
+                                            key={u.userId}
+                                            value={u.userId}
+                                        >
+                                            {u.userShopName}: ({u.userName} - {u.userEmail} - {u.userMobile})
+                                        </option>
+                                    ))}
+
+                                </select>
+                            </div>
+                        )}
+
+                        <select
+                            value={popularityFilter}
+                            onChange={(e) =>
+                                setPopularityFilter(e.target.value)
+                            }
+                            className="summary-card"
+                            style={{ color: "white" }}
+
+                        >
+                            <option value="">
+                                All Popularity
+                            </option>
+
+                            <option value="High">
+                                High
+                            </option>
+
+                            <option value="Mid">
+                                Mid
+                            </option>
+
+                            <option value="Low">
+                                Low
+                            </option>
+                        </select>
+                    </div>
+
                 </FeatureGate>
 
             </div>
@@ -778,6 +823,7 @@ const StockList = ({ user }) => {
                         <table className="stock-table" border="1" cellPadding="10" >
                             <thead>
                                 <tr>
+                                    <th>SL. No</th>
                                     {isAdmin && (
                                         <th>Shop Name</th>
                                     )}
@@ -800,7 +846,7 @@ const StockList = ({ user }) => {
                             </thead>
 
                             <tbody>
-                                {filteredStocks.map((item) => {
+                                {filteredStocks.map((item, idx) => {
                                     const totalQty = getTotalQty(item.sizes);
                                     const totalInvestment = getTotalInvestment(item.sizes);
                                     const totalExtraCost = getTotalExtraCost(item.sizes);
@@ -812,6 +858,7 @@ const StockList = ({ user }) => {
 
                                     return (
                                         <tr key={item.id}>
+                                            <td>{idx + 1}</td>
                                             {isAdmin && (
                                                 <td>{item.createdBy?.shopName || "N/A"}</td>
                                             )}
@@ -820,204 +867,388 @@ const StockList = ({ user }) => {
                                             )}
                                             <td>{item.productName}</td>
                                             <td>{item.productId}</td>
-                                            <td>{item.catalogId}</td>
+                                            <td><span style={{ whiteSpace: "nowrap" }}>{item.catalogId}</span>
+                                                <span
+                                                    style={{
+                                                        padding: "4px 10px",
+                                                        borderRadius: "20px",
+                                                        fontSize: "11px",
+                                                        fontWeight: "bold",
+
+                                                        background:
+                                                            item.catalogPopularity === "High"
+                                                                ? "#dcfce7"
+                                                                : item.catalogPopularity === "Mid"
+                                                                    ? "#fef3c7"
+                                                                    : "#fee2e2",
+
+                                                        color:
+                                                            item.catalogPopularity === "High"
+                                                                ? "#166534"
+                                                                : item.catalogPopularity === "Mid"
+                                                                    ? "#92400e"
+                                                                    : "#991b1b"
+                                                    }}
+                                                >
+                                                    {
+                                                        item.catalogPopularity === "High"
+                                                            ? `🔥 High`
+                                                            : item.catalogPopularity === "Mid"
+                                                                ? `⭐ Mid`
+                                                                : `📦 Low`
+                                                    }
+                                                    <select
+                                                        value={item.catalogPopularity || "Low"}
+                                                        onChange={async (e) => {
+
+                                                            await updateDoc(
+                                                                doc(db, "stocks", item.id),
+                                                                {
+                                                                    catalogPopularity:
+                                                                        e.target.value
+                                                                }
+                                                            );
+                                                        }}
+                                                        disabled={!editable}
+                                                    >
+                                                        <option value="Low">
+                                                            Low
+                                                        </option>
+
+                                                        <option value="Mid">
+                                                            Mid
+                                                        </option>
+
+                                                        <option value="High">
+                                                            High
+                                                        </option>
+                                                    </select>
+                                                </span>
+
+                                            </td>
+
 
                                             <td>
                                                 <div style={{ overflowY: "auto", maxHeight: "365px", scrollbarWidth: "thin" }} >
-                                                    {Object.entries(item.sizes || {}).map(([size, data]) => {
-                                                        const soldCount = getSoldCount(item, size);
-                                                        const total = data.initialQty ?? 0;
-                                                        const available = data.qty ?? 0;
-                                                        const removedCount = qrData.reduce((count, qr) => {
-                                                            if (
-                                                                qr.stockId === item.id &&
-                                                                qr.size === size &&
-                                                                qr.status === "removed"
-                                                            ) {
-                                                                return count + 1;
+                                                    {Object.entries(item.sizes || {})
+                                                        .sort(([sizeA], [sizeB]) => {
+
+                                                            // Normalize
+                                                            const a = String(sizeA).trim().toUpperCase();
+                                                            const b = String(sizeB).trim().toUpperCase();
+
+                                                            // ========================================
+                                                            // MASTER SIZE ORDER
+                                                            // ========================================
+
+                                                            const masterOrder = [
+
+                                                                // FREE
+                                                                "FREE SIZE",
+
+                                                                // CLOTHING
+                                                                "XXXS",
+                                                                "XXS",
+                                                                "XS",
+                                                                "S",
+                                                                "M",
+                                                                "L",
+                                                                "XL",
+                                                                "XXL",
+                                                                "XXXL",
+                                                                "4XL",
+                                                                "5XL",
+                                                                "6XL",
+                                                                "7XL",
+                                                                "8XL",
+
+                                                                // KIDS
+                                                                "0-3M",
+                                                                "3-6M",
+                                                                "6-9M",
+                                                                "9-12M",
+                                                                "12-18M",
+                                                                "18-24M",
+
+                                                                "2Y",
+                                                                "3Y",
+                                                                "4Y",
+                                                                "5Y",
+                                                                "6Y",
+                                                                "7Y",
+                                                                "8Y",
+                                                                "9Y",
+                                                                "10Y",
+                                                                "11Y",
+                                                                "12Y",
+                                                                "13Y",
+                                                                "14Y",
+                                                                "15Y"
+                                                            ];
+
+                                                            // ========================================
+                                                            // DIRECT ORDER MATCH
+                                                            // ========================================
+
+                                                            const indexA = masterOrder.indexOf(a);
+                                                            const indexB = masterOrder.indexOf(b);
+
+                                                            if (indexA !== -1 && indexB !== -1) {
+                                                                return indexA - indexB;
                                                             }
-                                                            return count;
-                                                        }, 0);
-                                                        return (
-                                                            <div clas key={size} style={{ marginBottom: "8px", alignItems: "center", gap: "5px", border: "1px solid #3b82f6", padding: "5px 10px", borderRadius: "5px", transform: 'translateY(-3px)', boxShadow: '0 6px 20px rgba(59,130,246,0.25)' }}>
-                                                                <label><strong>Size: {size}</strong></label>
-                                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "5px", fontSize: "12px" }}>
-                                                                    <span style={{ marginLeft: "8px" }}>
-                                                                        <small>Listing Price:</small> ₹{(data.sellingPrice || 0).toFixed(2)}<small>/Unit</small>
-                                                                    </span>
-                                                                    |
-                                                                    <span>
-                                                                        <small>Extra Cost:</small> ₹
-                                                                        {(
-                                                                            (data.extraCosts.packaging +
-                                                                                data.extraCosts.labeling +
-                                                                                data.extraCosts.rto +
-                                                                                data.extraCosts.returnCost +
-                                                                                data.extraCosts.advertisementCost +
-                                                                                data.extraCosts.delivery +
-                                                                                data.extraCosts.others) || 0
-                                                                        ).toFixed(2)}
-                                                                        <small>/Unit</small>
-                                                                    </span>
-                                                                    |
-                                                                    <span>
-                                                                        <small>Gst Amount:</small> ₹
-                                                                        {
-                                                                            ((((data.buyingPrice * (1 + data.margin / 100)) +
-                                                                                (
-                                                                                    data.extraCosts.packaging +
+
+                                                            if (indexA !== -1) return -1;
+                                                            if (indexB !== -1) return 1;
+
+                                                            // ========================================
+                                                            // FABRIC / METER SORT
+                                                            // ========================================
+
+                                                            const meterRegex = /^(\d+(\.\d+)?)\s*METER$/i;
+
+                                                            const meterA = a.match(meterRegex);
+                                                            const meterB = b.match(meterRegex);
+
+                                                            if (meterA && meterB) {
+                                                                return parseFloat(meterA[1]) - parseFloat(meterB[1]);
+                                                            }
+
+                                                            // ========================================
+                                                            // NUMERIC SORT
+                                                            // 28,30,32...
+                                                            // ========================================
+
+                                                            const numA = parseFloat(a);
+                                                            const numB = parseFloat(b);
+
+                                                            if (!isNaN(numA) && !isNaN(numB)) {
+                                                                return numA - numB;
+                                                            }
+
+                                                            // ========================================
+                                                            // MIXED NUMERIC SORT
+                                                            // 30A, 32B etc
+                                                            // ========================================
+
+                                                            const mixedA = a.match(/^(\d+)/);
+                                                            const mixedB = b.match(/^(\d+)/);
+
+                                                            if (mixedA && mixedB) {
+
+                                                                const diff =
+                                                                    parseInt(mixedA[1]) -
+                                                                    parseInt(mixedB[1]);
+
+                                                                if (diff !== 0) return diff;
+                                                            }
+
+                                                            // ========================================
+                                                            // FINAL FALLBACK
+                                                            // ========================================
+
+                                                            return a.localeCompare(
+                                                                b,
+                                                                undefined,
+                                                                {
+                                                                    numeric: true,
+                                                                    sensitivity: "base"
+                                                                }
+                                                            );
+                                                        })
+                                                        .map(([size, data]) => {
+                                                            const soldCount = getSoldCount(item, size);
+                                                            const total = data.initialQty ?? 0;
+                                                            const available = data.qty ?? 0;
+                                                            const removedCount = qrData.reduce((count, qr) => {
+                                                                if (
+                                                                    qr.stockId === item.id &&
+                                                                    qr.size === size &&
+                                                                    qr.status === "removed"
+                                                                ) {
+                                                                    return count + 1;
+                                                                }
+                                                                return count;
+                                                            }, 0);
+                                                            return (
+                                                                <div clas key={size} style={{ marginBottom: "8px", alignItems: "center", gap: "5px", border: "1px solid #3b82f6", padding: "5px 10px", borderRadius: "5px", transform: 'translateY(-3px)', boxShadow: '0 6px 20px rgba(59,130,246,0.25)' }}>
+                                                                    <label><strong>Size: {size}</strong></label>
+                                                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "5px", fontSize: "12px" }}>
+                                                                        <span style={{ marginLeft: "8px" }}>
+                                                                            <small>Listing Price:</small> ₹{(data.sellingPrice || 0).toFixed(2)}<small>/Unit</small>
+                                                                        </span>
+                                                                        |
+                                                                        <span>
+                                                                            <small>Extra Cost:</small> ₹
+                                                                            {(
+                                                                                (data.extraCosts.packaging +
                                                                                     data.extraCosts.labeling +
                                                                                     data.extraCosts.rto +
                                                                                     data.extraCosts.returnCost +
                                                                                     data.extraCosts.advertisementCost +
                                                                                     data.extraCosts.delivery +
-                                                                                    data.extraCosts.others
-                                                                                )) * data.extraCosts.gst) / 100).toFixed(2)
-                                                                        }
-                                                                        <small>/Unit</small>
-                                                                    </span>
-                                                                    |
-                                                                    <span><small>Profit:</small> ₹{((data.buyingPrice * data.margin) / 100).toFixed(2)}<small>/Unit</small></span>
-                                                                    {data.sellingPrice <
-                                                                        data.buyingPrice && (
-                                                                            <span style={{ color: "red", fontSize: "10px" }}>
-                                                                                ⚠ Loss
-                                                                            </span>
+                                                                                    data.extraCosts.others) || 0
+                                                                            ).toFixed(2)}
+                                                                            <small>/Unit</small>
+                                                                        </span>
+                                                                        |
+                                                                        <span>
+                                                                            <small>Gst Amount:</small> ₹
+                                                                            {
+                                                                                ((((data.buyingPrice * (1 + data.margin / 100)) +
+                                                                                    (
+                                                                                        data.extraCosts.packaging +
+                                                                                        data.extraCosts.labeling +
+                                                                                        data.extraCosts.rto +
+                                                                                        data.extraCosts.returnCost +
+                                                                                        data.extraCosts.advertisementCost +
+                                                                                        data.extraCosts.delivery +
+                                                                                        data.extraCosts.others
+                                                                                    )) * data.extraCosts.gst) / 100).toFixed(2)
+                                                                            }
+                                                                            <small>/Unit</small>
+                                                                        </span>
+                                                                        |
+                                                                        <span><small>Profit:</small> ₹{((data.buyingPrice * data.margin) / 100).toFixed(2)}<small>/Unit</small></span>
+                                                                        {data.sellingPrice <
+                                                                            data.buyingPrice && (
+                                                                                <span style={{ color: "red", fontSize: "10px" }}>
+                                                                                    ⚠ Loss
+                                                                                </span>
+                                                                            )}
+                                                                        |
+                                                                        {forceQRPrint[`${item.id}-${size}`] && (
+                                                                            <>
+                                                                                <button
+                                                                                    onClick={() => handleForceQRUpdate(item, size)}
+                                                                                    style={{
+                                                                                        background: "red",
+                                                                                        color: "white",
+                                                                                        padding: "4px 8px",
+                                                                                        borderRadius: "5px",
+                                                                                        marginTop: "5px"
+                                                                                    }}
+                                                                                    disabled={!editable}
+                                                                                >
+                                                                                    🔄QR
+                                                                                </button>
+                                                                                |
+                                                                            </>
                                                                         )}
-                                                                    |
-                                                                    {forceQRPrint[`${item.id}-${size}`] && (
-                                                                        <>
-                                                                            <button
-                                                                                onClick={() => handleForceQRUpdate(item, size)}
-                                                                                style={{
-                                                                                    background: "red",
-                                                                                    color: "white",
-                                                                                    padding: "4px 8px",
-                                                                                    borderRadius: "5px",
-                                                                                    marginTop: "5px"
-                                                                                }}
-                                                                                disabled={!editable}
-                                                                            >
-                                                                                🔄QR
-                                                                            </button>
-                                                                            |
-                                                                        </>
-                                                                    )}
 
-                                                                    <button
-                                                                        onClick={async () => {
-                                                                            const updatedSizes = { ...item.sizes };
-                                                                            delete updatedSizes[size];
+                                                                        <button
+                                                                            onClick={async () => {
+                                                                                const updatedSizes = { ...item.sizes };
+                                                                                delete updatedSizes[size];
 
-                                                                            if (Object.keys(updatedSizes).length === 0) {
-                                                                                alert("At least one size required");
-                                                                                return;
-                                                                            }
-                                                                            if (user.uid !== item.userId) {
-                                                                                alert("You are not authorizes");
-                                                                                return
-                                                                            }
-                                                                            await updateDoc(doc(db, "stocks", item.id), {
-                                                                                sizes: updatedSizes
-                                                                            });
-                                                                        }}
-                                                                        style={{ marginLeft: "5px" }}
-                                                                        disabled={!editable}
-                                                                    >
-                                                                        ❌
-                                                                    </button>
-
-
-                                                                </div>
-
-                                                                <div style={{ fontSize: "10px", color: "gray" }}>
-                                                                    Sold: {soldCount} | Available: {available} | Total: {total} | Removed: {removedCount}
-                                                                </div>
-                                                                <div key={size} style={{ marginBottom: "8px", display: "flex", alignItems: "center", gap: "5px" }}>
-
-                                                                    <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
-                                                                        <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Qty:-
-                                                                            <button
-                                                                                onClick={() => handleReduceStock(item, size, 1)}
-                                                                                style={{ padding: "2px 2px" }}
-                                                                                disabled={!editable}
-                                                                            >
-                                                                                ➖
-                                                                            </button>
-                                                                            <input
-                                                                                type="number"
-                                                                                value={data.qty}
-                                                                                readOnly
-                                                                                style={{ width: "60px", marginLeft: "5px", marginLeft: "2px" }}
-                                                                            />
-                                                                            <button
-                                                                                style={{ padding: "2px 2px" }}
-                                                                                onClick={() => handleAddStock(item, size, 1)}
-                                                                                disabled={!editable}
-                                                                            >
-                                                                                ➕
-                                                                            </button>
-                                                                        </legend>
-                                                                        <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Buy:-
-                                                                            <input
-                                                                                type="number"
-                                                                                value={data.buyingPrice || 0}
-                                                                                placeholder="Buy"
-                                                                                style={{ width: "70px", marginLeft: "5px" }}
-                                                                                onChange={(e) =>
-                                                                                    handleSizeUpdate(item, size, "buyingPrice", e.target.value)
+                                                                                if (Object.keys(updatedSizes).length === 0) {
+                                                                                    alert("At least one size required");
+                                                                                    return;
                                                                                 }
-                                                                                disabled={!editable}
-                                                                            />
-                                                                        </legend>
-                                                                        <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Margin%:-
-                                                                            <input
-                                                                                type="number"
-                                                                                value={data.margin || 0}
-                                                                                placeholder="%"
-                                                                                style={{ width: "60px", marginLeft: "5px" }}
-                                                                                onChange={(e) =>
-                                                                                    handleSizeUpdate(item, size, "margin", e.target.value)
+                                                                                if (user.uid !== item.userId) {
+                                                                                    alert("You are not authorizes");
+                                                                                    return
                                                                                 }
-                                                                                disabled={!editable}
-                                                                            />
-                                                                        </legend>
+                                                                                await updateDoc(doc(db, "stocks", item.id), {
+                                                                                    sizes: updatedSizes
+                                                                                });
+                                                                            }}
+                                                                            style={{ marginLeft: "5px" }}
+                                                                            disabled={!editable}
+                                                                        >
+                                                                            ❌
+                                                                        </button>
+
+
                                                                     </div>
-                                                                    <div style={{
-                                                                        display: "grid",
-                                                                        gridTemplateColumns: "repeat(4, 1fr)", // ✅ 5 columns
-                                                                        gap: "6px",
-                                                                        marginTop: "6px",
-                                                                        borderTop: "1px dashed #ccc",
-                                                                        paddingTop: "6px",
-                                                                        width: "100%"
-                                                                    }}>
-                                                                        {["packaging", "labeling", "rto", "returnCost", "advertisementCost", "delivery", "others", "gst"].map((key) => (
-                                                                            <div key={key} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                                                                                <legend key={key} style={{ fontSize: "10px", color: "gray" }}>{key.toUpperCase()}</legend>
+
+                                                                    <div style={{ fontSize: "10px", color: "gray" }}>
+                                                                        Sold: {soldCount} | Available: {available} | Total: {total} | Removed: {removedCount}
+                                                                    </div>
+                                                                    <div key={size} style={{ marginBottom: "8px", display: "flex", alignItems: "center", gap: "5px" }}>
+
+                                                                        <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
+                                                                            <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Qty:-
+                                                                                <button
+                                                                                    onClick={() => handleReduceStock(item, size, 1)}
+                                                                                    style={{ padding: "2px 2px" }}
+                                                                                    disabled={!editable}
+                                                                                >
+                                                                                    ➖
+                                                                                </button>
                                                                                 <input
-                                                                                    key={key}
                                                                                     type="number"
-                                                                                    placeholder={key}
-                                                                                    value={data.extraCosts?.[key] || 0}
-                                                                                    style={{ width: "65px", fontSize: "10px" }}
+                                                                                    value={data.qty}
+                                                                                    readOnly
+                                                                                    style={{ width: "60px", marginLeft: "5px", marginLeft: "2px" }}
+                                                                                />
+                                                                                <button
+                                                                                    style={{ padding: "2px 2px" }}
+                                                                                    onClick={() => handleAddStock(item, size, 1)}
+                                                                                    disabled={!editable}
+                                                                                >
+                                                                                    ➕
+                                                                                </button>
+                                                                            </legend>
+                                                                            <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Buy:-
+                                                                                <input
+                                                                                    type="number"
+                                                                                    value={data.buyingPrice || 0}
+                                                                                    placeholder="Buy"
+                                                                                    style={{ width: "70px", marginLeft: "5px" }}
                                                                                     onChange={(e) =>
-                                                                                        handleSizeUpdate(
-                                                                                            item,
-                                                                                            size,
-                                                                                            `extraCosts.${key}`,
-                                                                                            e.target.value
-                                                                                        )
+                                                                                        handleSizeUpdate(item, size, "buyingPrice", e.target.value)
                                                                                     }
                                                                                     disabled={!editable}
                                                                                 />
-                                                                            </div>
-                                                                        ))}
+                                                                            </legend>
+                                                                            <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Margin%:-
+                                                                                <input
+                                                                                    type="number"
+                                                                                    value={data.margin || 0}
+                                                                                    placeholder="%"
+                                                                                    style={{ width: "60px", marginLeft: "5px" }}
+                                                                                    onChange={(e) =>
+                                                                                        handleSizeUpdate(item, size, "margin", e.target.value)
+                                                                                    }
+                                                                                    disabled={!editable}
+                                                                                />
+                                                                            </legend>
+                                                                        </div>
+                                                                        <div style={{
+                                                                            display: "grid",
+                                                                            gridTemplateColumns: "repeat(4, 1fr)", // ✅ 5 columns
+                                                                            gap: "6px",
+                                                                            marginTop: "6px",
+                                                                            borderTop: "1px dashed #ccc",
+                                                                            paddingTop: "6px",
+                                                                            width: "100%"
+                                                                        }}>
+                                                                            {["packaging", "labeling", "rto", "returnCost", "advertisementCost", "delivery", "others", "gst"].map((key) => (
+                                                                                <div key={key} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                                                                                    <legend key={key} style={{ fontSize: "10px", color: "gray" }}>{key.toUpperCase()}</legend>
+                                                                                    <input
+                                                                                        key={key}
+                                                                                        type="number"
+                                                                                        placeholder={key}
+                                                                                        value={data.extraCosts?.[key] || 0}
+                                                                                        style={{ width: "65px", fontSize: "10px" }}
+                                                                                        onChange={(e) =>
+                                                                                            handleSizeUpdate(
+                                                                                                item,
+                                                                                                size,
+                                                                                                `extraCosts.${key}`,
+                                                                                                e.target.value
+                                                                                            )
+                                                                                        }
+                                                                                        disabled={!editable}
+                                                                                    />
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
                                                                     </div>
                                                                 </div>
-                                                            </div>
-                                                        )
-                                                    })}
+                                                            )
+                                                        })}
                                                 </div>
                                             </td>
 

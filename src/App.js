@@ -40,6 +40,7 @@ import ProtectedRoute from "./hooks/ProtectedRoute";
 import SubscriptionExpired from "./pages/SubscriptionExpired";
 
 import PlansPage from "./pages/PlansPage";
+import ContactUs from "./pages/ContactUs";
 
 function App() {
 
@@ -97,6 +98,11 @@ function App() {
         <Route
           path="/signup"
           element={<Signup />}
+        />
+
+        <Route
+          path="/contact-us"
+          element={<ContactUs />}
         />
 
         <Route

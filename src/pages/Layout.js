@@ -4,7 +4,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { Outlet } from "react-router-dom";
 import { signOut } from "firebase/auth";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import "../assets/Layout.css";
 
 const Layout = ({ user }) => {
@@ -82,6 +82,17 @@ const Layout = ({ user }) => {
             {/* 🔷 FOOTER */}
             <footer className="layout-footer">
                 © {new Date().getFullYear()} Inventory App | Developed by Adhikari Brothers 🚀
+                <p className="auth-footer">
+
+                    {" "}
+
+                    <Link to="/contact-us">
+
+                        Contact Us
+
+                    </Link>
+
+                </p>
             </footer>
 
         </div>

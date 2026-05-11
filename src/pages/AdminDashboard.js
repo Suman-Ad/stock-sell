@@ -35,6 +35,7 @@ const AdminDashboard = ({ user }) => {
   const [showPlan, setShowPlan] = useState(false);
   const [editPlans, setEditPlans] = useState(false);
   const [subscriptionRequests, setSubscriptionRequests] = useState({});
+  const [contactMessages, setContactMessages] = useState([]);
 
   // 🔥 Load Users
   useEffect(() => {
@@ -250,6 +251,26 @@ const AdminDashboard = ({ user }) => {
 
   }, []);
 
+  // 🔔 CONTACT MESSAGES
+  useEffect(() => {
+
+    const unsub = onSnapshot(
+      collection(db, "contactMessages"),
+      (snap) => {
+
+        const data = snap.docs.map(d => ({
+          id: d.id,
+          ...d.data()
+        }));
+
+        setContactMessages(data);
+
+      }
+    );
+
+    return () => unsub();
+
+  }, []);
 
   return (
     <div className="admin-dashboard-container">
@@ -758,6 +779,187 @@ const AdminDashboard = ({ user }) => {
             </div>
 
           )}
+
+        </div>
+
+      </div>
+
+      {/* =========================
+    CONTACT MESSAGES
+========================== */}
+
+      <div
+        style={{
+          marginTop: "40px"
+        }}
+      >
+
+        <h2
+          style={{
+            marginBottom: "20px",
+            color: "#fff"
+          }}
+        >
+          Contact Messages
+        </h2>
+
+        <div
+          style={{
+            display: "grid",
+            gap: "20px"
+          }}
+        >
+
+          {
+            contactMessages.length > 0 ? (
+
+              contactMessages.map(msg => (
+
+                <div
+                  key={msg.id}
+                  style={{
+                    background: "#0f172a",
+                    border: "1px solid #334155",
+                    borderRadius: "14px",
+                    padding: "20px",
+                    color: "#fff"
+                  }}
+                >
+
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      flexWrap: "wrap",
+                      gap: "10px"
+                    }}
+                  >
+
+                    <div>
+
+                      <h3>
+                        {msg.name}
+                      </h3>
+
+                      <p>
+                        {msg.email}
+                      </p>
+
+                    </div>
+
+                    <div>
+
+                      <span
+                        style={{
+                          background:
+                            msg.status === "new"
+                              ? "#dc2626"
+                              : "#16a34a",
+                          padding: "6px 12px",
+                          borderRadius: "999px",
+                          fontSize: "12px"
+                        }}
+                      >
+                        {msg.status}
+                      </span>
+
+                    </div>
+
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: "15px"
+                    }}
+                  >
+
+                    <p>
+                      <strong>
+                        Subject:
+                      </strong>{" "}
+                      {msg.subject}
+                    </p>
+
+                    <p
+                      style={{
+                        marginTop: "10px",
+                        lineHeight: "1.7"
+                      }}
+                    >
+                      {msg.message}
+                    </p>
+
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: "20px",
+                      display: "flex",
+                      gap: "10px",
+                      flexWrap: "wrap"
+                    }}
+                  >
+
+                    <button
+                      className="admin-btn"
+                      onClick={async () => {
+
+                        await updateDoc(
+                          doc(
+                            db,
+                            "contactMessages",
+                            msg.id
+                          ),
+                          {
+                            status: "read"
+                          }
+                        );
+
+                      }}
+                    >
+                      Mark Read
+                    </button>
+
+                    <button
+                      className="admin-btn danger"
+                      onClick={async () => {
+
+                        const confirmDelete =
+                          window.confirm(
+                            "Delete this message?"
+                          );
+
+                        if (!confirmDelete) return;
+
+                        await deleteDoc(
+                          doc(
+                            db,
+                            "contactMessages",
+                            msg.id
+                          )
+                        );
+
+                      }}
+                    >
+                      Delete
+                    </button>
+
+                  </div>
+
+                </div>
+
+              ))
+
+            ) : (
+
+              <div
+                className="admin-empty-state"
+              >
+                No contact messages
+              </div>
+
+            )
+          }
 
         </div>
 

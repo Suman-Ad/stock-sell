@@ -2,7 +2,12 @@
 .stock-container {
     padding: 20px;
     min-height: 100vh;
-    background: linear-gradient(135deg, #0f172a, #1e293b);
+    background:
+        radial-gradient(circle at top left, rgba(99, 102, 241, 0.18), transparent 25%),
+        radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.15), transparent 25%),
+        linear-gradient(135deg, #020617 0%, #0f172a 45%, #111827 100%);
+
+    font-family: "Inter", sans-serif;
     color: #fff;
 }
 
@@ -14,6 +19,8 @@
     padding: 20px;
     margin-bottom: 20px;
     box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+    overflow-y: auto;
+    max-height: 300px;
 }
 
 /* 🧠 Headings */
@@ -27,7 +34,7 @@
 .stock-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 15px;
+    gap: 15px;    
 }
 
 /* Inputs */
@@ -133,10 +140,16 @@
 
 /* 📦 Size Rows */
 .size-row {
-    background: rgba(255,255,255,0.05);
+    background:
+        radial-gradient(circle at top left, rgba(99, 102, 241, 0.18), transparent 25%),
+        radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.15), transparent 25%),
+        linear-gradient(135deg, #020617 0%, #0f172a 45%, #111827 100%);
+
+    font-family: "Inter", sans-serif;
     border-radius: 12px;
     padding: 12px;
     margin-bottom: 10px;
+    border-top: 1px solid #0ea5e9;
 }
 
 /* 📊 Extra Costs Grid */

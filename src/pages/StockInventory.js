@@ -5,7 +5,17 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { writeBatch } from "firebase/firestore";
 import "../assets/StockInventory.css";
-import { categoryMap, colorOptions, productTypes } from "../components/CategoryMap";
+import {
+    categoryMap,
+    colorOptions,
+    productTypes,
+    productTypeMap,
+    productSizeTypeMap,
+    sizeCategoryMap,
+    getProductTypes,
+    getSizesByProduct,
+    getSizeType
+} from "../components/CategoryMap";
 import FeatureGate from "../components/FeatureGate";
 
 
@@ -255,7 +265,7 @@ const StockInventory = ({ user }) => {
             return;
         }
 
-        updated[index].size = value.toUpperCase();
+        updated[index].size = value.trim();
         setSizes(updated);
     };
 
@@ -273,7 +283,6 @@ const StockInventory = ({ user }) => {
                 return;
             }
 
-            setIsSaving(true);
 
             const sizeObject = {};
 
@@ -299,19 +308,50 @@ const StockInventory = ({ user }) => {
                 return;
             }
 
-            const finalColor = color === "custom" ? customColor.trim() : color;
+            if (!category) {
+                alert("Select category");
+                return;
+            }
 
-            const productName = `${category}-${subCategory}-${productType}-${finalColor}`;
-            const { catalogId, productId } = generateCatalogId(productName, finalColor, user.uid);
+            if (!subCategory) {
+                alert("Select product");
+                return;
+            }
+
+            if (!productType) {
+                alert("Select product type");
+                return;
+            }
+
+            if (!color && !customColor) {
+                alert("Select color");
+                return;
+            }
+
+            const finalColor =
+                color === "custom"
+                    ? customColor.trim()
+                    : color;
+
+            const normalizedColor =
+                finalColor
+                    ?.trim()
+                    ?.toLowerCase();
+
+            const productName = `${category}-${subCategory}-${productType}-${normalizedColor}`;
+            const { catalogId, productId } = generateCatalogId(productName, normalizedColor, user.uid);
+
+            setIsSaving(true);
 
             const docRef = await addDoc(collection(db, "stocks"), {
                 category,
                 subCategory,
                 productType,
-                color: finalColor,
+                color: normalizedColor,
                 productName,
                 productId,
                 catalogId,
+                catalogPopularity: "Low",
                 sizes: sizeObject,
                 remarks,
                 userId: user.uid,
@@ -322,26 +362,30 @@ const StockInventory = ({ user }) => {
             // 🔥 CREATE QR FOR EACH SIZE
             for (const sizeKey of Object.keys(sizeObject)) {
                 const sizeData = sizeObject[sizeKey];
+                const qrPromises = [];
 
-                await createQRCodesBulk({
-                    stockId: docRef.id,
-                    product: {
-                        ...sizeObject,
-                        ...{
-                            productName,
-                            productId,
-                            catalogId,
-                            category,
-                            subCategory,
-                            productType,
-                            color: finalColor,
-                            sizes: sizeObject
-                        }
-                    },
-                    sizeKey,
-                    startFrom: 0,
-                    quantity: sizeData.qty
-                });
+                qrPromises.push(
+                    createQRCodesBulk({
+                        stockId: docRef.id,
+                        product: {
+                            ...sizeObject,
+                            ...{
+                                productName,
+                                productId,
+                                catalogId,
+                                category,
+                                subCategory,
+                                productType,
+                                color: normalizedColor,
+                                sizes: sizeObject
+                            }
+                        },
+                        sizeKey,
+                        startFrom: 0,
+                        quantity: sizeData.qty
+                    })
+                );
+                await Promise.all(qrPromises);
             }
             setIsSaving(false);
             alert("✅ Stock + QR Created!");
@@ -354,6 +398,7 @@ const StockInventory = ({ user }) => {
         const data = [
             {
                 catalogId: "", // 🔥 NEW COLUMN
+                catalogPopularity: "Low",
                 category: "Men",
                 subCategory: "T-Shirt",
                 productType: "Casual",
@@ -510,11 +555,7 @@ const StockInventory = ({ user }) => {
                 if (!existingDocs.empty) {
                     const existingDoc = existingDocs.docs[0];
                     const existingData = existingDoc.data();
-                    const qrQuery = query(
-                        collection(db, "qrcodes"),
-                        where("stockId", "==", existingData.id),
-                        where("size", "==", existingData.sizes)
-                    );
+
                     const mergedSizes = { ...existingData.sizes };
 
                     Object.keys(sizeObject).forEach((size) => {
@@ -530,6 +571,11 @@ const StockInventory = ({ user }) => {
 
                     for (const size of Object.keys(sizeObject)) {
 
+                        const qrQuery = query(
+                            collection(db, "qrcodes"),
+                            where("stockId", "==", existingData.id),
+                            where("size", "==", size)
+                        );
 
                         const qrSnapshot = await getDocs(qrQuery);
 
@@ -552,6 +598,10 @@ const StockInventory = ({ user }) => {
 
                     batch.update(existingDoc.ref, {
                         sizes: mergedSizes,
+                        catalogPopularity:
+                            first.catalogPopularity ||
+                            existingData.catalogPopularity ||
+                            "Low",
                         updatedAt: serverTimestamp()
                     });
 
@@ -566,6 +616,7 @@ const StockInventory = ({ user }) => {
                         productName,
                         productId,
                         catalogId,
+                        catalogPopularity: "Low",
                         sizes: sizeObject,
                         remarks: first.remarks || "",
                         userId: user.uid,
@@ -616,9 +667,72 @@ const StockInventory = ({ user }) => {
         setLoading(false);
     };
 
+    const currentSizeType = getSizeType(
+        category,
+        subCategory
+    );
+
+    const availableSizes = getSizesByProduct(
+        category,
+        subCategory
+    );
+
+    const availableProductTypes = getProductTypes(
+        category,
+        subCategory
+    );
+
+    useEffect(() => {
+
+        if (!subCategory) return;
+
+        const autoSizes = getSizesByProduct(
+            category,
+            subCategory
+        );
+
+        const starterSizes = autoSizes
+            .slice(0, 3)
+            .map(size => ({
+                size,
+                qty: 0,
+                buyingPrice: 0,
+                margin: 0,
+                extraCosts: {
+                    packaging: 0,
+                    labeling: 0,
+                    rto: 0,
+                    returnCost: 0,
+                    advertisementCost: 0,
+                    delivery: 0,
+                    others: 0,
+                    gst: 0
+                }
+            }));
+
+        setSizes(starterSizes);
+
+    }, [category, subCategory]);
+
+    useEffect(() => {
+
+        if (!subCategory) return;
+
+        const types = getProductTypes(
+            category,
+            subCategory
+        );
+
+        if (types.length > 0) {
+            setProductType(types[0]);
+        }
+
+    }, [category, subCategory]);
+
+
+
     return (
         <div className="stock-container">
-
             {/* 🔹 Header */}
             <div className="stock-card">
                 <h2>Stock Inventory</h2>
@@ -705,30 +819,60 @@ const StockInventory = ({ user }) => {
                 {/* 🔹 Product Info */}
                 <div className="stock-card stock-grid">
 
-                    <select value={category}
+                    <select
+                        value={category}
                         onChange={(e) => {
                             setCategory(e.target.value);
                             setSubCategory("");
-                        }}>
-                        <option value="">Category</option>
+                            setProductType("");
+                        }}
+                    >
+                        <option value="">Select Category</option>
+
                         {Object.keys(categoryMap).map(cat => (
-                            <option key={cat}>{cat}</option>
+                            <option key={cat} value={cat}>
+                                {cat}
+                            </option>
                         ))}
                     </select>
 
-                    <select value={subCategory}
-                        onChange={(e) => setSubCategory(e.target.value)}>
-                        <option value="">Sub Category</option>
+
+                    <select
+                        value={subCategory}
+                        onChange={(e) => {
+                            setSubCategory(e.target.value);
+                            setProductType("");
+                        }}
+                        disabled={!category}
+                    >
+                        <option value="">
+                            Select Product
+                        </option>
+
                         {(categoryMap[category] || []).map(sub => (
-                            <option key={sub}>{sub}</option>
+                            <option key={sub} value={sub}>
+                                {sub}
+                            </option>
                         ))}
                     </select>
 
-                    <select value={productType}
-                        onChange={(e) => setProductType(e.target.value)}>
-                        <option value="">Product Type</option>
-                        {productTypes.map(type => (
-                            <option key={type}>{type}</option>
+
+                    <select
+                        value={productType}
+                        onChange={(e) => setProductType(e.target.value)}
+                        disabled={!subCategory}
+                    >
+                        <option value="">
+                            Select Product Type
+                        </option>
+
+                        {(availableProductTypes.length
+                            ? availableProductTypes
+                            : productTypes
+                        ).map(type => (
+                            <option key={type} value={type}>
+                                {type}
+                            </option>
                         ))}
                     </select>
 
@@ -753,7 +897,7 @@ const StockInventory = ({ user }) => {
                 {/* 🔹 Sizes */}
                 <div className="stock-card">
 
-                    <h4>Sizes & Pricing</h4>
+                    <h4 style={{ top: 0, position: "sticky", zIndex: 100 }} >Sizes & Pricing</h4>
 
                     {sizes.map((s, index) => {
                         const selling = getSellingPrice(s.buyingPrice, s.margin, s.extraCosts);
@@ -766,11 +910,72 @@ const StockInventory = ({ user }) => {
                                 <div className="stock-grid">
 
                                     <div className="input-group">
-                                        <label>Size</label>
-                                        <input
-                                            value={s.size}
-                                            onChange={(e) => handleSizeNameChange(index, e.target.value)}
-                                        />
+                                        <label>
+                                            Size
+                                            <small
+                                                style={{
+                                                    color: "#64748b",
+                                                    marginLeft: "6px",
+                                                    fontSize: "10px"
+                                                }}
+                                            >
+                                                ({currentSizeType})
+                                            </small>
+                                        </label>
+
+                                        <div
+                                            style={{
+                                                display: "flex",
+                                                gap: "6px",
+                                                alignItems: "center"
+                                            }}
+                                        >
+
+                                            {/* PREDEFINED SIZE SELECT */}
+                                            <select
+                                                value={
+                                                    availableSizes.includes(s.size)
+                                                        ? s.size
+                                                        : ""
+                                                }
+                                                onChange={(e) =>
+                                                    handleSizeNameChange(index, e.target.value)
+                                                }
+                                                style={{ flex: 1 }}
+                                            >
+                                                <option value="">
+                                                    Select Size
+                                                </option>
+
+                                                {availableSizes.map((sizeOption) => (
+
+                                                    <option
+                                                        key={sizeOption}
+                                                        value={sizeOption}
+                                                    >
+                                                        {sizeOption}
+                                                    </option>
+
+                                                ))}
+                                            </select>
+
+                                            {/* CUSTOM SIZE */}
+                                            <input
+                                                placeholder="Custom"
+                                                value={
+                                                    availableSizes.includes(s.size)
+                                                        ? ""
+                                                        : s.size
+                                                }
+                                                onChange={(e) =>
+                                                    handleSizeNameChange(index, e.target.value)
+                                                }
+                                                style={{
+                                                    width: "90px"
+                                                }}
+                                            />
+
+                                        </div>
                                     </div>
 
                                     <div className="input-group">
@@ -801,14 +1006,6 @@ const StockInventory = ({ user }) => {
                                     </div>
                                 </div>
 
-                                {/* PRICE BOX */}
-                                <div className="summary-card">
-                                    <p>Selling: ₹{selling}</p>
-                                    <p className={profit >= 0 ? "profit" : "loss"}>
-                                        Profit: ₹{profit}
-                                    </p>
-                                </div>
-
                                 {/* EXTRA COST */}
                                 <div className="extra-cost-grid">
                                     {Object.keys(s.extraCosts).map((key) => (
@@ -824,6 +1021,37 @@ const StockInventory = ({ user }) => {
                                         </div>
                                     ))}
                                 </div>
+
+                                {/* PRICE BOX */}
+                                <div style={{ display: "flex", justifyContent: "space-between", marginTop: "20px" }}>
+                                    <div className="summary-card">
+                                        <p>
+                                            Total:
+                                            ₹{s.qty * s.buyingPrice}
+                                        </p>
+                                        <p>Selling: ₹{selling}</p>
+                                        <p className={profit >= 0 ? "profit" : "loss"}>
+                                            Profit: ₹{profit}
+                                        </p>
+                                    </div>
+                                    {s.qty <= 2 && s.qty > 0 && (
+                                        <p className="warning">
+                                            Low Stock
+                                        </p>
+                                    )}
+                                    <button
+                                        className="btn danger"
+                                        onClick={() => {
+                                            setSizes(prev =>
+                                                prev.filter((_, i) => i !== index)
+                                            );
+                                        }}
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
+
+
 
                             </div>
                         );
@@ -854,7 +1082,11 @@ const StockInventory = ({ user }) => {
                     </p>
                 </div>
                 {/* 🔹 Save */}
-                <button className="btn primary" onClick={handleSave}>
+                <button
+                    className="btn primary"
+                    onClick={handleSave}
+                    disabled={isSaving}
+                >
                     {isSaving ? "Saving..." : "Save Stock"}
                 </button>
 

@@ -322,7 +322,6 @@ const Profile = ({ }) => {
 
                             ₹{
                                 subscription.price ||
-                                subscription.planId ||
                                 "Free"
                             }
 

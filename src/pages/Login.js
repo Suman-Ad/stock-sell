@@ -10,7 +10,8 @@ import {
   sendEmailVerification,
   setPersistence,
   browserLocalPersistence,
-  signOut
+  signOut,
+  sendPasswordResetEmail
 } from "firebase/auth";
 
 import {
@@ -76,6 +77,61 @@ const Login = ({ setUser }) => {
 
     }
 
+  };
+
+  // ==============================
+  // FORGOT PASSWORD
+  // ==============================
+
+  const handleForgotPassword = async () => {
+
+    try {
+
+      if (!email) {
+
+        alert(
+          "Please enter your email address first."
+        );
+
+        return;
+      }
+
+      await sendPasswordResetEmail(
+        auth,
+        email.trim().toLowerCase()
+      );
+
+      alert(
+        "Password reset email sent successfully!"
+      );
+
+    } catch (err) {
+
+      console.log(err);
+
+      if (
+        err.code === "auth/user-not-found"
+      ) {
+
+        alert(
+          "No account found with this email."
+        );
+
+      } else if (
+        err.code === "auth/invalid-email"
+      ) {
+
+        alert(
+          "Invalid email address."
+        );
+
+      } else {
+
+        alert(err.message);
+
+      }
+
+    }
   };
 
   // ==============================
@@ -294,10 +350,10 @@ const Login = ({ setUser }) => {
 
       <div className="auth-box">
 
-        <h2>Welcome Back</h2>
+        <h2>Stock Sell</h2>
 
         <p className="auth-subtitle">
-          Login to continue managing your stock
+          Welcome Back, Login to continue managing your stock
         </p>
 
         {/* EMAIL */}
@@ -345,6 +401,36 @@ const Login = ({ setUser }) => {
           Show Password
 
         </label>
+
+        {/* FORGOT PASSWORD */}
+
+        <div
+          style={{
+            width: "100%",
+            textAlign: "right",
+            marginTop: "-5px",
+            marginBottom: "15px"
+          }}
+        >
+
+          <button
+            type="button"
+            onClick={handleForgotPassword}
+            disabled={loading}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "#60a5fa",
+              cursor: "pointer",
+              fontSize: "14px"
+            }}
+          >
+
+            Forgot Password?
+
+          </button>
+
+        </div>
 
         {/* LOGIN BUTTON */}
 
@@ -414,8 +500,19 @@ const Login = ({ setUser }) => {
 
         </p>
 
-      </div>
+        <p className="auth-footer">
 
+          {" "}
+
+          <Link to="/contact-us">
+
+            Contact Us
+
+          </Link>
+
+        </p>
+
+      </div>
     </div>
   );
 };

@@ -160,6 +160,26 @@ const Signup = () => {
             setRegistering(true);
 
             // ==========================
+            // CREATE AUTH USER
+            // ==========================
+
+            const userCredential =
+                await createUserWithEmailAndPassword(
+                    auth,
+                    form.email.toLowerCase(),
+                    form.password
+                );
+
+            const user = userCredential.user;
+
+            // ==========================
+            // EMAIL VERIFICATION
+            // ==========================
+
+            await sendEmailVerification(user);
+
+
+            // ==========================
             // CHECK FREE PLAN
             // ==========================
 
@@ -184,24 +204,6 @@ const Signup = () => {
 
             const freePlan = planSnap.data();
 
-            // ==========================
-            // CREATE AUTH USER
-            // ==========================
-
-            const userCredential =
-                await createUserWithEmailAndPassword(
-                    auth,
-                    form.email.toLowerCase(),
-                    form.password
-                );
-
-            const user = userCredential.user;
-
-            // ==========================
-            // EMAIL VERIFICATION
-            // ==========================
-
-            await sendEmailVerification(user);
 
             // ==========================
             // SUBSCRIPTION
@@ -338,10 +340,11 @@ const Signup = () => {
 
             <div className="auth-box">
 
-                <h2>Create Account</h2>
+                <h2>Stock Sell</h2>
 
                 <p className="auth-subtitle">
-                    Start managing your stock smarter
+                    <p>Create Account</p>
+                    <p>Start managing your stock smarter</p>
                 </p>
 
                 {/* NAME */}
@@ -532,6 +535,17 @@ const Signup = () => {
                     <Link to="/login">
 
                         Login
+
+                    </Link>
+
+                </p>
+                <p className="auth-footer">
+
+                    {" "}
+
+                    <Link to="/contact-us">
+
+                        Contact Us
 
                     </Link>
 
