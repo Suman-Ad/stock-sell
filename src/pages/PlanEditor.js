@@ -28,6 +28,8 @@ const PlanEditor = () => {
 
     const [editingId, setEditingId] = useState(null);
 
+    const [selectedPlanId, setSelectedPlanId] = useState("free");
+
     // =========================
     // LOAD PLANS
     // =========================
@@ -42,6 +44,11 @@ const PlanEditor = () => {
         }));
 
         setPlans(data);
+
+        // Auto select first tab
+        if (data.length > 0 && !selectedPlanId) {
+            setSelectedPlanId(data[0].id);
+        }
     };
 
     useEffect(() => {
@@ -280,97 +287,171 @@ const PlanEditor = () => {
 
             </div>
 
+
             {/* PLAN LIST */}
 
             <div
                 style={{
-                    marginTop: "40px",
-                    display: "grid",
-                    gap: "20px"
+                    marginTop: "40px"
                 }}
             >
 
-                {plans.map(plan => (
+                {/* TAB BUTTONS */}
 
-                    <div
-                        key={plan.id}
-                        style={{
-                            background: "#0f172a",
-                            padding: "20px",
-                            borderRadius: "12px",
-                            border: "1px solid #334155"
-                        }}
-                    >
+                <div
+                    style={{
+                        display: "flex",
+                        gap: "12px",
+                        flexWrap: "wrap",
+                        marginBottom: "25px"
+                    }}
+                >
 
-                        <h2>
+                    {plans.map(plan => (
+
+                        <button
+                            key={plan.id}
+                            onClick={() =>
+                                setSelectedPlanId(plan.id)
+                            }
+                            style={{
+                                padding: "12px 18px",
+                                borderRadius: "10px",
+                                border: "1px solid #334155",
+                                background:
+                                    selectedPlanId === plan.id
+                                        ? "#2563eb"
+                                        : "#0f172a",
+                                color: "#fff",
+                                cursor: "pointer",
+                                fontWeight: "600",
+                                transition: "0.3s"
+                            }}
+                        >
                             {plan.planName}
-                        </h2>
+                        </button>
 
-                        <p>
-                            ₹{plan.price}
-                        </p>
+                    ))}
 
-                        <p>
-                            {plan.durationDays} Days
-                        </p>
+                </div>
 
-                        <p>
-                            Status:
-                            {" "}
-                            {plan.active
-                                ? "Active"
-                                : "Disabled"}
-                        </p>
+                {/* SELECTED PLAN */}
+
+                {plans
+                    .filter(plan => plan.id === selectedPlanId)
+                    .map(plan => (
 
                         <div
+                            key={plan.id}
                             style={{
-                                marginTop: "10px"
+                                background: "#0f172a",
+                                padding: "25px",
+                                borderRadius: "16px",
+                                border: "1px solid #334155"
                             }}
                         >
 
-                            {Object.keys(
-                                plan.features || {}
-                            ).map(feature => (
+                            <h2
+                                style={{
+                                    marginBottom: "10px"
+                                }}
+                            >
+                                {plan.planName}
+                            </h2>
 
-                                <div key={feature}>
-                                    ✅ {feature}
+                            <p>
+                                <strong>Price:</strong> ₹{plan.price}
+                            </p>
+
+                            <p>
+                                <strong>Duration:</strong> {plan.durationDays} Days
+                            </p>
+
+                            <p>
+                                <strong>Status:</strong>{" "}
+                                {plan.active
+                                    ? "Active"
+                                    : "Disabled"}
+                            </p>
+
+                            <p>
+                                <strong>Popular:</strong>{" "}
+                                {plan.popular
+                                    ? "Yes"
+                                    : "No"}
+                            </p>
+
+                            <div
+                                style={{
+                                    marginTop: "20px"
+                                }}
+                            >
+
+                                <h3>
+                                    Features
+                                </h3>
+
+                                <div
+                                    style={{
+                                        display: "grid",
+                                        gap: "8px",
+                                        marginTop: "10px"
+                                    }}
+                                >
+
+                                    {Object.keys(
+                                        plan.features || {}
+                                    ).map(feature => (
+
+                                        <div
+                                            key={feature}
+                                            style={{
+                                                background: "#1e293b",
+                                                padding: "10px",
+                                                borderRadius: "8px"
+                                            }}
+                                        >
+                                            ✅ {feature}
+                                        </div>
+
+                                    ))}
+
                                 </div>
 
-                            ))}
+                            </div>
+
+                            <div
+                                style={{
+                                    display: "flex",
+                                    gap: "10px",
+                                    marginTop: "25px",
+                                    flexWrap: "wrap"
+                                }}
+                            >
+
+                                <button
+                                    onClick={() =>
+                                        handleEdit(plan)
+                                    }
+                                    style={editBtn}
+                                >
+                                    Edit
+                                </button>
+
+                                <button
+                                    onClick={() =>
+                                        handleDelete(plan.id)
+                                    }
+                                    style={deleteBtn}
+                                >
+                                    Delete
+                                </button>
+
+                            </div>
 
                         </div>
 
-                        <div
-                            style={{
-                                display: "flex",
-                                gap: "10px",
-                                marginTop: "20px"
-                            }}
-                        >
-
-                            <button
-                                onClick={() =>
-                                    handleEdit(plan)
-                                }
-                                style={editBtn}
-                            >
-                                Edit
-                            </button>
-
-                            <button
-                                onClick={() =>
-                                    handleDelete(plan.id)
-                                }
-                                style={deleteBtn}
-                            >
-                                Delete
-                            </button>
-
-                        </div>
-
-                    </div>
-
-                ))}
+                    ))}
 
             </div>
 
@@ -379,7 +460,7 @@ const PlanEditor = () => {
 };
 
 const inputStyle = {
-    width: "100%",
+    width: "95%",
     padding: "12px",
     marginTop: "12px",
     borderRadius: "10px",

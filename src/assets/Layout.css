@@ -3,8 +3,15 @@
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-    background: linear-gradient(135deg, #0f172a, #1e293b);
-    color: #fff;
+    /* padding: 24px; */
+    color: #f8fafc;
+
+    background:
+        radial-gradient(circle at top left, rgba(99, 102, 241, 0.18), transparent 25%),
+        radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.15), transparent 25%),
+        linear-gradient(135deg, #020617 0%, #0f172a 45%, #111827 100%);
+
+    font-family: "Inter", sans-serif;
 }
 
 /* 🔷 HEADER */
@@ -19,9 +26,14 @@
 
     padding: 12px 20px;
 
-    background: rgba(15, 23, 42, 0.7);
+    background:
+        radial-gradient(circle at top left, rgba(99, 102, 241, 0.18), transparent 25%),
+        radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.15), transparent 25%),
+        linear-gradient(135deg, #020617 0%, #0f172a 45%, #111827 100%);
+
+    font-family: "Inter", sans-serif;
     backdrop-filter: blur(16px);
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* 🏷 Logo */
@@ -54,7 +66,7 @@
 }
 
 .profile-link:hover {
-    background: rgba(255,255,255,0.1);
+    background: rgba(255, 255, 255, 0.1);
     color: #fff;
 }
 
@@ -81,12 +93,12 @@
 
 /* 🔷 FOOTER */
 .layout-footer {
-    background: rgba(0,0,0,0.3);
+    background: rgba(0, 0, 0, 0.3);
     color: #cbd5f5;
     text-align: center;
     padding: 10px;
     font-size: 13px;
-    border-top: 1px solid rgba(255,255,255,0.08);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* 📱 Responsive */

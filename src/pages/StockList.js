@@ -1138,15 +1138,22 @@ const StockList = ({ user }) => {
                         <div className="qr-modal">
 
                             <h3>Scan QR Code</h3>
+                            <FeatureGate
+                                user={user}
+                                feature="qrPrint"
+                                title="QR Codes Visibility"
+                                description="Upgrade your plan to unlock QR Codes Visibility."
+                            >
+                                <QRCodeCanvas
+                                    value={qrPopup.value}
+                                    size={280}
+                                    className="print-area"
+                                    bgColor="#ffffff"   // ✅ white background
+                                    fgColor="#000000"   // ✅ black QR
+                                    level="H"           // ✅ high error correction
+                                    includeMargin={true} />
+                            </FeatureGate>
 
-                            <QRCodeCanvas
-                                value={qrPopup.value}
-                                size={280}
-                                className="print-area"
-                                bgColor="#ffffff"   // ✅ white background
-                                fgColor="#000000"   // ✅ black QR
-                                level="H"           // ✅ high error correction
-                                includeMargin={true} />
 
 
                             {/* <p style={{ marginTop: 10 }}>{qrPopup.value}</p> */}
@@ -1304,9 +1311,9 @@ const StockList = ({ user }) => {
                         )}
                         <FeatureGate
                             user={user}
-                            feature="qrPrint"
-                            title="QR Printing"
-                            description="Upgrade your plan to unlock QR Printing System."
+                            feature="bulkPrint"
+                            title="Bulk QR Printing"
+                            description="Upgrade your plan to unlock Bulk QR Printing System."
                         >
                             <div className="print-area" >
                                 {getItemQR(printItem)

@@ -261,7 +261,7 @@ const AdminDashboard = ({ user }) => {
 
         <div>
           <h1 className="admin-page-title">
-            Enterprise Admin Panel
+            Stock Sell Admin Panel
           </h1>
 
           <p className="admin-page-subtitle">
@@ -320,14 +320,47 @@ const AdminDashboard = ({ user }) => {
     ========================== */}
 
       {showPlan && (
-        <div className="admin-module-wrapper">
-          <SubscriptionManager />
+        <div className="modal-overlay">
+          <div className="admin-module-wrapper">
+            <div className="modal-box">
+
+              {/* Header */}
+              <div className="modal-header">
+                <h3>Manage User Subscription</h3>
+                <button className="close-btn" onClick={() => setShowPlan(false)}>❌</button>
+              </div>
+
+              {/* Content */}
+              <div className="modal-content" >
+                <SubscriptionManager />
+              </div>
+
+            </div>
+          </div>
         </div>
       )}
 
       {editPlans && (
-        <div className="admin-module-wrapper">
-          <PlanEditor />
+
+        <div className="modal-overlay">
+          <div className="admin-module-wrapper">
+            <div className="modal-box">
+
+              {/* Header */}
+              <div className="modal-header">
+                <h3>Create/Edit Subscription Plans</h3>
+                <button className="close-btn" onClick={() => setEditPlans(false)}>❌</button>
+              </div>
+
+              {/* Content */}
+              <div className="modal-content" >
+                <PlanEditor />
+              </div>
+
+            </div>
+          </div>
+
+
         </div>
       )}
 
@@ -653,6 +686,12 @@ const AdminDashboard = ({ user }) => {
 
                           <p>
                             <b>Status:</b> {req.status}
+                          </p>
+
+                          <p>
+                            <b>Approve Date:</b> {
+                              req.approvedAt ? req.approvedAt.toDate().toLocaleString() : new Date(req.approvedAt).toLocaleString()
+                            }
                           </p>
 
                           {

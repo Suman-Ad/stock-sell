@@ -21,6 +21,7 @@ const SubscriptionManager = () => {
     const [plans, setPlans] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
+    const [planFilter, setPlanFilter] = useState("all");
     const [updating, setUpdating] = useState("");
     const [requests, setRequests] = useState([]);
 
@@ -258,16 +259,40 @@ const SubscriptionManager = () => {
         return users.filter(user => {
 
             const text = `
-                ${user.name || ""}
-                ${user.email || ""}
-                ${user.shopName || ""}
-            `.toLowerCase();
+            ${user.name || ""}
+            ${user.email || ""}
+            ${user.shopName || ""}
+        `.toLowerCase();
 
-            return text.includes(search.toLowerCase());
+            const matchesSearch =
+                text.includes(search.toLowerCase());
+
+            const currentPlan =
+                user?.subscription?.planId ||
+                user?.subscription?.id ||
+                "";
+
+            let matchesPlan = true;
+
+            if (planFilter === "no_plan") {
+
+                matchesPlan = !currentPlan;
+
+            } else if (planFilter === "admin") {
+
+                matchesPlan = planFilter;
+
+            } else if (planFilter !== "all") {
+
+                matchesPlan = currentPlan === planFilter;
+
+            }
+
+            return matchesSearch && matchesPlan;
 
         });
 
-    }, [users, search]);
+    }, [users, search, planFilter]);
 
     // ==============================
     // Update Plan
@@ -424,6 +449,35 @@ const SubscriptionManager = () => {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                 />
+
+                <select
+                    value={planFilter}
+                    onChange={(e) => setPlanFilter(e.target.value)}
+                    style={{
+                        marginTop: "10px",
+                        padding: "10px",
+                        borderRadius: "10px",
+                        border: "1px solid #334155",
+                        background: "#0f172a",
+                        color: "#fff",
+                        width: "100%",
+                        maxWidth: "300px"
+                    }}
+                >
+                    <option value="all">All Plans</option>
+                    <option value="admin">Admin</option>
+
+                    {plans.map(plan => (
+                        <option
+                            key={plan.id}
+                            value={plan.planId || plan.id}
+                        >
+                            {plan.planName}
+                        </option>
+                    ))}
+
+                    <option value="no_plan">No Plan</option>
+                </select>
 
             </div>
 
