@@ -55,8 +55,8 @@ input {
 .stock-table tr:hover td {
   background: #2d3748;
   transform: translateY(-3px);
-  border-color: #3b82f6;
-  box-shadow: 0 6px 20px rgba(59,130,246,0.25);
+  border: 2px solid #28c408;
+  box-shadow: 0 6px 20px rgba(54, 238, 54, 0.582);
 }
 
 /* SIZE BOX */

@@ -1111,7 +1111,7 @@ const StockList = ({ user }) => {
                                                     setSelectedSize("ALL");
                                                     setPrintItem(item);
                                                 }}>
-                                                    🖨 Print
+                                                    🖨 Print Preview
                                                 </button>
                                                 <button onClick={() => handleDelete(item)}>
                                                     Delete
@@ -1129,29 +1129,37 @@ const StockList = ({ user }) => {
 
             {qrPopup.open && (
                 <div className="qr-overlay">
-                    <div className="qr-modal">
+                    <FeatureGate
+                        user={user}
+                        feature="qrCode"
+                        title="QR Codes Visibility"
+                        description="Upgrade your plan to unlock QR Codes Visibility."
+                    >
+                        <div className="qr-modal">
 
-                        <h3>Scan QR Code</h3>
+                            <h3>Scan QR Code</h3>
 
-                        <QRCodeCanvas
-                            value={qrPopup.value}
-                            size={280}
-                            className="print-area"
-                            bgColor="#ffffff"   // ✅ white background
-                            fgColor="#000000"   // ✅ black QR
-                            level="H"           // ✅ high error correction
-                            includeMargin={true} />
+                            <QRCodeCanvas
+                                value={qrPopup.value}
+                                size={280}
+                                className="print-area"
+                                bgColor="#ffffff"   // ✅ white background
+                                fgColor="#000000"   // ✅ black QR
+                                level="H"           // ✅ high error correction
+                                includeMargin={true} />
 
 
-                        {/* <p style={{ marginTop: 10 }}>{qrPopup.value}</p> */}
-                        <div style={{ padding: "5px 5px" }} >
-                            <button style={{ padding: "2px 5px", margin: "5px" }} onClick={() => window.print()}>Download</button>
+                            {/* <p style={{ marginTop: 10 }}>{qrPopup.value}</p> */}
+                            <div style={{ padding: "5px 5px" }} >
+                                <button style={{ padding: "2px 5px", margin: "5px" }} onClick={() => window.print()}>Download</button>
 
-                            <button style={{ padding: "2px 5px", }} onClick={() => setQrPopup({ open: false, value: "" })}>
-                                Close
-                            </button>
+                                <button style={{ padding: "2px 5px", }} onClick={() => setQrPopup({ open: false, value: "" })}>
+                                    Close
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                    </FeatureGate>
+
                 </div>
             )}
 
@@ -1294,37 +1302,44 @@ const StockList = ({ user }) => {
 
                             </div>
                         )}
+                        <FeatureGate
+                            user={user}
+                            feature="qrPrint"
+                            title="QR Printing"
+                            description="Upgrade your plan to unlock QR Printing System."
+                        >
+                            <div className="print-area" >
+                                {getItemQR(printItem)
+                                    .filter(qr => selectedSize === "ALL" || qr.size === selectedSize)
+                                    .map((qr, index) => {
 
-                        <div className="print-area" >
-                            {getItemQR(printItem)
-                                .filter(qr => selectedSize === "ALL" || qr.size === selectedSize)
-                                .map((qr, index) => {
-
-                                    return (
-                                        <div key={qr.id}
-                                            className="qr-box" style={{ width: "170px" }} >
-                                            <div className={`qr-card ${!qr.printed ? "new" : ""}`} style={{ width: "160px", background: !qr.printed ? "" : "white" }}>
-                                                <div style={{ color: !qr.printed ? "" : "black" }} >
-                                                    <b>{qr.productType}</b>-
-                                                    {qr.color}-
-                                                    Size: {qr.size}
-                                                </div>
-                                                <QRCodeCanvas
-                                                    value={JSON.stringify(qr)}
-                                                    size={150}
-                                                    bgColor="#ffffff"   // ✅ white background
-                                                    fgColor="#000000"   // ✅ black QR
-                                                    level="H"           // ✅ high error correction
-                                                    includeMargin={true}
-                                                />
-                                                <div style={{ color: !qr.printed ? "" : "black" }} >
-                                                    #{qr.unitNo}
+                                        return (
+                                            <div key={qr.id}
+                                                className="qr-box" style={{ width: "170px" }} >
+                                                <div className={`qr-card ${!qr.printed ? "new" : ""}`} style={{ width: "160px", background: !qr.printed ? "" : "white" }}>
+                                                    <div style={{ color: !qr.printed ? "" : "black" }} >
+                                                        <b>{qr.productType}</b>-
+                                                        {qr.color}-
+                                                        Size: {qr.size}
+                                                    </div>
+                                                    <QRCodeCanvas
+                                                        value={JSON.stringify(qr)}
+                                                        size={150}
+                                                        bgColor="#ffffff"   // ✅ white background
+                                                        fgColor="#000000"   // ✅ black QR
+                                                        level="H"           // ✅ high error correction
+                                                        includeMargin={true}
+                                                    />
+                                                    <div style={{ color: !qr.printed ? "" : "black" }} >
+                                                        #{qr.unitNo}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    );
-                                })}
-                        </div>
+                                        );
+                                    })}
+                            </div>
+                        </FeatureGate>
+
                     </div>
                 </div>
             )}

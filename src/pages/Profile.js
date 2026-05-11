@@ -7,7 +7,7 @@ import "../assets/Profile.css";
 import FeatureGate from "../components/FeatureGate";
 
 
-const Profile = ({}) => {
+const Profile = ({ }) => {
     const [userData, setUserData] = useState(null);
     const [editing, setEditing] = useState(false);
     const [newPassword, setNewPassword] = useState("");
@@ -261,8 +261,8 @@ const Profile = ({}) => {
 
                 {/* ✅ Subscription */}
                 {/* =========================
-   SUBSCRIPTION SECTION
-========================= */}
+                    SUBSCRIPTION SECTION
+                    ========================= */}
 
                 <div className="subscription-card">
 
@@ -313,6 +313,20 @@ const Profile = ({}) => {
                             }
 
                         </h2>
+
+                        <h4 style={{
+                            color: isExpired
+                                ? "#ef4444"
+                                : "#22c55e"
+                        }}>
+
+                            ₹{
+                                subscription.price ||
+                                subscription.planId ||
+                                "Free"
+                            }
+
+                        </h4>
 
                     </div>
 
