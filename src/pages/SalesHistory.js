@@ -32,6 +32,10 @@ const SalesHistory = ({ user }) => {
     const [deletingId, setDeletingId] = useState(null);
     const navigate = useNavigate();
 
+    const [currentPage, setCurrentPage] = useState(1);
+
+    const ITEMS_PER_PAGE = 25;
+
     // =========================================
     // LOAD SALES
     // =========================================
@@ -112,6 +116,9 @@ const SalesHistory = ({ user }) => {
 
             const keyword = search.toLowerCase();
 
+            const catalogId =
+                s.catalogId?.toLowerCase() || "";
+
             const customerName =
                 s.customer?.name?.toLowerCase() || "";
 
@@ -122,6 +129,7 @@ const SalesHistory = ({ user }) => {
                 s.productName?.toLowerCase() || "";
 
             if (
+                !catalogId.includes(keyword) &&
                 !customerName.includes(keyword) &&
                 !customerPhone.includes(keyword) &&
                 !productName.includes(keyword)
@@ -137,6 +145,20 @@ const SalesHistory = ({ user }) => {
     // SUMMARY
     // =========================================
     const activeSales = filteredSales;
+
+    // PAGINATION
+    const totalPages = Math.ceil(
+        activeSales.length / ITEMS_PER_PAGE
+    );
+
+    const startIndex =
+        (currentPage - 1) * ITEMS_PER_PAGE;
+
+    const paginatedSales =
+        activeSales.slice(
+            startIndex,
+            startIndex + ITEMS_PER_PAGE
+        );
 
     const totalSales = activeSales.length;
 
@@ -270,6 +292,10 @@ const SalesHistory = ({ user }) => {
         }
     };
 
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [search, filterDate]);
+
     return (
 
         <div className="sales-page">
@@ -324,7 +350,7 @@ const SalesHistory = ({ user }) => {
                             navigate("/marketplace-csv-import",
                                 {
                                     state: {
-                                        type : "orders"
+                                        type: "orders"
                                     }
                                 })} >
                         Marketplace Order(Pendig/Shipment/Deliverd) CSV Import
@@ -344,7 +370,7 @@ const SalesHistory = ({ user }) => {
 
                     <input
                         type="text"
-                        placeholder="Search customer / phone / product"
+                        placeholder="Search Catalog ID / customer / phone / product"
                         value={search}
                         onChange={(e) =>
                             setSearch(e.target.value)
@@ -366,6 +392,8 @@ const SalesHistory = ({ user }) => {
 
                                 <th>Date</th>
 
+                                <th>Order Status</th>
+
                                 <th>Catalog ID</th>
 
                                 <th>Product</th>
@@ -386,7 +414,7 @@ const SalesHistory = ({ user }) => {
 
                         <tbody>
 
-                            {activeSales.map((s) => (
+                            {paginatedSales.map((s) => (
 
                                 <tr key={s.id}>
                                     {/* QR */}
@@ -440,6 +468,31 @@ const SalesHistory = ({ user }) => {
 
                                         })()}
                                     </td>
+
+                                    {/* ORDER STATUS */}
+                                    <td>
+                                        <strong
+                                            style={{
+                                                color: {
+                                                    pending: "orange",
+                                                    shipped: "blue",
+                                                    cancelled: "red",
+                                                    delivered: "green",
+                                                    returned: "#ff4d6d",
+                                                    rto: "#a855f7"
+                                                }[
+                                                    (s.orderStatus || "")
+                                                        .toLowerCase()
+                                                ] || "yellow",
+
+                                                fontWeight: "bold",
+                                                textTransform: "capitalize"
+                                            }}
+                                        >
+                                            {s.orderStatus || "Unknown"}
+                                        </strong>
+                                    </td>
+
                                     {/* CATALOG ID */}
                                     <td>
                                         {s.catalogId}
@@ -541,7 +594,37 @@ const SalesHistory = ({ user }) => {
                     </table>
 
                 </div>
-                {activeSales.map((s) => (
+
+                {/* PAGINATION */}
+                <div className="pagination">
+
+                    <button
+                        disabled={currentPage === 1}
+                        onClick={() =>
+                            setCurrentPage(prev => prev - 1)
+                        }
+                    >
+                        Prev
+                    </button>
+
+                    <span>
+                        Page {currentPage} of {totalPages || 1}
+                    </span>
+
+                    <button
+                        disabled={
+                            currentPage === totalPages ||
+                            totalPages === 0
+                        }
+                        onClick={() =>
+                            setCurrentPage(prev => prev + 1)
+                        }
+                    >
+                        Next
+                    </button>
+
+                </div>
+                {paginatedSales.map((s) => (
                     <div>
                         {/* LARGE PREVIEW */}
                         {hoveredQR === s.id && (

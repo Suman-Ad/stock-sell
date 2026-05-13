@@ -16,7 +16,6 @@ import {
 import { db } from "../firebase";
 import * as XLSX from "xlsx";
 import { useLocation } from "react-router-dom";
-import { type } from "firebase/firestore/pipelines";
 
 const parseCSVDate = (dateStr) => {
 
@@ -375,6 +374,8 @@ const MarketplaceCSVImport = ({ user }) => {
 
     const [platform, setPlatform] =
         useState("meesho");
+
+    const [cancelImporting, setCancelImporting] = useState(false);
 
     const location = useLocation();
 
@@ -1049,9 +1050,9 @@ const MarketplaceCSVImport = ({ user }) => {
 
                     profit,
 
-                    orderStatus:
-                        row.orderStatus ||
-                        "pending",
+                    orderStatus: String(
+                        row.orderStatus || "pending"
+                    ).toLowerCase(),
 
                     paymentStatus:
                         "pending",
@@ -1391,21 +1392,6 @@ Duplicates Skipped: ${skipped}
 
                     const sizeData =
                         groupedRow.sizes[sizeKey];
-
-                    // operationCount += createQRCodes(
-                    //     batch,
-                    //     {
-                    //         ...newStock,
-                    //         id: newStockRef.id
-                    //     },
-                    //     sizeKey,
-                    //     Number(sizeData.qty || 0),
-                    //     {
-                    //         isOnlineItem: true,
-                    //         inventorySource: "csv",
-                    //         platform
-                    //     }
-                    // );
                     await createQRCodes({
                         batchRef,
                         operationRef,
@@ -1730,6 +1716,224 @@ Duplicates Skipped: ${skipped}
         );
     };
 
+    const importCancelledOrders = async () => {
+
+        if (!matchedOrders.length) {
+
+            alert("No matched orders found");
+
+            return;
+        }
+
+        try {
+
+            setCancelImporting(true);
+
+            const total = matchedOrders.length;
+
+            let updated = 0;
+
+            for (
+                let index = 0;
+                index < matchedOrders.length;
+                index++
+            ) {
+
+                const item =
+                    matchedOrders[index];
+
+                const row =
+                    item.row;
+
+                const orderId =
+                    String(row.orderId || "");
+
+                if (!orderId) continue;
+
+                const percent = Math.round(
+                    ((index + 1) / total) * 100
+                );
+
+                setProgress(percent);
+
+                setProgressText(
+                    `Updating Cancelled Orders ${index + 1}/${total}`
+                );
+
+                // ========================================
+                // FIND SALE
+                // ========================================
+
+                const saleRef =
+                    doc(db, "sales", orderId);
+
+                const saleSnap =
+                    await getDoc(saleRef);
+
+                if (!saleSnap.exists())
+                    continue;
+
+                const saleData =
+                    saleSnap.data();
+
+                // ========================================
+                // ALREADY CANCELLED
+                // ========================================
+
+                if (
+                    saleData.orderStatus ===
+                    "cancelled"
+                ) {
+                    continue;
+                }
+
+                // ========================================
+                // UPDATE SALE
+                // ========================================
+
+                await updateDoc(saleRef, {
+                    orderStatus: "cancelled",
+                    cancelledAt:
+                        serverTimestamp(),
+                    updatedAt:
+                        serverTimestamp()
+                });
+
+                // ========================================
+                // RESTORE STOCK
+                // ========================================
+
+                if (
+                    saleData.stockId &&
+                    saleData.size
+                ) {
+
+                    const stockRef = doc(
+                        db,
+                        "stocks",
+                        saleData.stockId
+                    );
+
+                    const stockSnap =
+                        await getDoc(stockRef);
+
+                    if (stockSnap.exists()) {
+
+                        const stockData =
+                            stockSnap.data();
+
+                        const updatedSizes = {
+                            ...stockData.sizes
+                        };
+
+                        if (
+                            !updatedSizes[
+                            saleData.size
+                            ]
+                        ) {
+
+                            updatedSizes[
+                                saleData.size
+                            ] = {
+                                qty: 0
+                            };
+                        }
+
+                        updatedSizes[
+                            saleData.size
+                        ].qty =
+                            Number(
+                                updatedSizes[
+                                    saleData.size
+                                ].qty || 0
+                            ) +
+                            Number(
+                                saleData.qty || 1
+                            );
+
+                        await updateDoc(
+                            stockRef,
+                            {
+                                sizes:
+                                    updatedSizes
+                            }
+                        );
+                    }
+                }
+
+                // ========================================
+                // RESTORE QR
+                // ========================================
+
+                const qrQuery = query(
+                    collection(db, "qrcodes"),
+                    where(
+                        "orderId",
+                        "==",
+                        orderId
+                    )
+                );
+
+                const qrSnap =
+                    await getDocs(qrQuery);
+
+                for (const qrDoc of qrSnap.docs) {
+
+                    await updateDoc(
+                        doc(
+                            db,
+                            "qrcodes",
+                            qrDoc.id
+                        ),
+                        {
+                            status:
+                                "available",
+
+                            orderId: "",
+
+                            soldAt: null,
+
+                            updatedAt:
+                                serverTimestamp()
+                        }
+                    );
+                }
+
+                updated++;
+            }
+
+            setProgress(100);
+
+            setProgressText(
+                "Cancelled Orders Updated"
+            );
+
+            alert(
+                `Cancelled Orders Updated: ${updated}`
+            );
+
+        } catch (err) {
+
+            console.error(err);
+
+            alert(
+                "Cancelled import failed"
+            );
+
+        } finally {
+
+            setTimeout(() => {
+
+                setCancelImporting(false);
+
+                setProgress(0);
+
+                setProgressText("");
+
+            }, 1200);
+        }
+    };
+
     return (
         <div
             style={{
@@ -1835,8 +2039,34 @@ Duplicates Skipped: ${skipped}
 
             </div>
 
-            {/* IMPORT BUTTON */}
+            {/* MATCH BUTTON */}
 
+            <button
+                onClick={matchOrdersWithInventory}
+
+                disabled={
+                    matching ||
+                    !rows.length
+                }
+
+                style={{
+                    padding: "12px 20px",
+                    border: "none",
+                    borderRadius: "10px",
+                    background: "#16a34a",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                    marginLeft: "10px"
+                }}
+                className="summary-card"
+            >
+                {matching
+                    ? "Matching..."
+                    : "🔍 Match Inventory"}
+            </button>
+
+            {/* IMPORT BUTTON */}
             <button
                 onClick={executeImport}
 
@@ -1864,30 +2094,28 @@ Duplicates Skipped: ${skipped}
                     : `Execute ${importType} Import`}
             </button>
 
-            <button
-                onClick={matchOrdersWithInventory}
-
-                disabled={
-                    matching ||
-                    !rows.length
-                }
-
-                style={{
-                    padding: "12px 20px",
-                    border: "none",
-                    borderRadius: "10px",
-                    background: "#16a34a",
-                    color: "#fff",
-                    cursor: "pointer",
-                    fontWeight: "bold",
-                    marginLeft: "10px"
-                }}
-                className="summary-card"
-            >
-                {matching
-                    ? "Matching..."
-                    : "🔍 Match Inventory"}
-            </button>
+            {/* CANCELLED BUTTON */}
+            {loading && (
+                <button
+                    onClick={importCancelledOrders}
+                    disabled={cancelImporting || !matchedOrders.length}
+                    style={{
+                        padding: "12px 20px",
+                        border: "none",
+                        borderRadius: "10px",
+                        background: "#dc2626",
+                        color: "#fff",
+                        cursor: "pointer",
+                        fontWeight: "bold",
+                        marginLeft: "10px"
+                    }}
+                    className="summary-card"
+                >
+                    {cancelImporting
+                        ? "Cancelling..."
+                        : "❌ Import Cancelled Orders"}
+                </button>
+            )}
 
             {loading && (
 
