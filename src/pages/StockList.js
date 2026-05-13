@@ -228,6 +228,13 @@ const StockList = ({ user }) => {
     const [forceQRPrint, setForceQRPrint] = useState({});
     const navigate = useNavigate();
 
+    const [deleteProgress, setDeleteProgress] = useState({
+        active: false,
+        total: 0,
+        completed: 0,
+        current: ""
+    });
+
     const [qrData, setQrData] = useState({});
 
     const loadItemQR = async (stockId) => {
@@ -308,6 +315,11 @@ const StockList = ({ user }) => {
     }, [role, user]);
 
     const [showQR, setShowQR] = useState({});
+    const [sizeQrPopup, setSizeQrPopup] = useState({
+        open: false,
+        item: null,
+        size: ""
+    });
     const toggleQR = async (item) => {
 
         const id = item.catalogId;
@@ -431,15 +443,27 @@ const StockList = ({ user }) => {
 
     // Delete stock
     const handleDelete = async (item) => {
-        if (!window.confirm("Delete this item?")) return;
 
-        if (user.uid !== item.userId) {
+        if (!window.confirm(`Delete ${item.productName} ?`)) return;
+
+        if (
+            user.uid !== item.userId &&
+            role !== "superadmin"
+        ) {
             alert("You are not authorized");
             return;
         }
 
         try {
-            // 🔥 1. Find all QR linked to this stock
+
+            setDeleteProgress({
+                active: true,
+                total: 1,
+                completed: 0,
+                current: item.catalogId
+            });
+
+            // 🔥 Find all QR linked to this stock
             const q = query(
                 collection(db, "qrcodes"),
                 where("stockId", "==", item.id)
@@ -447,24 +471,138 @@ const StockList = ({ user }) => {
 
             const snapshot = await getDocs(q);
 
-            // 🔥 2. Batch delete all QR
+            // 🔥 Batch delete
             const batch = writeBatch(db);
 
             snapshot.forEach((docSnap) => {
                 batch.delete(docSnap.ref);
             });
 
-            // 🔥 3. Delete stock itself
             batch.delete(doc(db, "stocks", item.id));
 
-            // 🔥 4. Commit everything together
             await batch.commit();
+
+            setDeleteProgress({
+                active: true,
+                total: 1,
+                completed: 1,
+                current: item.catalogId
+            });
+
+            setTimeout(() => {
+                setDeleteProgress({
+                    active: false,
+                    total: 0,
+                    completed: 0,
+                    current: ""
+                });
+            }, 800);
 
             alert("Stock + QR deleted successfully");
 
         } catch (err) {
+
             console.error(err);
+
+            setDeleteProgress({
+                active: false,
+                total: 0,
+                completed: 0,
+                current: ""
+            });
+
             alert("Delete failed");
+        }
+    };
+
+    // ========================================
+    // DELETE FILTERED STOCKS
+    // ========================================
+
+    const handleDeleteFilteredStocks = async () => {
+
+        if (!filteredStocks.length) {
+            alert("No filtered stocks found");
+            return;
+        }
+
+        const confirmDelete = window.confirm(
+            `Delete ${filteredStocks.length} filtered stock item(s)?`
+        );
+
+        if (!confirmDelete) return;
+
+        try {
+
+            setDeleteProgress({
+                active: true,
+                total: filteredStocks.length,
+                completed: 0,
+                current: ""
+            });
+
+            for (let i = 0; i < filteredStocks.length; i++) {
+
+                const item = filteredStocks[i];
+
+                setDeleteProgress({
+                    active: true,
+                    total: filteredStocks.length,
+                    completed: i,
+                    current: item.catalogId
+                });
+
+                // 🔥 Find all QR linked to this stock
+                const q = query(
+                    collection(db, "qrcodes"),
+                    where("stockId", "==", item.id)
+                );
+
+                const snapshot = await getDocs(q);
+
+                const batch = writeBatch(db);
+
+                snapshot.forEach((docSnap) => {
+                    batch.delete(docSnap.ref);
+                });
+
+                batch.delete(doc(db, "stocks", item.id));
+
+                await batch.commit();
+
+                setDeleteProgress({
+                    active: true,
+                    total: filteredStocks.length,
+                    completed: i + 1,
+                    current: item.catalogId
+                });
+            }
+
+            setTimeout(() => {
+
+                setDeleteProgress({
+                    active: false,
+                    total: 0,
+                    completed: 0,
+                    current: ""
+                });
+
+            }, 1000);
+
+            alert("Filtered stocks deleted successfully");
+
+        } catch (err) {
+
+            console.error(err);
+
+            setDeleteProgress({
+                active: false,
+                total: 0,
+                completed: 0,
+                current: ""
+            });
+
+            alert("Bulk delete failed");
         }
     };
 
@@ -757,7 +895,16 @@ const StockList = ({ user }) => {
 
         if (!confirmReduce) return;
 
-        await createQRCodes(item, sizeKey, amount);
+        // await createQRCodes(item, sizeKey, amount);
+
+        await createQRCodes(
+            item,
+            sizeKey,
+            amount,
+            {
+                isOnlineItem: true
+            }
+        );
 
         const updatedSizes = { ...item.sizes };
         const sizeData = updatedSizes[sizeKey];
@@ -1021,12 +1168,28 @@ const StockList = ({ user }) => {
         });
     };
 
+    const ITEMS_PER_PAGE = 5;
+
+    const [currentPage, setCurrentPage] = useState(1);
+
+    const paginatedStocks = useMemo(() => {
+
+        const start =
+            (currentPage - 1) * ITEMS_PER_PAGE;
+
+        return filteredStocks.slice(
+            start,
+            start + ITEMS_PER_PAGE
+        );
+
+    }, [filteredStocks, currentPage]);
+
     return (
         <div className="stock-page" >
             <StockSummary stocks={filteredStocks} user={user} />
             <>
                 <button className="summary-card" style={{ color: "white" }} onClick={() => setShowInventory(true)}>
-                    + Add New Items
+                    + Add New Catalog
                 </button>
 
                 <FeatureGate
@@ -1039,8 +1202,16 @@ const StockList = ({ user }) => {
                         Marketplace Integrations
                     </button>
 
-                    <button className="summary-card" style={{ color: "white" }} onClick={() => navigate("/marketplace-csv-import")} >
-                        Marketplace CSV Import
+                    <button className="summary-card" style={{ color: "white" }}
+                        onClick={() =>
+                            navigate("/marketplace-csv-import",
+                                {
+                                    state: {
+                                        type: "inventory"
+                                    }
+                                })}
+                    >
+                        Marketplace Inventory CSV Import
                     </button>
                 </FeatureGate>
 
@@ -1157,16 +1328,103 @@ const StockList = ({ user }) => {
                         </select>
                     </div>
 
+                    {
+                        (role === "superadmin" || role === "user") && (
+                            <button
+                                onClick={handleDeleteFilteredStocks}
+                                disabled={
+                                    deleteProgress.active ||
+                                    filteredStocks.length === 0
+                                }
+                                className="summary-card"
+                                style={{
+                                    background: "#dc2626",
+                                    color: "white",
+                                    cursor: "pointer"
+                                }}
+                            >
+                                🗑 Delete Filtered (
+                                {filteredStocks.length}
+                                )
+                            </button>
+                        )
+                    }
+
                 </FeatureGate>
 
             </div>
+            {
+                deleteProgress.active && (
+                    <div
+                        style={{
+                            width: "100%",
+                            marginBottom: "15px",
+                            padding: "10px",
+                            border: "1px solid #ef4444",
+                            borderRadius: "10px",
+                            background: "#1f2937"
+                        }}
+                    >
+
+                        <div
+                            style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                marginBottom: "8px",
+                                fontSize: "13px",
+                                color: "white"
+                            }}
+                        >
+                            <span>
+                                Deleted:
+                                {" "}
+                                {deleteProgress.completed}
+                                /
+                                {deleteProgress.total}
+                            </span>
+
+                            <span>
+                                Current:
+                                {" "}
+                                {deleteProgress.current || "-"}
+                            </span>
+                        </div>
+
+                        <div
+                            style={{
+                                width: "100%",
+                                height: "14px",
+                                background: "#374151",
+                                borderRadius: "999px",
+                                overflow: "hidden"
+                            }}
+                        >
+                            <div
+                                style={{
+                                    width: `${deleteProgress.total
+                                        ? (
+                                            deleteProgress.completed /
+                                            deleteProgress.total
+                                        ) * 100
+                                        : 0
+                                        }%`,
+                                    height: "100%",
+                                    background: "#ef4444",
+                                    transition: "0.3s"
+                                }}
+                            />
+                        </div>
+
+                    </div>
+                )
+            }
             <FeatureGate
                 user={user}
                 feature="stockInventory"
                 title="Stock List"
                 description="Upgrade your plan to unlock Stock List."
             >
-                <div className="table-wrapper">
+                <div className="table-wrapper" >
                     {stockLoading ? (
                         <div
                             style={{
@@ -1205,7 +1463,7 @@ const StockList = ({ user }) => {
                             </thead>
 
                             <tbody>
-                                {filteredStocks.map((item, idx) => {
+                                {paginatedStocks.map((item, idx) => {
                                     // const totalQty = getTotalQty(item.sizes);
                                     // const totalInvestment = getTotalInvestment(item.sizes);
                                     // const totalExtraCost = getTotalExtraCost(item.sizes);
@@ -1288,534 +1546,477 @@ const StockList = ({ user }) => {
 
 
                                             <td>
-                                                <div style={{ overflowY: "auto", maxHeight: "365px", scrollbarWidth: "thin" }} >
+                                                <div style={{ overflowY: "auto", maxHeight: "365px", scrollbarWidth: "thin" }}
+                                                >
                                                     {sortSizes(item.sizes).map(([size, data]) => {
 
-                                                        // Normalize
-                                                        // const a = String(sizeA).trim().toUpperCase();
-                                                        // const b = String(sizeB).trim().toUpperCase();
+                                                        const soldCount = getSoldCount(item, size);
+                                                        const total = data.initialQty ?? 0;
+                                                        const available = data.qty ?? 0;
+                                                        const removedCount = (qrData[item.id] || []).reduce((count, qr) => {
+                                                            if (
+                                                                qr.stockId === item.id &&
+                                                                qr.size === size &&
+                                                                qr.status === "removed"
+                                                            ) {
+                                                                return count + 1;
+                                                            }
+                                                            return count;
+                                                        }, 0);
+                                                        const sizeQRs = (qrData[item.id] || []).filter(
+                                                            qr =>
+                                                                qr.stockId === item.id &&
+                                                                qr.size === size &&
+                                                                qr.status === "available"
+                                                        );
 
-
-
-                                                        // // ========================================
-                                                        // // MASTER SIZE ORDER
-                                                        // // ========================================
-
-                                                        // const masterOrder = [
-
-                                                        //     // FREE
-                                                        //     "FREE SIZE",
-
-                                                        //     // CLOTHING
-                                                        //     "XXXS",
-                                                        //     "XXS",
-                                                        //     "XS",
-                                                        //     "S",
-                                                        //     "M",
-                                                        //     "L",
-                                                        //     "XL",
-                                                        //     "XXL",
-                                                        //     "XXXL",
-                                                        //     "4XL",
-                                                        //     "5XL",
-                                                        //     "6XL",
-                                                        //     "7XL",
-                                                        //     "8XL",
-
-                                                        //     // KIDS
-                                                        //     "0-3M",
-                                                        //     "3-6M",
-                                                        //     "6-9M",
-                                                        //     "9-12M",
-                                                        //     "12-18M",
-                                                        //     "18-24M",
-
-                                                        //     "2Y",
-                                                        //     "3Y",
-                                                        //     "4Y",
-                                                        //     "5Y",
-                                                        //     "6Y",
-                                                        //     "7Y",
-                                                        //     "8Y",
-                                                        //     "9Y",
-                                                        //     "10Y",
-                                                        //     "11Y",
-                                                        //     "12Y",
-                                                        //     "13Y",
-                                                        //     "14Y",
-                                                        //     "15Y"
-                                                        // ];
-
-
-                                                        // // ========================================
-                                                        // // DIRECT ORDER MATCH
-                                                        // // ========================================
-
-                                                        // const indexA = masterOrder.indexOf(a);
-                                                        // const indexB = masterOrder.indexOf(b);
-
-                                                        // if (indexA !== -1 && indexB !== -1) {
-                                                        //     return indexA - indexB;
-                                                        // }
-
-                                                        // if (indexA !== -1) return -1;
-                                                        // if (indexB !== -1) return 1;
-
-                                                        // // ========================================
-                                                        // // FABRIC / METER SORT
-                                                        // // ========================================
-
-                                                        // const meterRegex = /^(\d+(\.\d+)?)\s*METER$/i;
-
-                                                        // const meterA = a.match(meterRegex);
-                                                        // const meterB = b.match(meterRegex);
-
-                                                        // if (meterA && meterB) {
-                                                        //     return parseFloat(meterA[1]) - parseFloat(meterB[1]);
-                                                        // }
-
-                                                        // // ========================================
-                                                        // // NUMERIC SORT
-                                                        // // 28,30,32...
-                                                        // // ========================================
-
-                                                        // const numA = parseFloat(a);
-                                                        // const numB = parseFloat(b);
-
-                                                        // if (!isNaN(numA) && !isNaN(numB)) {
-                                                        //     return numA - numB;
-                                                        // }
-
-                                                        // // ========================================
-                                                        // // MIXED NUMERIC SORT
-                                                        // // 30A, 32B etc
-                                                        // // ========================================
-
-                                                        // const mixedA = a.match(/^(\d+)/);
-                                                        // const mixedB = b.match(/^(\d+)/);
-
-                                                        // if (mixedA && mixedB) {
-
-                                                        //     const diff =
-                                                        //         parseInt(mixedA[1]) -
-                                                        //         parseInt(mixedB[1]);
-
-                                                        //     if (diff !== 0) return diff;
-                                                        // }
-
-                                                        // // ========================================
-                                                        // // FINAL FALLBACK
-                                                        // // ========================================
-
-                                                        // return a.localeCompare(
-                                                        //     b,
-                                                        //     undefined,
-                                                        //     {
-                                                        //         numeric: true,
-                                                        //         sensitivity: "base"
-                                                        //     }
-                                                        // );
-                                                    // })
-                                                    //     .map(([size, data]) => {
-                                                            const soldCount = getSoldCount(item, size);
-                                                            const total = data.initialQty ?? 0;
-                                                            const available = data.qty ?? 0;
-                                                            const removedCount = (qrData[item.id] || []).reduce((count, qr) => {
-                                                                if (
-                                                                    qr.stockId === item.id &&
-                                                                    qr.size === size &&
-                                                                    qr.status === "removed"
-                                                                ) {
-                                                                    return count + 1;
-                                                                }
-                                                                return count;
-                                                            }, 0);
-                                                            return (
-                                                                <div clas key={size} style={{ marginBottom: "8px", alignItems: "center", gap: "5px", border: "1px solid #3b82f6", padding: "5px 10px", borderRadius: "5px", transform: 'translateY(-3px)', boxShadow: '0 6px 20px rgba(59,130,246,0.25)' }}>
-                                                                    <label><strong>Size: {size}</strong></label>
-                                                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "5px", fontSize: "12px" }}>
-                                                                        <span style={{ marginLeft: "8px" }}>
-                                                                            <small>Listing Price:</small> ₹{(data.sellingPrice || 0).toFixed(2)}<small>/Unit</small>
-                                                                        </span>
-                                                                        |
-                                                                        <span>
-                                                                            <small>Extra Cost:</small> ₹
-                                                                            {(
-                                                                                (data.extraCosts.packaging +
+                                                        return (
+                                                            <div clas key={size} style={{ marginBottom: "8px", alignItems: "center", gap: "5px", border: "1px solid #3b82f6", padding: "5px 10px", borderRadius: "5px", }}
+                                                                onMouseMove={(e) => {
+                                                                    e.currentTarget.style.boxShadow = "0 6px 20px rgba(54, 238, 79, 0.59)";
+                                                                    e.currentTarget.style.backgroundColor = "#372983"
+                                                                }}
+                                                                onMouseLeave={(e) => {
+                                                                    e.currentTarget.style.boxShadow = "";
+                                                                    e.currentTarget.style.backgroundColor = ""
+                                                                }}
+                                                            >
+                                                                <label><strong>Size: {size}</strong></label>
+                                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "5px", fontSize: "12px" }}>
+                                                                    <span style={{ marginLeft: "8px" }}>
+                                                                        <small>Listing Price:</small> ₹{(data.sellingPrice || 0).toFixed(2)}<small>/Unit</small>
+                                                                    </span>
+                                                                    |
+                                                                    <span>
+                                                                        <small>Extra Cost:</small> ₹
+                                                                        {(
+                                                                            (data.extraCosts.packaging +
+                                                                                data.extraCosts.labeling +
+                                                                                data.extraCosts.rto +
+                                                                                data.extraCosts.returnCost +
+                                                                                data.extraCosts.advertisementCost +
+                                                                                data.extraCosts.delivery +
+                                                                                data.extraCosts.others) || 0
+                                                                        ).toFixed(2)}
+                                                                        <small>/Unit</small>
+                                                                    </span>
+                                                                    |
+                                                                    <span>
+                                                                        <small>Gst Amount:</small> ₹
+                                                                        {
+                                                                            ((((data.buyingPrice * (1 + data.margin / 100)) +
+                                                                                (
+                                                                                    data.extraCosts.packaging +
                                                                                     data.extraCosts.labeling +
                                                                                     data.extraCosts.rto +
                                                                                     data.extraCosts.returnCost +
                                                                                     data.extraCosts.advertisementCost +
                                                                                     data.extraCosts.delivery +
-                                                                                    data.extraCosts.others) || 0
-                                                                            ).toFixed(2)}
-                                                                            <small>/Unit</small>
-                                                                        </span>
-                                                                        |
-                                                                        <span>
-                                                                            <small>Gst Amount:</small> ₹
-                                                                            {
-                                                                                ((((data.buyingPrice * (1 + data.margin / 100)) +
-                                                                                    (
-                                                                                        data.extraCosts.packaging +
-                                                                                        data.extraCosts.labeling +
-                                                                                        data.extraCosts.rto +
-                                                                                        data.extraCosts.returnCost +
-                                                                                        data.extraCosts.advertisementCost +
-                                                                                        data.extraCosts.delivery +
-                                                                                        data.extraCosts.others
-                                                                                    )) * data.extraCosts.gst) / 100).toFixed(2)
-                                                                            }
-                                                                            <small>/Unit</small>
-                                                                        </span>
-                                                                        |
-                                                                        <span><small>Profit:</small> ₹{((data.buyingPrice * data.margin) / 100).toFixed(2)}<small>/Unit</small></span>
-                                                                        {data.sellingPrice <
-                                                                            data.buyingPrice && (
-                                                                                <span style={{ color: "red", fontSize: "10px" }}>
-                                                                                    ⚠ Loss
-                                                                                </span>
-                                                                            )}
-                                                                        |
-                                                                        {forceQRPrint[`${item.id}-${size}`] && (
-                                                                            <>
-                                                                                <button
-                                                                                    onClick={() => handleForceQRUpdate(item, size)}
-                                                                                    style={{
-                                                                                        background: "red",
-                                                                                        color: "white",
-                                                                                        padding: "4px 8px",
-                                                                                        borderRadius: "5px",
-                                                                                        marginTop: "5px"
-                                                                                    }}
-                                                                                    disabled={!editable}
-                                                                                >
-                                                                                    🔄QR
-                                                                                </button>
-                                                                                |
-                                                                            </>
+                                                                                    data.extraCosts.others
+                                                                                )) * data.extraCosts.gst) / 100).toFixed(2)
+                                                                        }
+                                                                        <small>/Unit</small>
+                                                                    </span>
+                                                                    |
+                                                                    <span><small>Profit:</small> ₹{((data.buyingPrice * data.margin) / 100).toFixed(2)}<small>/Unit</small></span>
+                                                                    {data.sellingPrice <
+                                                                        data.buyingPrice && (
+                                                                            <span style={{ color: "red", fontSize: "10px" }}>
+                                                                                ⚠ Loss
+                                                                            </span>
                                                                         )}
+                                                                    |
 
-                                                                        <button
-                                                                            onClick={async () => {
-                                                                                const updatedSizes = { ...item.sizes };
-                                                                                delete updatedSizes[size];
-
-                                                                                if (Object.keys(updatedSizes).length === 0) {
-                                                                                    alert("At least one size required");
-                                                                                    return;
-                                                                                }
-                                                                                if (user.uid !== item.userId) {
-                                                                                    alert("You are not authorizes");
-                                                                                    return
-                                                                                }
-                                                                                await updateDoc(doc(db, "stocks", item.id), {
-                                                                                    sizes: updatedSizes
-                                                                                });
-                                                                            }}
-                                                                            style={{ marginLeft: "5px" }}
-                                                                            disabled={!editable}
-                                                                        >
-                                                                            ❌
-                                                                        </button>
-
-
-                                                                    </div>
-
-                                                                    <div style={{ fontSize: "10px", color: "gray" }}>
-                                                                        Sold: {soldCount} | Available: {available} | Total: {total} | Removed: {removedCount}
-                                                                    </div>
-                                                                    <div key={size} style={{ marginBottom: "8px", display: "flex", alignItems: "center", gap: "5px" }}>
-
-                                                                        <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
-                                                                            <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Qty:-
-                                                                                <button
-                                                                                    onClick={() => handleReduceStock(item, size, 1)}
-                                                                                    style={{ padding: "2px 2px" }}
-                                                                                    disabled={!editable}
-                                                                                >
-                                                                                    ➖
-                                                                                </button>
-                                                                                <input
-                                                                                    type="number"
-                                                                                    value={data.qty}
-                                                                                    readOnly
-                                                                                    style={{ width: "60px", marginLeft: "5px", marginLeft: "2px" }}
-                                                                                />
-                                                                                <button
-                                                                                    style={{ padding: "2px 2px" }}
-                                                                                    onClick={() => handleAddStock(item, size, 1)}
-                                                                                    disabled={!editable}
-                                                                                >
-                                                                                    ➕
-                                                                                </button>
-                                                                            </legend>
-                                                                            <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Buy:-
-                                                                                <input
-                                                                                    type="number"
-                                                                                    value={data.buyingPrice || 0}
-                                                                                    placeholder="Buy"
-                                                                                    style={{ width: "70px", marginLeft: "5px" }}
-                                                                                    onChange={(e) =>
-                                                                                        handleSizeUpdate(item, size, "buyingPrice", e.target.value)
-                                                                                    }
-                                                                                    disabled={!editable}
-                                                                                />
-                                                                            </legend>
-                                                                            <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Margin%:-
-                                                                                <input
-                                                                                    type="number"
-                                                                                    value={data.margin || 0}
-                                                                                    placeholder="%"
-                                                                                    style={{ width: "60px", marginLeft: "5px" }}
-                                                                                    onChange={(e) =>
-                                                                                        handleSizeUpdate(item, size, "margin", e.target.value)
-                                                                                    }
-                                                                                    disabled={!editable}
-                                                                                />
-                                                                            </legend>
-                                                                        </div>
-                                                                        <div style={{
-                                                                            display: "grid",
-                                                                            gridTemplateColumns: "repeat(4, 1fr)", // ✅ 5 columns
-                                                                            gap: "6px",
-                                                                            marginTop: "6px",
-                                                                            borderTop: "1px dashed #ccc",
-                                                                            paddingTop: "6px",
-                                                                            width: "100%"
-                                                                        }}>
-                                                                            {["packaging", "labeling", "rto", "returnCost", "advertisementCost", "delivery", "others", "gst"].map((key) => (
-                                                                                <div key={key} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                                                                                    <legend key={key} style={{ fontSize: "10px", color: "gray" }}>{key.toUpperCase()}</legend>
-                                                                                    <input
-                                                                                        key={key}
-                                                                                        type="number"
-                                                                                        placeholder={key}
-                                                                                        value={data.extraCosts?.[key] || 0}
-                                                                                        style={{ width: "65px", fontSize: "10px" }}
-                                                                                        onChange={(e) =>
-                                                                                            handleSizeUpdate(
-                                                                                                item,
-                                                                                                size,
-                                                                                                `extraCosts.${key}`,
-                                                                                                e.target.value
-                                                                                            )
-                                                                                        }
-                                                                                        disabled={!editable}
-                                                                                    />
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
-                                                                        {/* =======================================
-                                                                               ONLINE STORE LINKS
-                                                                            ======================================= */}
+                                                                    <div
+                                                                        key={size}
+                                                                        style={{
+                                                                            border: "1px solid #3b82f6",
+                                                                            borderRadius: "8px",
+                                                                            padding: "8px",
+                                                                            // boxShadow: "0 6px 20px rgba(54, 180, 238, 0.59)",
+                                                                        }}
+                                                                        onMouseMove={(e) => e.currentTarget.style.boxShadow = "0 6px 20px rgba(54, 180, 238, 0.59)"}
+                                                                        onMouseLeave={(e) => e.currentTarget.style.boxShadow = ""}
+                                                                    >
 
                                                                         <div
                                                                             style={{
-                                                                                marginTop: "10px",
-                                                                                borderTop: "1px dashed #555",
-                                                                                paddingTop: "10px",
-                                                                                overflowY: "auto",
-                                                                                maxHeight: "100px",
-                                                                                width: "100%",
-                                                                                scrollbarWidth: "thin"
+                                                                                display: "flex",
+                                                                                justifyContent: "space-between",
+                                                                                alignItems: "center",
+                                                                                gap: "10px",
+                                                                                flexWrap: "wrap"
                                                                             }}
                                                                         >
                                                                             <div
                                                                                 style={{
-                                                                                    fontWeight: "bold",
-                                                                                    fontSize: "13px",
-                                                                                    color: "#3b82f6",
-                                                                                    position: "sticky",
-                                                                                    top: 0,
+                                                                                    display: "flex",
+                                                                                    gap: "6px",
+                                                                                    flexWrap: "wrap"
                                                                                 }}
                                                                             >
-                                                                                🌐 Online Store Links
-                                                                            </div>
 
-                                                                            <div
-                                                                                style={{
-                                                                                    fontWeight: "bold",
-                                                                                    // marginBottom: "8px",
-                                                                                    fontSize: "13px",
-                                                                                    color: "#3b82f6",
-                                                                                    padding: "10px 10px"
-                                                                                }}
-                                                                            >
-                                                                                <div
-                                                                                    style={{
-                                                                                        display: "flex",
-                                                                                        justifyContent: "space-between",
-                                                                                        alignItems: "center",
-                                                                                        flexWrap: "wrap",
-                                                                                        gap: "8px"
+                                                                                <button
+                                                                                    onClick={async () => {
+
+                                                                                        if (!qrData[item.id]) {
+                                                                                            await loadItemQR(item.id);
+                                                                                        }
+
+                                                                                        setSizeQrPopup({
+                                                                                            open: true,
+                                                                                            item,
+                                                                                            size
+                                                                                        });
                                                                                     }}
                                                                                 >
+                                                                                    👁QR({sizeQRs.length})
+                                                                                </button>
+
+                                                                                {forceQRPrint[`${item.id}-${size}`] && (
                                                                                     <button
-                                                                                        onClick={() => {
-
-                                                                                            Object.values(
-                                                                                                data.storeLinks || {}
-                                                                                            ).forEach((link) => {
-
-                                                                                                if (isValidUrl(link)) {
-
-                                                                                                    window.open(
-                                                                                                        normalizeUrl(link),
-                                                                                                        "_blank"
-                                                                                                    );
-
-                                                                                                }
-                                                                                            });
-                                                                                        }}
+                                                                                        onClick={() =>
+                                                                                            handleForceQRUpdate(item, size)
+                                                                                        }
                                                                                         style={{
-                                                                                            padding: "5px 10px",
-                                                                                            border: "none",
-                                                                                            borderRadius: "5px",
-                                                                                            background: "#059669",
-                                                                                            color: "#fff",
-                                                                                            cursor: "pointer",
-                                                                                            fontSize: "11px"
+                                                                                            background: "red",
+                                                                                            color: "white"
                                                                                         }}
                                                                                     >
-                                                                                        🚀 Open All
+                                                                                        🔄QR
                                                                                     </button>
+                                                                                )}
 
-                                                                                </div>
                                                                             </div>
 
+                                                                        </div>
+
+                                                                    </div>
+
+                                                                    <button
+                                                                        onClick={async () => {
+                                                                            const updatedSizes = { ...item.sizes };
+                                                                            if (!window.confirm(`Delete ${size} ?`)) return;
+
+                                                                            delete updatedSizes[size];
+
+                                                                            if (Object.keys(updatedSizes).length === 0) {
+                                                                                alert("At least one size required");
+                                                                                return;
+                                                                            }
+                                                                            if (user.uid !== item.userId) {
+                                                                                alert("You are not authorizes");
+                                                                                return
+                                                                            }
+                                                                            await updateDoc(doc(db, "stocks", item.id), {
+                                                                                sizes: updatedSizes
+                                                                            });
+                                                                        }}
+                                                                        style={{ marginLeft: "5px", background: "#ffffff02" }}
+                                                                        onMouseMove={(e) => e.currentTarget.style.boxShadow = "0 6px 20px rgba(238, 66, 54, 0.59)"}
+                                                                        onMouseLeave={(e) => e.currentTarget.style.boxShadow = ""}
+                                                                        disabled={!editable}
+                                                                    >
+                                                                        ❌
+                                                                    </button>
+
+
+                                                                </div>
+
+                                                                <div style={{ fontSize: "10px", color: "gray" }}>
+                                                                    Sold: {soldCount} | Available: {available} | Total: {total} | Removed: {removedCount}
+                                                                </div>
+                                                                <div key={size} style={{ marginBottom: "8px", display: "flex", alignItems: "center", gap: "5px" }}>
+
+                                                                    <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
+                                                                        <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Qty:-
+                                                                            <button
+                                                                                onClick={() => handleReduceStock(item, size, 1)}
+                                                                                style={{ padding: "2px 2px" }}
+                                                                                disabled={!editable}
+                                                                            >
+                                                                                ➖
+                                                                            </button>
+                                                                            <input
+                                                                                type="number"
+                                                                                value={data.qty}
+                                                                                readOnly
+                                                                                style={{ width: "60px", marginLeft: "5px", marginLeft: "2px" }}
+                                                                            />
+                                                                            <button
+                                                                                style={{ padding: "2px 2px" }}
+                                                                                onClick={() => handleAddStock(item, size, 1)}
+                                                                                disabled={!editable}
+                                                                            >
+                                                                                ➕
+                                                                            </button>
+                                                                        </legend>
+                                                                        <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Buy:-
+                                                                            <input
+                                                                                type="number"
+                                                                                value={data.buyingPrice || 0}
+                                                                                placeholder="Buy"
+                                                                                style={{ width: "70px", marginLeft: "5px" }}
+                                                                                onChange={(e) =>
+                                                                                    handleSizeUpdate(item, size, "buyingPrice", e.target.value)
+                                                                                }
+                                                                                disabled={!editable}
+                                                                            />
+                                                                        </legend>
+                                                                        <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Margin%:-
+                                                                            <input
+                                                                                type="number"
+                                                                                value={data.margin || 0}
+                                                                                placeholder="%"
+                                                                                style={{ width: "60px", marginLeft: "5px" }}
+                                                                                onChange={(e) =>
+                                                                                    handleSizeUpdate(item, size, "margin", e.target.value)
+                                                                                }
+                                                                                disabled={!editable}
+                                                                            />
+                                                                        </legend>
+                                                                    </div>
+                                                                    <div style={{
+                                                                        display: "grid",
+                                                                        gridTemplateColumns: "repeat(4, 1fr)", // ✅ 5 columns
+                                                                        gap: "6px",
+                                                                        marginTop: "6px",
+                                                                        borderTop: "1px dashed #ccc",
+                                                                        paddingTop: "6px",
+                                                                        width: "100%"
+                                                                    }}>
+                                                                        {["packaging", "labeling", "rto", "returnCost", "advertisementCost", "delivery", "others", "gst"].map((key) => (
+                                                                            <div key={key} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                                                                                <legend key={key} style={{ fontSize: "10px", color: "gray" }}>{key.toUpperCase()}</legend>
+                                                                                <input
+                                                                                    key={key}
+                                                                                    type="number"
+                                                                                    placeholder={key}
+                                                                                    value={data.extraCosts?.[key] || 0}
+                                                                                    style={{ width: "65px", fontSize: "10px" }}
+                                                                                    onChange={(e) =>
+                                                                                        handleSizeUpdate(
+                                                                                            item,
+                                                                                            size,
+                                                                                            `extraCosts.${key}`,
+                                                                                            e.target.value
+                                                                                        )
+                                                                                    }
+                                                                                    disabled={!editable}
+                                                                                />
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                    {/* =======================================
+                                                                               ONLINE STORE LINKS
+                                                                            ======================================= */}
+
+                                                                    <div
+                                                                        style={{
+                                                                            marginTop: "10px",
+                                                                            borderTop: "1px dashed #555",
+                                                                            paddingTop: "10px",
+                                                                            overflowY: "auto",
+                                                                            maxHeight: "100px",
+                                                                            width: "100%",
+                                                                            scrollbarWidth: "thin"
+                                                                        }}
+                                                                    >
+                                                                        <div
+                                                                            style={{
+                                                                                fontWeight: "bold",
+                                                                                fontSize: "13px",
+                                                                                color: "#3b82f6",
+                                                                                position: "sticky",
+                                                                                top: 0,
+                                                                            }}
+                                                                        >
+                                                                            🌐 Online Store Links
+                                                                        </div>
+
+                                                                        <div
+                                                                            style={{
+                                                                                fontWeight: "bold",
+                                                                                // marginBottom: "8px",
+                                                                                fontSize: "13px",
+                                                                                color: "#3b82f6",
+                                                                                padding: "10px 10px"
+                                                                            }}
+                                                                        >
                                                                             <div
                                                                                 style={{
-                                                                                    display: "grid",
-                                                                                    gridTemplateColumns:
-                                                                                        "repeat(auto-fit,minmax(220px,1fr))",
+                                                                                    display: "flex",
+                                                                                    justifyContent: "space-between",
+                                                                                    alignItems: "center",
+                                                                                    flexWrap: "wrap",
                                                                                     gap: "8px"
                                                                                 }}
                                                                             >
+                                                                                <button
+                                                                                    onClick={() => {
 
-                                                                                {storePlatforms.map((platform) => {
+                                                                                        Object.values(
+                                                                                            data.storeLinks || {}
+                                                                                        ).forEach((link) => {
 
-                                                                                    const link =
-                                                                                        data.storeLinks?.[platform.key] || "";
+                                                                                            if (isValidUrl(link)) {
 
-                                                                                    return (
+                                                                                                window.open(
+                                                                                                    normalizeUrl(link),
+                                                                                                    "_blank"
+                                                                                                );
+
+                                                                                            }
+                                                                                        });
+                                                                                    }}
+                                                                                    style={{
+                                                                                        padding: "5px 10px",
+                                                                                        border: "none",
+                                                                                        borderRadius: "5px",
+                                                                                        background: "#059669",
+                                                                                        color: "#fff",
+                                                                                        cursor: "pointer",
+                                                                                        fontSize: "11px"
+                                                                                    }}
+                                                                                >
+                                                                                    🚀 Open All
+                                                                                </button>
+
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div
+                                                                            style={{
+                                                                                display: "grid",
+                                                                                gridTemplateColumns:
+                                                                                    "repeat(auto-fit,minmax(220px,1fr))",
+                                                                                gap: "8px"
+                                                                            }}
+                                                                        >
+
+                                                                            {storePlatforms.map((platform) => {
+
+                                                                                const link =
+                                                                                    data.storeLinks?.[platform.key] || "";
+
+                                                                                return (
+
+                                                                                    <div
+                                                                                        key={platform.key}
+                                                                                        style={{
+                                                                                            border: "1px solid #333",
+                                                                                            borderRadius: "8px",
+                                                                                            padding: "8px",
+                                                                                            background: "#111827"
+                                                                                        }}
+                                                                                    >
 
                                                                                         <div
-                                                                                            key={platform.key}
                                                                                             style={{
-                                                                                                border: "1px solid #333",
-                                                                                                borderRadius: "8px",
-                                                                                                padding: "8px",
-                                                                                                background: "#111827"
+                                                                                                fontSize: "12px",
+                                                                                                marginBottom: "5px",
+                                                                                                fontWeight: "bold"
+                                                                                            }}
+                                                                                        >
+                                                                                            {platform.icon} {platform.label}
+                                                                                        </div>
+
+                                                                                        <input
+                                                                                            type="text"
+                                                                                            placeholder={`${platform.label} Link`}
+                                                                                            value={link}
+                                                                                            onChange={(e) =>
+                                                                                                handleStoreLinkUpdate(
+                                                                                                    item,
+                                                                                                    size,
+                                                                                                    platform.key,
+                                                                                                    e.target.value
+                                                                                                )
+                                                                                            }
+                                                                                            disabled={!editable}
+                                                                                            style={{
+                                                                                                width: "95%",
+                                                                                                padding: "6px",
+                                                                                                fontSize: "11px",
+                                                                                                marginBottom: "5px"
+                                                                                            }}
+                                                                                        />
+
+                                                                                        {link && !isValidUrl(link) && (
+                                                                                            <div
+                                                                                                style={{
+                                                                                                    color: "#ef4444",
+                                                                                                    fontSize: "10px",
+                                                                                                    marginBottom: "5px"
+                                                                                                }}
+                                                                                            >
+                                                                                                Invalid URL
+                                                                                            </div>
+                                                                                        )}
+
+                                                                                        <div
+                                                                                            style={{
+                                                                                                display: "flex",
+                                                                                                gap: "5px"
                                                                                             }}
                                                                                         >
 
-                                                                                            <div
-                                                                                                style={{
-                                                                                                    fontSize: "12px",
-                                                                                                    marginBottom: "5px",
-                                                                                                    fontWeight: "bold"
-                                                                                                }}
-                                                                                            >
-                                                                                                {platform.icon} {platform.label}
-                                                                                            </div>
-
-                                                                                            <input
-                                                                                                type="text"
-                                                                                                placeholder={`${platform.label} Link`}
-                                                                                                value={link}
-                                                                                                onChange={(e) =>
-                                                                                                    handleStoreLinkUpdate(
-                                                                                                        item,
-                                                                                                        size,
-                                                                                                        platform.key,
-                                                                                                        e.target.value
+                                                                                            <button
+                                                                                                onClick={() =>
+                                                                                                    window.open(
+                                                                                                        normalizeUrl(link),
+                                                                                                        "_blank"
                                                                                                     )
                                                                                                 }
-                                                                                                disabled={!editable}
+                                                                                                disabled={!isValidUrl(link)}
                                                                                                 style={{
-                                                                                                    width: "95%",
+                                                                                                    flex: 1,
                                                                                                     padding: "6px",
-                                                                                                    fontSize: "11px",
-                                                                                                    marginBottom: "5px"
-                                                                                                }}
-                                                                                            />
-
-                                                                                            {link && !isValidUrl(link) && (
-                                                                                                <div
-                                                                                                    style={{
-                                                                                                        color: "#ef4444",
-                                                                                                        fontSize: "10px",
-                                                                                                        marginBottom: "5px"
-                                                                                                    }}
-                                                                                                >
-                                                                                                    Invalid URL
-                                                                                                </div>
-                                                                                            )}
-
-                                                                                            <div
-                                                                                                style={{
-                                                                                                    display: "flex",
-                                                                                                    gap: "5px"
+                                                                                                    cursor: isValidUrl(link)
+                                                                                                        ? "pointer"
+                                                                                                        : "not-allowed",
+                                                                                                    background:
+                                                                                                        isValidUrl(link)
+                                                                                                            ? "#2563eb"
+                                                                                                            : "#555",
+                                                                                                    color: "#fff",
+                                                                                                    border: "none",
+                                                                                                    borderRadius: "5px"
                                                                                                 }}
                                                                                             >
+                                                                                                Open
+                                                                                            </button>
 
-                                                                                                <button
-                                                                                                    onClick={() =>
-                                                                                                        window.open(
-                                                                                                            normalizeUrl(link),
-                                                                                                            "_blank"
-                                                                                                        )
-                                                                                                    }
-                                                                                                    disabled={!isValidUrl(link)}
-                                                                                                    style={{
-                                                                                                        flex: 1,
-                                                                                                        padding: "6px",
-                                                                                                        cursor: isValidUrl(link)
-                                                                                                            ? "pointer"
-                                                                                                            : "not-allowed",
-                                                                                                        background:
-                                                                                                            isValidUrl(link)
-                                                                                                                ? "#2563eb"
-                                                                                                                : "#555",
-                                                                                                        color: "#fff",
-                                                                                                        border: "none",
-                                                                                                        borderRadius: "5px"
-                                                                                                    }}
-                                                                                                >
-                                                                                                    Open
-                                                                                                </button>
-
-                                                                                                <button
-                                                                                                    onClick={() =>
-                                                                                                        copyToClipboard(
-                                                                                                            normalizeUrl(link)
-                                                                                                        )
-                                                                                                    }
-                                                                                                    disabled={!link}
-                                                                                                    style={{
-                                                                                                        padding: "6px 10px",
-                                                                                                        borderRadius: "5px",
-                                                                                                        border: "none",
-                                                                                                        cursor: link
-                                                                                                            ? "pointer"
-                                                                                                            : "not-allowed"
-                                                                                                    }}
-                                                                                                >
-                                                                                                    📋
-                                                                                                </button>
-
-                                                                                            </div>
+                                                                                            <button
+                                                                                                onClick={() =>
+                                                                                                    copyToClipboard(
+                                                                                                        normalizeUrl(link)
+                                                                                                    )
+                                                                                                }
+                                                                                                disabled={!link}
+                                                                                                style={{
+                                                                                                    padding: "6px 10px",
+                                                                                                    borderRadius: "5px",
+                                                                                                    border: "none",
+                                                                                                    cursor: link
+                                                                                                        ? "pointer"
+                                                                                                        : "not-allowed"
+                                                                                                }}
+                                                                                            >
+                                                                                                📋
+                                                                                            </button>
 
                                                                                         </div>
-                                                                                    );
-                                                                                })}
-                                                                            </div>
+
+                                                                                    </div>
+                                                                                );
+                                                                            })}
                                                                         </div>
                                                                     </div>
                                                                 </div>
-                                                            )
-                                                        })}
+                                                            </div>
+                                                        )
+                                                    })}
                                                 </div>
                                             </td>
 
@@ -1852,7 +2053,7 @@ const StockList = ({ user }) => {
                                                             <p><b>Catalog ID:</b> {item.catalogId}</p>
                                                             <p><b>Count:</b> {qrCodes.length}</p>
                                                             <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "4px", overflow: "auto", maxHeight: "190px", scrollbarWidth: "thin" }}>
-                                                                {qrCodes.slice(0, 50).map((qr, index) => {
+                                                                {qrCodes.slice(0, 5).map((qr, index) => {
                                                                     const qrObj = qr;
                                                                     const isNew = !qr.printed;
 
@@ -1897,14 +2098,15 @@ const StockList = ({ user }) => {
 
                                                                     );
                                                                 })}
-                                                                {qrCodes.length > 50 && (
+                                                                {qrCodes.length > 5 && (
                                                                     <div>
-                                                                        +{qrCodes.length - 50} more QR
+                                                                        +{qrCodes.length - 5} more QR
                                                                     </div>
                                                                 )}
                                                             </div>
                                                         </div>
                                                     )}
+
                                                 </div>
 
                                             </td>
@@ -1928,6 +2130,183 @@ const StockList = ({ user }) => {
                     )}
                 </div>
             </FeatureGate>
+
+
+            <div style={{
+                display: "flex",
+                gap: "10px",
+                marginTop: "20px",
+                justifyContent: "center"
+            }}>
+
+                <button
+                    disabled={currentPage === 1}
+                    onClick={() =>
+                        setCurrentPage(p => p - 1)
+                    }
+                >
+                    Prev
+                </button>
+
+                <span>
+                    Page {currentPage}
+                </span>
+
+                <button
+                    disabled={
+                        currentPage >=
+                        Math.ceil(
+                            filteredStocks.length /
+                            ITEMS_PER_PAGE
+                        )
+                    }
+                    onClick={() =>
+                        setCurrentPage(p => p + 1)
+                    }
+                >
+                    Next
+                </button>
+
+            </div>
+
+            {sizeQrPopup.open && (
+                <div className="qr-overlay">
+
+                    <div className="qr-modal">
+
+                        <h3>
+                            {sizeQrPopup.item?.productName}
+                        </h3>
+
+                        <div>
+                            Size:
+                            {" "}
+                            <b>{sizeQrPopup.size}</b>
+                        </div>
+
+                        <div
+                            style={{
+                                display: "flex",
+                                flexWrap: "wrap",
+                                gap: "10px",
+                                justifyContent: "center",
+                                marginTop: "15px",
+                                maxHeight: "70vh",
+                                overflowY: "auto"
+                            }}
+                        >
+
+                            {(qrData[sizeQrPopup.item?.id] || [])
+                                .filter(qr =>
+                                    qr.size === sizeQrPopup.size &&
+                                    qr.status === "available"
+                                )
+                                .map((qr) => (
+
+                                    <div
+                                        key={qr.id}
+                                        className={`qr-card ${!qr.printed ? "new" : ""}`}
+                                        onClick={() =>
+                                            setQrPopup({
+                                                open: true,
+                                                value: JSON.stringify(qr)
+                                            })
+                                        }
+                                        style={{
+                                            width: "130px",
+                                            cursor: "pointer"
+                                        }}
+                                    >
+
+                                        <QRCodeCanvas
+                                            value={JSON.stringify(qr)}
+                                            size={110}
+                                            bgColor="#ffffff"
+                                            fgColor="#000000"
+                                            level="H"
+                                            includeMargin={true}
+                                        />
+
+                                        {!qr.printed && (
+                                            <div
+                                                style={{
+                                                    color: "green",
+                                                    fontWeight: "bold",
+                                                    fontSize: "10px"
+                                                }}
+                                            >
+                                                NEW
+                                            </div>
+                                        )}
+
+                                        {qr.reprintRequired && (
+                                            <div
+                                                style={{
+                                                    color: "red",
+                                                    fontWeight: "bold",
+                                                    fontSize: "9px"
+                                                }}
+                                            >
+                                                REPRINT
+                                            </div>
+                                        )}
+
+                                        <div
+                                            style={{
+                                                fontWeight: "bold",
+                                                fontSize: "11px"
+                                            }}
+                                        >
+                                            {qr.productType}
+                                        </div>
+
+                                        <div style={{ fontSize: "10px" }}>
+                                            {qr.color}
+                                        </div>
+
+                                        <div style={{ fontSize: "10px" }}>
+                                            ₹{qr.sellingPrice}
+                                        </div>
+
+                                        <div style={{ fontSize: "9px" }}>
+                                            #{qr.unitNo}
+                                        </div>
+
+                                    </div>
+                                ))}
+
+                        </div>
+
+                        <div style={{ marginTop: "15px" }}>
+
+                            <button
+                                onClick={() => {
+                                    setSelectedSize(sizeQrPopup.size);
+                                    setPrintItem(sizeQrPopup.item);
+                                }}
+                            >
+                                🖨 Print Size
+                            </button>
+
+                            <button
+                                onClick={() =>
+                                    setSizeQrPopup({
+                                        open: false,
+                                        item: null,
+                                        size: ""
+                                    })
+                                }
+                                style={{ marginLeft: "10px" }}
+                            >
+                                ❌ Close
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+            )}
 
 
             {qrPopup.open && (
@@ -1961,7 +2340,36 @@ const StockList = ({ user }) => {
 
                             {/* <p style={{ marginTop: 10 }}>{qrPopup.value}</p> */}
                             <div style={{ padding: "5px 5px" }} >
-                                <button style={{ padding: "2px 5px", margin: "5px" }} onClick={() => window.print()}>Download</button>
+                                <button
+                                    style={{ padding: "2px 5px", margin: "5px" }}
+                                    onClick={async () => {
+
+                                        try {
+
+                                            const qrObj = JSON.parse(qrPopup.value);
+
+                                            await updateDoc(
+                                                doc(db, "qrcodes", qrObj.id),
+                                                {
+                                                    printed: true,
+                                                    reprintRequired: false
+                                                }
+                                            );
+
+                                            // 🔥 refresh local QR cache
+                                            await loadItemQR(qrObj.stockId);
+
+                                            window.print();
+
+                                        } catch (err) {
+
+                                            console.error(err);
+
+                                        }
+                                    }}
+                                >
+                                    Download
+                                </button>
 
                                 <button style={{ padding: "2px 5px", }} onClick={() => setQrPopup({ open: false, value: "" })}>
                                     Close
@@ -2029,6 +2437,7 @@ const StockList = ({ user }) => {
 
                                 // 🔥 single firestore request
                                 await batch.commit();
+                                await loadItemQR(printItem.id);
 
                                 setPrintProgress({
                                     total: qrs.length,

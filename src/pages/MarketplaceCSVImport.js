@@ -15,6 +15,70 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import * as XLSX from "xlsx";
+import { useLocation } from "react-router-dom";
+import { type } from "firebase/firestore/pipelines";
+
+const parseCSVDate = (dateStr) => {
+
+    try {
+
+        if (!dateStr) {
+            return new Date();
+        }
+
+        // Excel serial number
+        if (!isNaN(dateStr)) {
+
+            const excelDate =
+                new Date(
+                    (Number(dateStr) - 25569) * 86400 * 1000
+                );
+
+            return isNaN(excelDate.getTime())
+                ? new Date()
+                : excelDate;
+        }
+
+        const parts =
+            String(dateStr)
+                .trim()
+                .split("/");
+
+        // M/D/YYYY
+        if (parts.length === 3) {
+
+            const [month, day, year] = parts;
+
+            const parsedDate =
+                new Date(
+                    Number(year),
+                    Number(month) - 1,
+                    Number(day)
+                );
+
+            return isNaN(parsedDate.getTime())
+                ? new Date()
+                : parsedDate;
+        }
+
+        // fallback
+        const fallbackDate =
+            new Date(dateStr);
+
+        return isNaN(fallbackDate.getTime())
+            ? new Date()
+            : fallbackDate;
+
+    } catch (err) {
+
+        console.error(
+            "Date parse failed:",
+            err
+        );
+
+        return new Date();
+    }
+};
 
 
 const createQRCodes = async ({
@@ -126,7 +190,8 @@ const internalFields = {
         "customerName",
         "phone",
         "awb",
-        "orderStatus"
+        "orderStatus",
+        "soldAt"
     ],
 
     inventory: [
@@ -160,6 +225,12 @@ const importProfiles = {
                 "Order ID"
             ],
 
+            orderDate: [
+                "Order Date",
+                "Date",
+                "date"
+            ],
+
             catalogId: [
                 "SKU",
                 "Seller SKU"
@@ -167,7 +238,6 @@ const importProfiles = {
 
             productName: [
                 "Product Name",
-                "Catalog ID",
                 "Style ID",
             ],
 
@@ -192,7 +262,8 @@ const importProfiles = {
             ],
 
             customerName: [
-                "Customer Name"
+                "Customer Name",
+                "Customer State"
             ],
 
             phone: [
@@ -200,36 +271,37 @@ const importProfiles = {
             ],
 
             awb: [
-                "AWB"
+                "AWB",
+                "Packet Id"
             ],
 
             orderStatus: [
+                "Reason for Credit Entry",
                 "Order Status"
             ]
         },
         inventory: {
 
             catalogId: [
-                "Style ID",
-                "Catalog ID"
+                "STYLE ID",
             ],
 
             productName: [
                 "Product Name",
-                "Catalog ID",
-                "Style ID",
             ],
 
             productId: [
-                "SKU",
-                "Seller SKU"
+                "Catalog Id",
             ],
 
             size: [
+                "Variation",
                 "Size"
             ],
 
             qty: [
+                "Your Stock Count",
+                "System Stock Count",
                 "Qty",
                 "Quantity",
                 "Inventory"
@@ -304,8 +376,14 @@ const MarketplaceCSVImport = ({ user }) => {
     const [platform, setPlatform] =
         useState("meesho");
 
+    const location = useLocation();
+
+    const {
+        type
+    } = location.state || {};
+
     const [importType, setImportType] =
-        useState("orders");
+        useState(type);
 
     const [fieldMapping, setFieldMapping] =
         useState({
@@ -940,7 +1018,7 @@ const MarketplaceCSVImport = ({ user }) => {
                         "csv",
 
                     status: "sold",
-                    soldAt: serverTimestamp(),
+                    soldAt: parseCSVDate(row.orderDate),
                     isSaleOnline: true,
                     orderId,
                     platform,
@@ -1037,7 +1115,7 @@ const MarketplaceCSVImport = ({ user }) => {
                     doc(db, "qrcodes", qrDoc.id),
                     {
                         status: "sold",
-                        soldAt: serverTimestamp(),
+                        soldAt: parseCSVDate(row.orderDate),
                         isSaleOnline: true,
                         saleChannel: "marketplace",
                         orderId,
@@ -1398,7 +1476,7 @@ Duplicates Skipped: ${skipped}
 
                         sizeKey,
 
-                        quantity: diff,
+                        quantity: Number(incomingSize.qty || 0),
 
                         options: {
                             isOnlineItem: true,
@@ -1458,7 +1536,7 @@ Duplicates Skipped: ${skipped}
 
                         sizeKey,
 
-                        quantity: diff,
+                        quantity: Number(incomingSize.qty || 0),
 
                         options: {
                             isOnlineItem: true,
@@ -1722,6 +1800,7 @@ Duplicates Skipped: ${skipped}
                     borderRadius: "8px",
                     marginLeft: "10px"
                 }}
+                disabled={location}
             >
 
                 <option value="orders">
@@ -1778,10 +1857,36 @@ Duplicates Skipped: ${skipped}
 
                     fontWeight: "bold"
                 }}
+                className="summary-card"
             >
                 {loading
                     ? "Importing..."
                     : `Execute ${importType} Import`}
+            </button>
+
+            <button
+                onClick={matchOrdersWithInventory}
+
+                disabled={
+                    matching ||
+                    !rows.length
+                }
+
+                style={{
+                    padding: "12px 20px",
+                    border: "none",
+                    borderRadius: "10px",
+                    background: "#16a34a",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                    marginLeft: "10px"
+                }}
+                className="summary-card"
+            >
+                {matching
+                    ? "Matching..."
+                    : "🔍 Match Inventory"}
             </button>
 
             {loading && (
@@ -1982,19 +2087,11 @@ Duplicates Skipped: ${skipped}
                     </div>
 
                     <div
-                        style={{
-                            overflowX: "auto"
-                        }}
+                        className="table-wrapper"
                     >
 
                         <table
-                            border="1"
-                            cellPadding="10"
-                            style={{
-                                width: "100%",
-                                borderCollapse:
-                                    "collapse"
-                            }}
+                            className="sales-table"
                         >
 
                             <thead>
@@ -2075,19 +2172,11 @@ Duplicates Skipped: ${skipped}
                     </h3>
 
                     <div
-                        style={{
-                            overflowX: "auto"
-                        }}
+                        className="table-wrapper"
                     >
 
                         <table
-                            border="1"
-                            cellPadding="10"
-                            style={{
-                                width: "100%",
-                                borderCollapse:
-                                    "collapse"
-                            }}
+                            className="sales-table"
                         >
 
                             <thead>
@@ -2148,30 +2237,6 @@ Duplicates Skipped: ${skipped}
                 </div>
             )}
 
-            <button
-                onClick={matchOrdersWithInventory}
-
-                disabled={
-                    matching ||
-                    !rows.length
-                }
-
-                style={{
-                    padding: "12px 20px",
-                    border: "none",
-                    borderRadius: "10px",
-                    background: "#16a34a",
-                    color: "#fff",
-                    cursor: "pointer",
-                    fontWeight: "bold",
-                    marginLeft: "10px"
-                }}
-            >
-                {matching
-                    ? "Matching..."
-                    : "🔍 Match Inventory"}
-            </button>
-
             {/* ========================================
     MATCHED ORDERS
 ======================================== */}
@@ -2189,19 +2254,13 @@ Duplicates Skipped: ${skipped}
                     </h3>
 
                     <div
-                        style={{
-                            overflowX: "auto"
-                        }}
+                        className="table-wrapper"
+
                     >
 
                         <table
-                            border="1"
-                            cellPadding="10"
-                            style={{
-                                width: "100%",
-                                borderCollapse:
-                                    "collapse"
-                            }}
+                            className="sales-table"
+
                         >
 
                             <thead>
@@ -2298,19 +2357,11 @@ Duplicates Skipped: ${skipped}
                             </h3>
 
                             <div
-                                style={{
-                                    overflowX: "auto"
-                                }}
+                                className="table-wrapper"
                             >
 
                                 <table
-                                    border="1"
-                                    cellPadding="10"
-                                    style={{
-                                        width: "100%",
-                                        borderCollapse:
-                                            "collapse"
-                                    }}
+                                    className="sales-table"
                                 >
 
                                     <thead>

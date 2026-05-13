@@ -18,6 +18,8 @@ import { QRCodeCanvas } from "qrcode.react";
 
 import "../assets/SalesHistory.css";
 import FeatureGate from "../components/FeatureGate";
+import { useNavigate } from "react-router-dom";
+import { type } from "firebase/firestore/pipelines";
 
 const SalesHistory = ({ user }) => {
 
@@ -28,6 +30,7 @@ const SalesHistory = ({ user }) => {
     const role = useUserRole();
     const [hoveredQR, setHoveredQR] = useState(null);
     const [deletingId, setDeletingId] = useState(null);
+    const navigate = useNavigate();
 
     // =========================================
     // LOAD SALES
@@ -77,13 +80,27 @@ const SalesHistory = ({ user }) => {
         // DATE FILTER
         if (filterDate) {
 
-            let saleDate;
+            let saleDateObj = null;
 
             if (s.soldAt?.toDate) {
-                saleDate = s.soldAt.toDate().toISOString().split("T")[0];
-            } else {
-                saleDate = new Date(s.soldAt).toISOString().split("T")[0];
+
+                saleDateObj = s.soldAt.toDate();
+
+            } else if (s.soldAt instanceof Date) {
+
+                saleDateObj = s.soldAt;
+
+            } else if (s.soldAt) {
+
+                saleDateObj = new Date(s.soldAt);
             }
+
+            if (!saleDateObj || isNaN(saleDateObj)) {
+                return false;
+            }
+
+            const saleDate =
+                saleDateObj.toISOString().split("T")[0];
 
             if (saleDate !== filterDate) {
                 return false;
@@ -292,6 +309,28 @@ const SalesHistory = ({ user }) => {
 
                 </div>
 
+                <FeatureGate
+                    user={user}
+                    feature="marketplaceIntegrations"
+                    title="Marketplace Integrations"
+                    description="Upgrade your plan to unlock Marketplace Integrations."
+                >
+                    <button className="summary-card" style={{ color: "white" }} onClick={() => navigate("/marketplace-integrations")} >
+                        Marketplace Integrations
+                    </button>
+
+                    <button className="summary-card" style={{ color: "white" }}
+                        onClick={() =>
+                            navigate("/marketplace-csv-import",
+                                {
+                                    state: {
+                                        type : "orders"
+                                    }
+                                })} >
+                        Marketplace Order(Pendig/Shipment/Deliverd) CSV Import
+                    </button>
+                </FeatureGate>
+
                 {/* FILTER */}
                 <div className="sales-filter">
 
@@ -358,7 +397,15 @@ const SalesHistory = ({ user }) => {
                                             onMouseLeave={() => setHoveredQR(null)}
                                         >
                                             <QRCodeCanvas
-                                                value={JSON.stringify(s)}
+                                                value={JSON.stringify({
+                                                    id: s.id,
+                                                    orderId: s.orderId || "",
+                                                    productName: s.productName || "",
+                                                    catalogId: s.catalogId || "",
+                                                    size: s.size || "",
+                                                    sellingPrice: s.sellingPrice || 0,
+                                                    soldAt: s.soldAt || "",
+                                                })}
                                                 size={80}
                                                 bgColor="#ffffff"
                                                 fgColor="#000000"
@@ -370,10 +417,28 @@ const SalesHistory = ({ user }) => {
 
                                     {/* DATE */}
                                     <td>
-                                        {s.soldAt?.toDate
-                                            ? s.soldAt.toDate().toLocaleString()
-                                            : new Date(s.soldAt).toLocaleString()
-                                        }
+                                        {(() => {
+
+                                            let date = null;
+
+                                            if (s.soldAt?.toDate) {
+
+                                                date = s.soldAt.toDate();
+
+                                            } else if (s.soldAt instanceof Date) {
+
+                                                date = s.soldAt;
+
+                                            } else if (s.soldAt) {
+
+                                                date = new Date(s.soldAt);
+                                            }
+
+                                            return date && !isNaN(date)
+                                                ? date.toLocaleString()
+                                                : "N/A";
+
+                                        })()}
                                     </td>
                                     {/* CATALOG ID */}
                                     <td>
@@ -484,7 +549,15 @@ const SalesHistory = ({ user }) => {
                             <div className="qr-popup">
 
                                 <QRCodeCanvas
-                                    value={JSON.stringify(s)}
+                                    value={JSON.stringify({
+                                        id: s.id,
+                                        orderId: s.orderId || "",
+                                        productName: s.productName || "",
+                                        catalogId: s.catalogId || "",
+                                        size: s.size || "",
+                                        sellingPrice: s.sellingPrice || 0,
+                                        soldAt: s.soldAt || "",
+                                    })}
                                     size={300}
                                     bgColor="#ffffff"
                                     fgColor="#000000"

@@ -262,15 +262,32 @@ const Dashboard = ({ user }) => {
     const dailyProfitData = getDailyProfit();
 
     const getTopProducts = () => {
+
         const map = {};
 
         filteredSales.forEach((s) => {
-            const name = s.productName || "Unknown";
-            map[name] = (map[name] || 0) + 1;
+
+            const catalogId =
+                s.catalogId || "Unknown";
+
+            if (!map[catalogId]) {
+
+                map[catalogId] = {
+                    name: s.productName || "Unknown",
+                    count: 0
+                };
+            }
+
+            map[catalogId].count += 1;
         });
 
         return Object.entries(map)
-            .sort((a, b) => b[1] - a[1])
+            .map(([catalogId, data]) => ({
+                catalogId,
+                name: data.name,
+                count: data.count
+            }))
+            .sort((a, b) => b.count - a.count)
             .slice(0, 5);
     };
 
@@ -472,7 +489,7 @@ const Dashboard = ({ user }) => {
                     ))}
                 </div>
             </div>
-            <div className="dashboard-card" >
+            <div className="dashboard-card" style={{ display: "flex", alignItems: "flex-end", height: "auto", gap: "5px" }} >
                 {dailyProfitData.map(([date, profit], i) => (
                     <div key={i} style={{ textAlign: "center" }}>
                         <div
@@ -493,8 +510,40 @@ const Dashboard = ({ user }) => {
 
             <div className="dashboard-card" >
                 <h4>🔥 Top Products</h4>
-                {getTopProducts().map(([name, count], i) => (
-                    <p key={i}>{name} - {count} sold</p>
+                {getTopProducts().map((item, i) => (
+
+                    <p key={i}>
+
+                        {i + 1}) {" "}
+
+                        <strong
+                            style={{
+                                color:
+                                    item.count > 50
+                                        ? "green"
+                                        : "red",
+                                background:"yellow"
+                            }}
+                        >{item.catalogId}</strong>
+                        {" - "}
+
+                        {item.name}
+                        {" - "}
+
+                        <strong
+                            style={{
+                                color:
+                                    item.count > 50
+                                        ? "green"
+                                        : "red"
+                            }}
+                        >
+                            {item.count}
+                        </strong>
+
+                        {" "}sold.
+
+                    </p>
                 ))}
             </div>
 
@@ -504,6 +553,7 @@ const Dashboard = ({ user }) => {
                 <table style={{ width: "100%", marginTop: "10px" }}>
                     <thead>
                         <tr style={{ textAlign: "left", borderBottom: "1px solid #ddd" }}>
+                            <th>Catalog ID</th>
                             <th>Item</th>
                             <th>Sell</th>
                             <th>Cost</th>
@@ -515,6 +565,7 @@ const Dashboard = ({ user }) => {
                             const profit = (s.profit || 0);
                             return (
                                 <tr key={i} style={{ borderBottom: "1px solid #eee" }}>
+                                    <td>{s.catalogId || "N/A"}</td>
                                     <td>{s.productName || "N/A"}</td>
                                     <td>₹{(s.sellingPrice).toFixed(2)}</td>
                                     <td>₹{(s.buyingPrice + s.extra).toFixed(2)}</td>
