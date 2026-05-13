@@ -211,7 +211,13 @@ const SalesHistory = ({ user }) => {
             // SOFT DELETE SALE
             // ====================================
 
-            const saleRef = doc(db, "sales", sale.uniqueId);
+            const saleDocId =
+                sale.uniqueId ||
+                sale.orderId ||
+                sale.id;
+
+            const saleRef =
+                doc(db, "sales", saleDocId);
 
             const saleSnap = await getDoc(saleRef);
 
@@ -321,6 +327,8 @@ const SalesHistory = ({ user }) => {
 
                                 <th>Date</th>
 
+                                <th>Catalog ID</th>
+
                                 <th>Product</th>
 
                                 <th>Size</th>
@@ -366,6 +374,10 @@ const SalesHistory = ({ user }) => {
                                             ? s.soldAt.toDate().toLocaleString()
                                             : new Date(s.soldAt).toLocaleString()
                                         }
+                                    </td>
+                                    {/* CATALOG ID */}
+                                    <td>
+                                        {s.catalogId}
                                     </td>
 
                                     {/* PRODUCT */}

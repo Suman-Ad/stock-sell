@@ -1,0 +1,2382 @@
+import React, { useState } from "react";
+import Papa from "papaparse";
+import {
+    collection,
+    addDoc,
+    serverTimestamp,
+    getDocs,
+    query,
+    where,
+    doc,
+    getDoc,
+    setDoc,
+    writeBatch,
+    updateDoc
+} from "firebase/firestore";
+import { db } from "../firebase";
+import * as XLSX from "xlsx";
+
+
+const createQRCodes = async ({
+    batchRef,
+    operationRef,
+    commitBatch,
+    item,
+    sizeKey,
+    quantity,
+    options = {}
+}) => {
+
+    const sizeData = item.sizes[sizeKey];
+
+    const currentQty =
+        Number(sizeData.qty || 0);
+
+    const start =
+        currentQty - quantity;
+
+    for (let i = 1; i <= quantity; i++) {
+
+        if (operationRef.current >= 450) {
+            await commitBatch();
+        }
+
+        const unitNo = start + i;
+
+        const ref =
+            doc(collection(db, "qrcodes"));
+
+        batchRef.current.set(ref, {
+
+            stockId: item.id,
+
+            productName:
+                item.productName,
+
+            productId:
+                item.productId,
+
+            catalogId:
+                item.catalogId,
+
+            category:
+                item.category || "",
+
+            subCategory:
+                item.subCategory || "",
+
+            productType:
+                item.productType || "",
+
+            size: sizeKey,
+
+            color:
+                item.color || "",
+
+            unitNo,
+
+            uniqueId:
+                `${item.productId}-${sizeKey}-${item.id}-${unitNo}`,
+
+            sellingPrice:
+                sizeData.sellingPrice || 0,
+
+            status: "available",
+
+            printed: false,
+
+            isOnlineItem:
+                options.isOnlineItem || false,
+
+            inventorySource:
+                options.inventorySource || "core",
+
+            platform:
+                options.platform || "",
+
+            isMarketplaceQR:
+                options.isMarketplaceQR || false,
+
+            createdAt:
+                serverTimestamp()
+        });
+
+        operationRef.current++;
+    }
+};
+
+const normalizeSize = (size = "") => {
+
+    return String(size)
+        .trim()
+        .toUpperCase()
+        .replace(/\s+/g, "");
+};
+
+const internalFields = {
+
+    orders: [
+        "orderId",
+        "catalogId",
+        "productName",
+        "productId",
+        "size",
+        "qty",
+        "sellingPrice",
+        "customerName",
+        "phone",
+        "awb",
+        "orderStatus"
+    ],
+
+    inventory: [
+        "catalogId",
+        "productName",
+        "productId",
+        "size",
+        "qty",
+        "buyingPrice",
+        "sellingPrice"
+    ],
+
+    pricing: [
+        "catalogId",
+        "productId",
+        "size",
+        "buyingPrice",
+        "sellingPrice",
+        "margin"
+    ]
+};
+
+const importProfiles = {
+
+    meesho: {
+
+        orders: {
+
+            orderId: [
+                "Sub Order No",
+                "Order ID"
+            ],
+
+            catalogId: [
+                "SKU",
+                "Seller SKU"
+            ],
+
+            productName: [
+                "Product Name",
+                "Catalog ID",
+                "Style ID",
+            ],
+
+            productId: [
+                "Catalog ID",
+                "Style ID",
+                "Product ID"
+            ],
+
+            size: [
+                "Size"
+            ],
+
+            qty: [
+                "Qty",
+                "Quantity"
+            ],
+
+            sellingPrice: [
+                "Supplier Listed Price",
+                "Price"
+            ],
+
+            customerName: [
+                "Customer Name"
+            ],
+
+            phone: [
+                "Phone"
+            ],
+
+            awb: [
+                "AWB"
+            ],
+
+            orderStatus: [
+                "Order Status"
+            ]
+        },
+        inventory: {
+
+            catalogId: [
+                "Style ID",
+                "Catalog ID"
+            ],
+
+            productName: [
+                "Product Name",
+                "Catalog ID",
+                "Style ID",
+            ],
+
+            productId: [
+                "SKU",
+                "Seller SKU"
+            ],
+
+            size: [
+                "Size"
+            ],
+
+            qty: [
+                "Qty",
+                "Quantity",
+                "Inventory"
+            ],
+
+            buyingPrice: [
+                "Buying Price"
+            ],
+
+            sellingPrice: [
+                "Supplier Listed Price",
+                "Selling Price"
+            ]
+        },
+
+        pricing: {
+
+            catalogId: [
+                "Style ID",
+                "Catalog ID"
+            ],
+
+            productId: [
+                "SKU",
+                "Seller SKU"
+            ],
+
+            size: [
+                "Size"
+            ],
+
+            buyingPrice: [
+                "Buying Price"
+            ],
+
+            sellingPrice: [
+                "Supplier Listed Price",
+                "Selling Price"
+            ],
+
+            margin: [
+                "Margin"
+            ]
+        }
+    }
+};
+
+const MarketplaceCSVImport = ({ user }) => {
+
+    const [rows, setRows] = useState([]);
+
+
+    const [normalizedPreview, setNormalizedPreview] =
+        useState([]);
+
+    const [matchedOrders, setMatchedOrders] =
+        useState([]);
+
+    const [unmatchedOrders, setUnmatchedOrders] =
+        useState([]);
+
+    const [matching, setMatching] =
+        useState(false);
+
+    const [loading, setLoading] = useState(false);
+
+    const [progress, setProgress] = useState(0);
+
+    const [progressText, setProgressText] =
+        useState("");
+
+    const [platform, setPlatform] =
+        useState("meesho");
+
+    const [importType, setImportType] =
+        useState("orders");
+
+    const [fieldMapping, setFieldMapping] =
+        useState({
+            orderId: "",
+            productName: "",
+            productId: "",
+            catalogId: "",
+            size: "",
+            qty: "",
+            sellingPrice: "",
+            customerName: ""
+        });
+    // ========================================
+    // HANDLE CSV
+    // ========================================
+
+    const handleCSVUpload = async (e) => {
+
+        try {
+
+            const file = e.target.files[0];
+
+            if (!file) return;
+
+            const fileName =
+                file.name.toLowerCase();
+
+            // ========================================
+            // CSV FILE
+            // ========================================
+
+            if (fileName.endsWith(".csv")) {
+
+                Papa.parse(file, {
+
+                    header: true,
+
+                    skipEmptyLines: true,
+
+                    complete: (results) => {
+
+                        processImportedRows(
+                            results.data
+                        );
+                    }
+                });
+
+                return;
+            }
+
+            // ========================================
+            // EXCEL FILE
+            // ========================================
+
+            if (
+                fileName.endsWith(".xlsx") ||
+                fileName.endsWith(".xls")
+            ) {
+
+                const data =
+                    await file.arrayBuffer();
+
+                const workbook =
+                    XLSX.read(data);
+
+                const firstSheet =
+                    workbook.SheetNames[0];
+
+                const worksheet =
+                    workbook.Sheets[firstSheet];
+
+                const jsonData =
+                    XLSX.utils.sheet_to_json(
+                        worksheet,
+                        {
+                            defval: ""
+                        }
+                    );
+
+                processImportedRows(
+                    jsonData
+                );
+
+                return;
+            }
+
+            alert(
+                "Unsupported file format"
+            );
+
+        } catch (err) {
+
+            console.error(err);
+
+            alert(
+                "File reading failed"
+            );
+        }
+    };
+
+    const processImportedRows = (
+        importedRows
+    ) => {
+
+        if (
+            !importedRows ||
+            !importedRows.length
+        ) {
+
+            alert(
+                "No rows found in file"
+            );
+
+            return;
+        }
+
+        const headers =
+            Object.keys(
+                importedRows[0] || {}
+            );
+
+        const mappedFields =
+
+            applyImportProfile(
+                platform,
+                importType,
+                headers
+            );
+
+        setFieldMapping(mappedFields);
+
+        const normalized =
+            importedRows.map(row => {
+
+                const normalizedRow = {};
+
+                Object.entries(mappedFields)
+                    .forEach(
+                        ([internalField, csvColumn]) => {
+
+                            normalizedRow[internalField] =
+
+                                csvColumn &&
+                                    row[csvColumn] !== undefined
+
+                                    ? row[csvColumn]
+
+                                    : "";
+                        }
+                    );
+
+                return {
+                    ...normalizedRow,
+                    platform,
+                    importType,
+                    importedAt:
+                        new Date().toISOString()
+                };
+            });
+
+        setNormalizedPreview(normalized);
+
+        setRows(importedRows);
+
+        setMatchedOrders([]);
+
+        setUnmatchedOrders([]);
+
+        // setNormalizedPreview([]);
+
+        alert(
+            `${importedRows.length} rows loaded`
+        );
+    };
+
+    // ========================================
+    // Auto Map fields
+    // ========================================
+
+
+    // ========================================
+    // SAVE ORDERS
+    // ========================================
+    const applyImportProfile = (
+        platform,
+        importType,
+        headers
+    ) => {
+
+        const profile =
+            importProfiles?.[platform]?.[importType];
+
+        if (!profile) return {};
+
+        const mapped = {};
+
+        Object.entries(profile).forEach(
+            ([internalField, aliases]) => {
+
+                const found =
+                    headers.find(header =>
+
+                        aliases.some(alias =>
+
+                            header
+                                .toLowerCase()
+                                .includes(
+                                    alias.toLowerCase()
+                                )
+                        )
+                    );
+
+                mapped[internalField] =
+                    found || "";
+            }
+        );
+
+        return mapped;
+    };
+
+    // ========================================
+    // SAVE ORDERS
+    // ========================================
+
+
+    // ========================================
+    // Match Orders With Inventory
+    // ========================================
+    const matchOrdersWithInventory = async () => {
+
+        if (!rows.length) {
+
+            alert("No CSV rows found");
+
+            return;
+        }
+
+        try {
+
+            setMatching(true);
+
+            // ========================================
+            // LOAD USER STOCKS
+            // ========================================
+
+            const stockQuery = query(
+                collection(db, "stocks"),
+                where("userId", "==", user.uid)
+            );
+
+            const stockSnap =
+                await getDocs(stockQuery);
+
+            const stocks =
+                stockSnap.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+
+            const matched = [];
+
+            const unmatched = [];
+
+            // ========================================
+            // LOOP CSV ORDERS
+            // ========================================
+
+            const sourceRows =
+                normalizedPreview;
+
+            for (const row of sourceRows) {
+
+                const catalogValue =
+                    row.catalogId;
+
+                const productValue =
+                    row.productId;
+
+                const sizeValue =
+                    normalizeSize(row.size);
+
+                const qty =
+                    Number(row.qty) || 1;
+
+                // ========================================
+                // FIND STOCK
+                // ========================================
+
+                const stockMatch =
+                    stocks.find(stock => {
+
+                        const catalogMatch =
+                            catalogValue &&
+                            stock.catalogId
+                                ?.toLowerCase()
+                            ===
+                            String(catalogValue)
+                                .toLowerCase();
+
+                        const productMatch =
+                            productValue &&
+                            stock.productId
+                                ?.toLowerCase()
+
+                            ===
+
+                            String(productValue)
+                                .toLowerCase();
+
+                        return (
+                            catalogMatch ||
+                            productMatch
+                        );
+                    });
+
+                // ========================================
+                // VALIDATE SIZE
+                // ========================================
+
+                if (
+                    stockMatch &&
+                    stockMatch.sizes?.[sizeValue]
+                ) {
+
+                    const sizeStock =
+                        stockMatch.sizes[sizeValue];
+
+                    const availableQty =
+                        sizeStock.qty || 0;
+
+                    if (availableQty >= qty) {
+
+                        matched.push({
+                            row,
+
+                            stock: stockMatch,
+
+                            size: sizeValue,
+
+                            qty,
+
+                            availableQty,
+
+                            status: "matched"
+                        });
+
+                    } else {
+
+                        unmatched.push({
+                            row,
+
+                            reason:
+                                "Insufficient stock"
+                        });
+                    }
+
+                } else {
+
+                    unmatched.push({
+                        row,
+
+                        reason:
+                            "Product/Size not found"
+                    });
+                }
+            }
+
+            setMatchedOrders(matched);
+
+            setUnmatchedOrders(unmatched);
+
+            alert(
+                `Matched: ${matched.length}, Unmatched: ${unmatched.length}`
+            );
+
+        } catch (err) {
+
+            console.error(err);
+
+            alert("Matching failed");
+
+        } finally {
+
+            setMatching(false);
+
+        }
+    };
+
+
+    const validateNormalizedRows = (
+        normalizedRows
+    ) => {
+
+        const valid = [];
+
+        const invalid = [];
+
+        normalizedRows.forEach(row => {
+
+            const requiredFields =
+                internalFields[importType] || [];
+
+            const missing =
+                requiredFields.filter(
+                    field =>
+                        !row[field]
+                );
+
+            if (missing.length > 0) {
+
+                invalid.push({
+                    row,
+                    missing
+                });
+
+            } else {
+
+                valid.push(row);
+
+            }
+        });
+
+        return {
+            valid,
+            invalid
+        };
+    };
+
+    // ========================================
+    // EXECUTE IMPORT ENGINE
+    // ========================================
+
+    const executeImport = async () => {
+
+        setProgress(0);
+        setProgressText("Preparing import...");
+
+        try {
+
+            if (!normalizedPreview.length) {
+
+                alert(
+                    "Please normalize data first"
+                );
+
+                return;
+            }
+
+            setLoading(true);
+
+            if (
+                importType === "orders" &&
+                !matchedOrders.length
+            ) {
+
+                alert(
+                    "Please match inventory first"
+                );
+
+                return;
+            }
+
+            switch (importType) {
+
+                case "orders":
+
+                    await executeOrdersImport();
+
+                    break;
+
+                case "inventory":
+
+                    await executeInventoryImport();
+
+                    break;
+
+                case "pricing":
+
+                    await executePricingImport();
+
+                    break;
+
+                default:
+
+                    alert(
+                        "Invalid import type"
+                    );
+            }
+
+        } catch (err) {
+
+            console.error(err);
+
+            alert(
+                "Import execution failed"
+            );
+
+        } finally {
+
+            setTimeout(() => {
+
+                setLoading(false);
+
+                setProgress(0);
+
+                setProgressText("");
+
+            }, 1200);
+        }
+    };
+
+    // ========================================
+    // ORDERS IMPORT
+    // ========================================
+
+    const executeOrdersImport = async () => {
+        const batchRef = {
+            current: writeBatch(db)
+        };
+
+        const operationRef = {
+            current: 0
+        };
+
+        const commitBatch = async () => {
+
+            if (operationRef.current === 0)
+                return;
+
+            await batchRef.current.commit();
+
+            batchRef.current =
+                writeBatch(db);
+
+            operationRef.current = 0;
+        };
+
+        if (!matchedOrders.length) {
+
+            alert(
+                "Please match inventory first"
+            );
+
+            return;
+        }
+        const total = matchedOrders.length;
+        let imported = 0;
+
+        let skipped = 0;
+
+        for (let index = 0; index < matchedOrders.length; index++) {
+
+            const item = matchedOrders[index];
+
+            const percent = Math.round(
+                ((index + 1) / total) * 100
+            );
+
+            setProgress(percent);
+
+            setProgressText(
+                `Importing Orders ${index + 1}/${total}`
+            );
+
+            const row = item.row;
+
+            const orderId =
+                row.orderId;
+
+            // ====================================
+            // DUPLICATE CHECK
+            // ====================================
+
+            const saleRef =
+                doc(
+                    db,
+                    "sales",
+                    String(orderId)
+                );
+
+            const existingSale =
+                await getDoc(saleRef);
+
+            if (existingSale.exists()) {
+
+                skipped++;
+
+                continue;
+            }
+
+            const stock =
+                item.stock;
+
+            const sizeData =
+                stock.sizes[item.size];
+
+            const qty =
+                Number(item.qty || 1);
+
+            const sellingPrice =
+                Number(
+                    row.sellingPrice || 0
+                );
+
+            const buyingPrice =
+                Number(
+                    sizeData.buyingPrice || 0
+                );
+
+            const profit =
+                (
+                    sellingPrice -
+                    buyingPrice
+                ) * qty;
+
+            // ====================================
+            // CREATE SALE ENTRY
+            // ====================================
+
+            batchRef.current.set(
+                saleRef,
+                {
+                    imported: true,
+
+                    importedAt:
+                        serverTimestamp(),
+
+                    saleChannel:
+                        "marketplace",
+
+                    saleMode:
+                        "csv",
+
+                    status: "sold",
+                    soldAt: serverTimestamp(),
+                    isSaleOnline: true,
+                    orderId,
+                    platform,
+
+                    userId:
+                        user.uid,
+
+                    stockId:
+                        stock.id,
+
+                    catalogId:
+                        stock.catalogId || "",
+
+                    productId:
+                        stock.productId || "",
+
+                    productName:
+                        stock.productName || "",
+
+                    size:
+                        item.size,
+
+                    qty,
+
+                    sellingPrice,
+
+                    buyingPrice,
+
+                    profit,
+
+                    orderStatus:
+                        row.orderStatus ||
+                        "pending",
+
+                    paymentStatus:
+                        "pending",
+
+                    shipmentStatus:
+                        "pending",
+
+                    customer: {
+
+                        name:
+                            row.customerName || "",
+
+                        phone:
+                            row.phone || "",
+
+                        awb:
+                            row.awb || ""
+                    },
+
+                    marketplaceData:
+                        row,
+
+                    deleted: false,
+
+                    createdBy: user,
+                    createdAt:
+                        serverTimestamp()
+                }
+            );
+
+            operationRef.current++;
+            if (operationRef.current >= 450) {
+                await commitBatch();
+            }
+
+            const qrQuery = query(
+                collection(db, "qrcodes"),
+                where("stockId", "==", stock.id),
+                where("size", "==", item.size),
+                where("status", "==", "available")
+            );
+
+            const qrSnap =
+                await getDocs(qrQuery);
+
+            const availableQRs =
+                qrSnap.docs.slice(0, qty);
+
+            availableQRs.forEach(qr => {
+                qr.ref._pendingSold = true;
+            });
+
+            // const availableQRs =
+            //     qrSnap.docs
+            //         .filter(qr => !qr.ref._pendingSold)
+            //         .slice(0, qty);
+
+            for (const qrDoc of availableQRs) {
+
+                batchRef.current.update(
+                    doc(db, "qrcodes", qrDoc.id),
+                    {
+                        status: "sold",
+                        soldAt: serverTimestamp(),
+                        isSaleOnline: true,
+                        saleChannel: "marketplace",
+                        orderId,
+                        platform
+                    }
+                );
+
+                operationRef.current++;
+
+                if (operationRef.current >= 450) {
+                    await commitBatch();
+                }
+            }
+            // ====================================
+            // REDUCE STOCK
+            // ====================================
+
+            const stockRef =
+                doc(
+                    db,
+                    "stocks",
+                    stock.id
+                );
+
+            const updatedSizes = {
+                ...stock.sizes
+            };
+
+            updatedSizes[item.size].qty =
+                Number(
+                    updatedSizes[item.size]
+                        .qty || 0
+                ) - qty;
+
+            batchRef.current.update(
+                stockRef,
+                {
+                    sizes: updatedSizes
+                }
+            );
+
+            operationRef.current++;
+            if (operationRef.current >= 450) {
+                await commitBatch();
+            }
+            imported++;
+        }
+
+        setProgress(100);
+        setProgressText("Import Completed");
+        await commitBatch();
+
+        alert(
+            `
+Orders Imported: ${imported}
+Duplicates Skipped: ${skipped}
+        `
+        );
+    };
+
+    // ========================================
+    // INVENTORY IMPORT
+    // ========================================
+
+    const executeInventoryImport = async () => {
+        const batchRef = {
+            current: writeBatch(db)
+        };
+
+        const operationRef = {
+            current: 0
+        };
+
+        const commitBatch = async () => {
+
+            if (operationRef.current === 0)
+                return;
+
+            await batchRef.current.commit();
+
+            batchRef.current =
+                writeBatch(db);
+
+            operationRef.current = 0;
+        };
+
+        let updated = 0;
+
+        const stockQuery = query(
+            collection(db, "stocks"),
+            where("userId", "==", user.uid)
+        );
+
+        const stockSnap =
+            await getDocs(stockQuery);
+
+        const stocks =
+            stockSnap.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+
+        const groupedInventory = {};
+
+        normalizedPreview.forEach((row) => {
+
+            const catalogKey =
+                String(row.catalogId || "")
+                    .trim()
+                    .toUpperCase();
+
+            const sizeKey =
+                String(normalizeSize(row.size) || "")
+                    .trim()
+                    .toUpperCase();
+
+            if (!catalogKey || !sizeKey) return;
+
+            // ====================================
+            // CREATE GROUP
+            // ====================================
+
+            if (!groupedInventory[catalogKey]) {
+
+                groupedInventory[catalogKey] = {
+
+                    catalogId: row.catalogId || "",
+
+                    productId: row.productId || "",
+
+                    productName:
+                        row.productName || "Marketplace Product",
+
+                    sizes: {}
+                };
+            }
+
+            // ====================================
+            // ADD SIZE
+            // ====================================
+
+            if (
+                !groupedInventory[catalogKey]
+                    .sizes[sizeKey]
+            ) {
+
+                groupedInventory[catalogKey]
+                    .sizes[sizeKey] = {
+
+                    qty: 0,
+
+                    initialQty: 0,
+
+                    buyingPrice:
+                        Number(row.buyingPrice || 0),
+
+                    sellingPrice:
+                        Number(row.sellingPrice || 0),
+
+                    margin: 0,
+
+                    extraCosts: {
+                        packaging: 0,
+                        labeling: 0,
+                        rto: 0,
+                        returnCost: 0,
+                        advertisementCost: 0,
+                        delivery: 0,
+                        others: 0,
+                        gst: 0
+                    }
+                };
+            }
+
+            groupedInventory[catalogKey]
+                .sizes[sizeKey].qty +=
+                Number(row.qty || 0);
+
+            groupedInventory[catalogKey]
+                .sizes[sizeKey].initialQty +=
+                Number(row.qty || 0);
+        });
+
+        const groupedRows =
+            Object.values(groupedInventory);
+
+        const total = groupedRows.length;
+
+        for (
+            let index = 0;
+            index < groupedRows.length;
+            index++
+        ) {
+
+            const groupedRow = groupedRows[index];
+
+            const percent = Math.round(
+                ((index + 1) / total) * 100
+            );
+
+            setProgress(percent);
+
+            setProgressText(
+                `Importing Inventory ${index + 1}/${total}`
+            );
+
+            const stockMatch =
+                stocks.find(stock =>
+
+                    (
+                        stock.catalogId
+                            ?.toLowerCase()
+
+                        ===
+
+                        String(
+                            groupedRow.catalogId
+                        ).toLowerCase()
+                    ) ||
+
+                    (
+                        stock.productId
+                            ?.toLowerCase()
+                        ===
+                        String(
+                            groupedRow.productId
+                        ).toLowerCase()
+
+                    )
+                );
+
+            if (!stockMatch) {
+
+                const sizes = groupedRow.sizes;
+
+                const newStockRef =
+                    doc(collection(db, "stocks"));
+
+                const newStock = {
+
+                    userId: user.uid,
+
+                    productName:
+                        groupedRow.productName || "Marketplace Product",
+
+                    catalogId:
+                        groupedRow.catalogId || "",
+
+                    productId:
+                        groupedRow.productId || "",
+
+                    sizes,
+
+                    isItemOnline: true,
+
+                    inventorySource: "csv",
+
+                    platform,
+                    createdBy: user,
+                    createdAt:
+                        serverTimestamp()
+                };
+
+                batchRef.current.set(
+                    newStockRef,
+                    newStock
+                );
+                operationRef.current++;
+                if (operationRef.current >= 450) {
+                    await commitBatch();
+                }
+                for (const sizeKey of Object.keys(groupedRow.sizes)) {
+
+                    const sizeData =
+                        groupedRow.sizes[sizeKey];
+
+                    // operationCount += createQRCodes(
+                    //     batch,
+                    //     {
+                    //         ...newStock,
+                    //         id: newStockRef.id
+                    //     },
+                    //     sizeKey,
+                    //     Number(sizeData.qty || 0),
+                    //     {
+                    //         isOnlineItem: true,
+                    //         inventorySource: "csv",
+                    //         platform
+                    //     }
+                    // );
+                    await createQRCodes({
+                        batchRef,
+                        operationRef,
+                        commitBatch,
+
+                        item: {
+                            ...newStock,
+                            id: newStockRef.id
+                        },
+
+                        sizeKey,
+
+                        quantity: Number(sizeData.qty || 0),
+
+                        options: {
+                            isOnlineItem: true,
+                            inventorySource: "csv",
+                            platform
+                        }
+                    });
+                    if (operationRef.current >= 450) {
+                        await commitBatch();
+                    }
+                }
+
+                updated++;
+
+                continue;
+            }
+
+            const stockRef =
+                doc(
+                    db,
+                    "stocks",
+                    stockMatch.id
+                );
+
+            const updatedSizes = {
+                ...stockMatch.sizes
+            };
+
+            for (const sizeKey of Object.keys(groupedRow.sizes)) {
+
+                const incomingSize =
+                    groupedRow.sizes[sizeKey];
+
+                // ====================================
+                // CREATE SIZE IF NOT EXISTS
+                // ====================================
+
+                if (!updatedSizes[sizeKey]) {
+
+                    updatedSizes[sizeKey] = {
+                        ...incomingSize
+                    };
+
+                    const updatedItem = {
+                        ...stockMatch,
+                        sizes: updatedSizes
+                    };
+
+                    await createQRCodes({
+                        batchRef,
+                        operationRef,
+                        commitBatch,
+
+                        item: updatedItem,
+
+                        sizeKey,
+
+                        quantity: diff,
+
+                        options: {
+                            isOnlineItem: true,
+                            inventorySource: "csv",
+                            platform
+                        }
+                    });
+
+                    if (operationRef.current >= 450) {
+                        await commitBatch();
+                    }
+
+                    continue;
+                }
+
+                // ====================================
+                // EXISTING SIZE
+                // ====================================
+
+                const currentQty =
+                    Number(
+                        updatedSizes[sizeKey].qty || 0
+                    );
+
+                const csvQty =
+                    Number(incomingSize.qty || 0);
+
+                const diff =
+                    csvQty - currentQty;
+
+                // ====================================
+                // ADD STOCK
+                // ====================================
+
+                if (diff > 0) {
+
+                    updatedSizes[sizeKey].qty =
+                        currentQty + diff;
+
+                    updatedSizes[sizeKey].initialQty =
+                        Number(
+                            updatedSizes[sizeKey]
+                                .initialQty || 0
+                        ) + diff;
+
+                    const updatedItem = {
+                        ...stockMatch,
+                        sizes: updatedSizes
+                    };
+
+                    await createQRCodes({
+                        batchRef,
+                        operationRef,
+                        commitBatch,
+
+                        item: updatedItem,
+
+                        sizeKey,
+
+                        quantity: diff,
+
+                        options: {
+                            isOnlineItem: true,
+                            inventorySource: "csv",
+                            platform
+                        }
+                    });
+
+                    if (operationRef.current >= 450) {
+                        await commitBatch();
+                    }
+                }
+
+                // ====================================
+                // REDUCE STOCK
+                // ====================================
+
+                if (diff < 0) {
+
+                    updatedSizes[sizeKey].qty =
+                        Math.max(
+                            0,
+                            currentQty - Math.abs(diff)
+                        );
+                }
+            }
+
+            batchRef.current.update(
+                stockRef,
+                {
+                    sizes: updatedSizes,
+
+                    isItemOnline: true,
+
+                    inventorySource: "csv",
+
+                    platform
+                }
+            );
+            stockMatch.sizes = updatedSizes;
+            operationRef.current++;
+            if (operationRef.current >= 450) {
+                await commitBatch();
+            }
+
+            updated++;
+        }
+        setProgress(100);
+        setProgressText("Import Completed");
+        await commitBatch();
+
+        alert(
+            `Inventory Updated: ${updated}`
+        );
+
+    };
+
+    // ========================================
+    // PRICING IMPORT
+    // ========================================
+
+    const executePricingImport = async () => {
+
+        const batchRef = {
+            current: writeBatch(db)
+        };
+
+        const operationRef = {
+            current: 0
+        };
+
+        const commitBatch = async () => {
+
+            if (operationRef.current === 0)
+                return;
+
+            await batchRef.current.commit();
+
+            batchRef.current =
+                writeBatch(db);
+
+            operationRef.current = 0;
+        };
+
+        const total = normalizedPreview.length;
+
+        let updated = 0;
+
+        const stockQuery = query(
+            collection(db, "stocks"),
+            where("userId", "==", user.uid)
+        );
+
+        const stockSnap =
+            await getDocs(stockQuery);
+
+        const stocks =
+            stockSnap.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+
+        for (
+            let index = 0;
+            index < normalizedPreview.length;
+            index++
+        ) {
+
+            const row = normalizedPreview[index];
+
+            const percent = Math.round(
+                ((index + 1) / total) * 100
+            );
+
+            setProgress(percent);
+
+            setProgressText(
+                `Updating Pricing ${index + 1}/${total}`
+            );
+
+            const stockMatch =
+                stocks.find(stock =>
+
+                    (
+                        stock.catalogId
+                            ?.toLowerCase()
+                        ===
+                        String(
+                            row.catalogId
+                        ).toLowerCase()
+
+                    ) ||
+
+                    (
+                        stock.productId
+                            ?.toLowerCase()
+                        ===
+                        String(
+                            row.productId
+                        ).toLowerCase()
+
+                    )
+                );
+
+            if (!stockMatch) continue;
+
+            if (
+                !stockMatch.sizes?.[normalizeSize(row.size)]
+            ) continue;
+
+            const stockRef =
+                doc(
+                    db,
+                    "stocks",
+                    stockMatch.id
+                );
+
+            const updatedSizes = {
+                ...stockMatch.sizes
+            };
+
+            updatedSizes[normalizeSize(row.size)]
+                .sellingPrice =
+                Number(
+                    row.sellingPrice || 0
+                );
+
+            updatedSizes[normalizeSize(row.size)]
+                .buyingPrice =
+                Number(
+                    row.buyingPrice || 0
+                );
+
+            batchRef.current.update(
+                stockRef,
+                {
+                    sizes: updatedSizes
+                }
+            );
+            operationRef.current++;
+            if (operationRef.current >= 450) {
+                await commitBatch();
+            }
+            updated++;
+        }
+        setProgress(100);
+        setProgressText("Import Completed");
+        await commitBatch();
+        alert(
+            `Pricing Updated: ${updated}`
+        );
+    };
+
+    return (
+        <div
+            style={{
+                padding: "20px"
+            }}
+        >
+
+            <h2>
+                Marketplace CSV Import
+            </h2>
+
+            <p>
+                Upload marketplace order CSV
+                files and sync them into your
+                inventory system.
+            </p>
+
+            {/* PLATFORM */}
+
+            <div
+                style={{
+                    marginBottom: "20px"
+                }}
+            >
+
+                <select
+                    value={platform}
+
+                    onChange={(e) =>
+                        setPlatform(
+                            e.target.value
+                        )
+                    }
+
+                    style={{
+                        padding: "10px",
+                        borderRadius: "8px"
+                    }}
+                >
+
+                    <option value="meesho">
+                        Meesho
+                    </option>
+
+                    <option value="flipkart">
+                        Flipkart
+                    </option>
+
+                    <option value="amazon">
+                        Amazon
+                    </option>
+
+                </select>
+
+            </div>
+
+            <select
+                value={importType}
+
+                onChange={(e) =>
+                    setImportType(
+                        e.target.value
+                    )
+                }
+
+                style={{
+                    padding: "10px",
+                    borderRadius: "8px",
+                    marginLeft: "10px"
+                }}
+            >
+
+                <option value="orders">
+                    Orders Import
+                </option>
+
+                <option value="inventory">
+                    Inventory Import
+                </option>
+
+                <option value="pricing">
+                    Pricing Import
+                </option>
+
+            </select>
+
+            {/* FILE */}
+
+            <div
+                style={{
+                    marginBottom: "20px"
+                }}
+            >
+
+                <input
+                    type="file"
+
+                    accept=".csv,.xlsx,.xls"
+
+                    onChange={handleCSVUpload}
+                />
+
+            </div>
+
+            {/* IMPORT BUTTON */}
+
+            <button
+                onClick={executeImport}
+
+                disabled={loading || !rows.length}
+
+                style={{
+                    padding: "12px 20px",
+
+                    border: "none",
+
+                    borderRadius: "10px",
+
+                    background: "#2563eb",
+
+                    color: "#fff",
+
+                    cursor: "pointer",
+
+                    fontWeight: "bold"
+                }}
+            >
+                {loading
+                    ? "Importing..."
+                    : `Execute ${importType} Import`}
+            </button>
+
+            {loading && (
+
+                <div
+                    style={{
+                        marginTop: "20px",
+                        width: "100%"
+                    }}
+                >
+
+                    <div
+                        style={{
+                            marginBottom: "8px",
+                            fontWeight: "bold",
+                            fontSize: "14px"
+                        }}
+                    >
+                        {progressText}
+                    </div>
+
+                    <div
+                        style={{
+                            width: "100%",
+                            height: "24px",
+                            background: "#222",
+                            borderRadius: "12px",
+                            overflow: "hidden",
+                            border: "1px solid #444"
+                        }}
+                    >
+
+                        <div
+                            style={{
+                                width: `${progress}%`,
+                                height: "100%",
+                                background:
+                                    "linear-gradient(90deg,#2563eb,#16a34a)",
+                                transition: "width 0.3s ease",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                color: "#fff",
+                                fontWeight: "bold",
+                                fontSize: "13px"
+                            }}
+                        >
+                            {progress}%
+                        </div>
+
+                    </div>
+
+                </div>
+            )}
+
+            {/* PREVIEW */}
+
+            {rows.length > 0 && (
+
+                <div
+                    style={{
+                        marginTop: "30px"
+                    }}
+                >
+
+                    <h3>
+                        CSV Preview
+                    </h3>
+
+                    <div
+                        style={{
+                            marginBottom: "20px",
+                            padding: "15px",
+                            border: "1px solid #333",
+                            borderRadius: "10px"
+                        }}
+                    >
+
+                        <h3>
+                            CSV Field Mapping
+                        </h3>
+
+                        <div
+                            style={{
+                                display: "grid",
+                                gridTemplateColumns:
+                                    "repeat(auto-fit,minmax(220px,1fr))",
+                                gap: "15px"
+                            }}
+                        >
+
+                            {Object.entries(fieldMapping).map(
+                                ([systemField, selectedColumn]) => (
+
+                                    <div key={systemField}>
+
+                                        <label
+                                            style={{
+                                                display: "block",
+                                                marginBottom: "5px",
+                                                fontSize: "12px"
+                                            }}
+                                        >
+                                            {systemField}
+                                        </label>
+
+                                        <select
+                                            value={selectedColumn}
+
+                                            onChange={(e) => {
+
+                                                const updatedMapping = {
+
+                                                    ...fieldMapping,
+
+                                                    [systemField]:
+                                                        e.target.value
+                                                };
+
+                                                setFieldMapping(updatedMapping);
+
+                                                // ====================================
+                                                // LIVE RE-NORMALIZE
+                                                // ====================================
+
+                                                const normalized =
+                                                    rows.map(row => {
+
+                                                        const normalizedRow = {};
+
+                                                        Object.entries(updatedMapping)
+                                                            .forEach(
+                                                                ([internalField, csvColumn]) => {
+
+                                                                    normalizedRow[internalField] =
+
+                                                                        csvColumn &&
+                                                                            row[csvColumn] !== undefined
+
+                                                                            ? row[csvColumn]
+
+                                                                            : "";
+                                                                }
+                                                            );
+
+                                                        return {
+                                                            ...normalizedRow,
+
+                                                            platform,
+
+                                                            importType,
+
+                                                            importedAt:
+                                                                new Date().toISOString()
+                                                        };
+                                                    });
+
+                                                setNormalizedPreview(normalized);
+
+                                                // RESET MATCH STATES
+                                                setMatchedOrders([]);
+
+                                                setUnmatchedOrders([]);
+                                            }}
+
+                                            style={{
+                                                width: "100%",
+                                                padding: "10px",
+                                                borderRadius: "8px"
+                                            }}
+                                        >
+
+                                            <option value="">
+                                                Select Column
+                                            </option>
+
+                                            {Object.keys(
+                                                rows[0] || {}
+                                            ).map((column) => (
+
+                                                <option
+                                                    key={column}
+                                                    value={column}
+                                                >
+                                                    {column}
+                                                </option>
+
+                                            ))}
+
+                                        </select>
+
+                                    </div>
+                                )
+                            )}
+
+                        </div>
+
+                    </div>
+
+                    <div
+                        style={{
+                            overflowX: "auto"
+                        }}
+                    >
+
+                        <table
+                            border="1"
+                            cellPadding="10"
+                            style={{
+                                width: "100%",
+                                borderCollapse:
+                                    "collapse"
+                            }}
+                        >
+
+                            <thead>
+
+                                <tr>
+
+                                    {Object.keys(
+                                        rows[0]
+                                    ).map((key) => (
+
+                                        <th key={key}>
+                                            {key}
+                                        </th>
+
+                                    ))}
+
+                                </tr>
+
+                            </thead>
+
+                            <tbody>
+
+                                {rows
+                                    .slice(0, 20)
+                                    .map(
+                                        (
+                                            row,
+                                            idx
+                                        ) => (
+
+                                            <tr
+                                                key={idx}
+                                            >
+
+                                                {Object.values(
+                                                    row
+                                                ).map(
+                                                    (
+                                                        value,
+                                                        i
+                                                    ) => (
+
+                                                        <td
+                                                            key={
+                                                                i
+                                                            }
+                                                        >
+                                                            {value}
+                                                        </td>
+
+                                                    )
+                                                )}
+
+                                            </tr>
+
+                                        )
+                                    )}
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+            )}
+
+            {normalizedPreview.length > 0 && (
+
+                <div
+                    style={{
+                        marginTop: "40px"
+                    }}
+                >
+
+                    <h3>
+                        🔄 Normalized Data Preview
+                    </h3>
+
+                    <div
+                        style={{
+                            overflowX: "auto"
+                        }}
+                    >
+
+                        <table
+                            border="1"
+                            cellPadding="10"
+                            style={{
+                                width: "100%",
+                                borderCollapse:
+                                    "collapse"
+                            }}
+                        >
+
+                            <thead>
+
+                                <tr>
+
+                                    {Object.keys(
+                                        normalizedPreview[0]
+                                    ).map(key => (
+
+                                        <th key={key}>
+                                            {key}
+                                        </th>
+
+                                    ))}
+
+                                </tr>
+
+                            </thead>
+
+                            <tbody>
+
+                                {normalizedPreview
+                                    .slice(0, 20)
+                                    .map(
+                                        (
+                                            row,
+                                            idx
+                                        ) => (
+
+                                            <tr key={idx}>
+
+                                                {Object.values(row)
+                                                    .map(
+                                                        (
+                                                            value,
+                                                            i
+                                                        ) => (
+
+                                                            <td key={i}>
+                                                                {String(value)}
+                                                            </td>
+
+                                                        )
+                                                    )}
+
+                                            </tr>
+
+                                        )
+                                    )}
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+            )}
+
+            <button
+                onClick={matchOrdersWithInventory}
+
+                disabled={
+                    matching ||
+                    !rows.length
+                }
+
+                style={{
+                    padding: "12px 20px",
+                    border: "none",
+                    borderRadius: "10px",
+                    background: "#16a34a",
+                    color: "#fff",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                    marginLeft: "10px"
+                }}
+            >
+                {matching
+                    ? "Matching..."
+                    : "🔍 Match Inventory"}
+            </button>
+
+            {/* ========================================
+    MATCHED ORDERS
+======================================== */}
+
+            {matchedOrders.length > 0 && (
+
+                <div
+                    style={{
+                        marginTop: "40px"
+                    }}
+                >
+
+                    <h3>
+                        ✅ Matched Orders
+                    </h3>
+
+                    <div
+                        style={{
+                            overflowX: "auto"
+                        }}
+                    >
+
+                        <table
+                            border="1"
+                            cellPadding="10"
+                            style={{
+                                width: "100%",
+                                borderCollapse:
+                                    "collapse"
+                            }}
+                        >
+
+                            <thead>
+
+                                <tr>
+
+                                    <th>
+                                        Product
+                                    </th>
+
+                                    <th>
+                                        Catalog
+                                    </th>
+
+                                    <th>
+                                        Size
+                                    </th>
+
+                                    <th>
+                                        Order Qty
+                                    </th>
+
+                                    <th>
+                                        Available
+                                    </th>
+
+                                    <th>
+                                        Status
+                                    </th>
+
+                                </tr>
+
+                            </thead>
+
+                            <tbody>
+
+                                {matchedOrders.map(
+                                    (
+                                        item,
+                                        idx
+                                    ) => (
+
+                                        <tr key={idx}>
+
+                                            <td>
+                                                {item.stock.productName}
+                                            </td>
+
+                                            <td>
+                                                {item.stock.catalogId}
+                                            </td>
+
+                                            <td>
+                                                {item.size}
+                                            </td>
+
+                                            <td>
+                                                {item.qty}
+                                            </td>
+
+                                            <td>
+                                                {item.availableQty}
+                                            </td>
+
+                                            <td>
+                                                ✅ Matched
+                                            </td>
+
+                                        </tr>
+
+                                    )
+                                )}
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                    {/* ========================================
+    UNMATCHED ORDERS
+======================================== */}
+
+                    {unmatchedOrders.length > 0 && (
+
+                        <div
+                            style={{
+                                marginTop: "40px"
+                            }}
+                        >
+
+                            <h3>
+                                ❌ Unmatched Orders
+                            </h3>
+
+                            <div
+                                style={{
+                                    overflowX: "auto"
+                                }}
+                            >
+
+                                <table
+                                    border="1"
+                                    cellPadding="10"
+                                    style={{
+                                        width: "100%",
+                                        borderCollapse:
+                                            "collapse"
+                                    }}
+                                >
+
+                                    <thead>
+
+                                        <tr>
+
+                                            <th>
+                                                Reason
+                                            </th>
+
+                                            <th>
+                                                Data
+                                            </th>
+
+                                        </tr>
+
+                                    </thead>
+
+                                    <tbody>
+
+                                        {unmatchedOrders.map(
+                                            (
+                                                item,
+                                                idx
+                                            ) => (
+
+                                                <tr key={idx}>
+
+                                                    <td>
+                                                        {item.reason}
+                                                    </td>
+
+                                                    <td>
+                                                        <pre
+                                                            style={{
+                                                                whiteSpace:
+                                                                    "pre-wrap"
+                                                            }}
+                                                        >
+                                                            {JSON.stringify(
+                                                                item.row,
+                                                                null,
+                                                                2
+                                                            )}
+                                                        </pre>
+                                                    </td>
+
+                                                </tr>
+
+                                            )
+                                        )}
+
+                                    </tbody>
+
+                                </table>
+
+                            </div>
+
+                        </div>
+                    )}
+
+                </div>
+            )}
+
+        </div>
+    );
+};
+
+export default MarketplaceCSVImport;

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { db, auth } from "../firebase";
 import {
     collection,
@@ -13,6 +13,7 @@ import {
     writeBatch,
     getDocs
 } from "firebase/firestore";
+import { useNavigate } from "react-router-dom";
 import { onAuthStateChanged } from "firebase/auth";
 import StockSummary from "./StockSummary";
 import { QRCodeCanvas } from "qrcode.react";
@@ -21,7 +22,7 @@ import StockInventory from "./StockInventory";
 import "../assets/StockList.css";
 import FeatureGate from "../components/FeatureGate";
 
-const createQRCodes = async (item, sizeKey, quantity) => {
+const createQRCodes = async (item, sizeKey, quantity, options = {}) => {
     const batch = writeBatch(db);
     const sizeData = item.sizes[sizeKey];
     const start = sizeData.initialQty || 0;
@@ -46,6 +47,18 @@ const createQRCodes = async (item, sizeKey, quantity) => {
             sellingPrice: sizeData.sellingPrice || 0,
             status: "available",
             printed: false,
+            isOnlineItem:
+                options.isOnlineItem || false,
+
+            inventorySource:
+                options.inventorySource || "core",
+
+            platform:
+                options.platform || "",
+
+            isMarketplaceQR:
+                options.isMarketplaceQR || false,
+
             createdAt: serverTimestamp()
         });
     }
@@ -53,14 +66,190 @@ const createQRCodes = async (item, sizeKey, quantity) => {
     await batch.commit();
 };
 
+
+const defaultStoreLinks = {
+    meesho: "",
+    flipkart: "",
+    amazon: "",
+    myntra: "",
+    ajio: "",
+    glowroad: "",
+    custom: ""
+};
+
+const ensureStoreLinks = (sizes = {}) => {
+
+    const updated = {};
+
+    Object.entries(sizes).forEach(([sizeKey, sizeData]) => {
+
+        updated[sizeKey] = {
+            ...sizeData,
+
+            storeLinks: {
+                ...defaultStoreLinks,
+                ...(sizeData.storeLinks || {})
+            }
+        };
+    });
+
+    return updated;
+};
+
+
+const storePlatforms = [
+    {
+        key: "meesho",
+        label: "Meesho",
+        icon: "🛍"
+    },
+    {
+        key: "flipkart",
+        label: "Flipkart",
+        icon: "🛒"
+    },
+    {
+        key: "amazon",
+        label: "Amazon",
+        icon: "📦"
+    },
+    {
+        key: "myntra",
+        label: "Myntra",
+        icon: "👕"
+    },
+    {
+        key: "ajio",
+        label: "Ajio",
+        icon: "✨"
+    },
+    {
+        key: "glowroad",
+        label: "GlowRoad",
+        icon: "🚚"
+    },
+    {
+        key: "custom",
+        label: "Custom",
+        icon: "🔗"
+    }
+];
+
+const isValidUrl = (url) => {
+
+    if (!url) return false;
+
+    try {
+
+        new URL(
+            url.startsWith("http")
+                ? url
+                : `https://${url}`
+        );
+
+        return true;
+
+    } catch {
+
+        return false;
+
+    }
+};
+
+const normalizeUrl = (url) => {
+
+    if (!url) return "";
+
+    return url.startsWith("http")
+        ? url
+        : `https://${url}`;
+};
+
+const copyToClipboard = async (text) => {
+
+    try {
+
+        await navigator.clipboard.writeText(text);
+
+        alert("Link copied");
+
+    } catch {
+
+        alert("Copy failed");
+
+    }
+};
+
+const MASTER_SIZE_ORDER = [
+    "FREE SIZE",
+    "XXXS",
+    "XXS",
+    "XS",
+    "S",
+    "M",
+    "L",
+    "XL",
+    "XXL",
+    "XXXL",
+    "4XL",
+    "5XL",
+    "6XL",
+    "7XL",
+    "8XL",
+    "0-3M",
+    "3-6M",
+    "6-9M",
+    "9-12M",
+    "12-18M",
+    "18-24M",
+    "2Y",
+    "3Y",
+    "4Y",
+    "5Y",
+    "6Y",
+    "7Y",
+    "8Y",
+    "9Y",
+    "10Y",
+    "11Y",
+    "12Y",
+    "13Y",
+    "14Y",
+    "15Y"
+];
+
 const StockList = ({ user }) => {
+
     const [showInventory, setShowInventory] = useState(false);
     // Print 
     const [printItem, setPrintItem] = useState(null);
     const [selectedSize, setSelectedSize] = useState("ALL");
     const [printedIds, setPrintedIds] = useState(new Set());
-    const [qrData, setQrData] = useState([]);
     const [forceQRPrint, setForceQRPrint] = useState({});
+    const navigate = useNavigate();
+
+    const [qrData, setQrData] = useState({});
+
+    const loadItemQR = async (stockId) => {
+
+        const q = query(
+            collection(db, "qrcodes"),
+            where("stockId", "==", stockId)
+        );
+
+        const snap = await getDocs(q);
+
+        const data = snap.docs.map(doc => ({
+
+            id: doc.id,
+            ...doc.data()
+        }));
+
+        setQrData(prev => ({
+            ...prev,
+            [stockId]: data
+        }));
+    };
 
 
     const canEditStock = (item) => {
@@ -74,19 +263,19 @@ const StockList = ({ user }) => {
     };
 
 
-    useEffect(() => {
-        const q = query(collection(db, "qrcodes"));
+    // useEffect(() => {
+    //     const q = query(collection(db, "qrcodes"));
 
-        const unsub = onSnapshot(q, (snap) => {
-            const data = snap.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            setQrData(data);
-        });
+    //     const unsub = onSnapshot(q, (snap) => {
+    //         const data = snap.docs.map(doc => ({
+    //             id: doc.id,
+    //             ...doc.data()
+    //         }));
+    //         setQrData(data);
+    //     });
 
-        return () => unsub();
-    }, []);
+    //     return () => unsub();
+    // }, []);
 
     const [stockLoading, setStockLoading] = useState(true);
     const [qrLoading, setQrLoading] = useState({});
@@ -119,26 +308,37 @@ const StockList = ({ user }) => {
     }, [role, user]);
 
     const [showQR, setShowQR] = useState({});
-    const toggleQR = async (id) => {
+    const toggleQR = async (item) => {
+
+        const id = item.catalogId;
 
         setQrLoading(prev => ({
             ...prev,
             [id]: true
         }));
 
-        setTimeout(() => {
+        try {
+
+            if (!showQR[id] && !qrData[item.id]) {
+                await loadItemQR(item.id);
+            }
 
             setShowQR(prev => ({
                 ...prev,
                 [id]: !prev[id]
             }));
 
+        } catch (err) {
+
+            console.error(err);
+
+        } finally {
+
             setQrLoading(prev => ({
                 ...prev,
                 [id]: false
             }));
-
-        }, 300);
+        }
     };
 
     const [qrPopup, setQrPopup] = useState({
@@ -183,10 +383,33 @@ const StockList = ({ user }) => {
             q,
             (snapshot) => {
 
-                const data = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
+                const data = snapshot.docs.map(doc => {
+                    const stock = {
+                        id: doc.id,
+                        ...doc.data()
+                    };
+
+                    const sizes = ensureStoreLinks(stock.sizes);
+
+                    const totalQty = getTotalQty(sizes);
+                    const totalInvestment = getTotalInvestment(sizes);
+                    const totalExtraCost = getTotalExtraCost(sizes);
+                    const totalSelling = getTotalSellingValue(sizes);
+                    const profit = getTotalProfit(sizes);
+                    const avgSelling = getAvgSellingPrice(sizes);
+
+                    return {
+                        ...stock,
+                        sizes,
+
+                        totalQty,
+                        totalInvestment,
+                        totalExtraCost,
+                        totalSelling,
+                        profit,
+                        avgSelling
+                    };
+                });
 
                 setStocks(data);
 
@@ -399,7 +622,7 @@ const StockList = ({ user }) => {
             });
 
             // 🔥 FIND ALL AVAILABLE QR
-            const qrToUpdate = qrData.filter(qr =>
+            const qrToUpdate = (qrData[item.id] || []).filter(qr =>
                 qr.stockId === item.id &&
                 qr.size === sizeKey &&
                 qr.status === "available"
@@ -447,8 +670,45 @@ const StockList = ({ user }) => {
         }
     };
 
+    const handleStoreLinkUpdate = async (
+        item,
+        sizeKey,
+        platform,
+        value
+    ) => {
+
+        if (!canEditStock(item)) {
+            alert("You are not authorized");
+            return;
+        }
+
+        try {
+
+            const updatedSizes = { ...item.sizes };
+
+            if (!updatedSizes[sizeKey].storeLinks) {
+                updatedSizes[sizeKey].storeLinks = {};
+            }
+
+            updatedSizes[sizeKey].storeLinks[platform] = value;
+
+            await updateDoc(
+                doc(db, "stocks", item.id),
+                {
+                    sizes: updatedSizes
+                }
+            );
+
+        } catch (err) {
+
+            console.error(err);
+            alert("Failed to update store link");
+
+        }
+    };
+
     const getSoldCount = (item, size) => {
-        return qrData.filter(qr =>
+        return (qrData[item.id] || []).filter(qr =>
             qr.stockId === item.id &&
             qr.size === size &&
             qr.status === "sold"
@@ -523,7 +783,7 @@ const StockList = ({ user }) => {
 
         if (!confirmReduce) return;
 
-        const availableQR = qrData
+        const availableQR = (qrData[item.id] || [])
             .filter(qr =>
                 qr.stockId === item.id &&
                 qr.size === sizeKey &&
@@ -566,53 +826,96 @@ const StockList = ({ user }) => {
         ).values()
     ];
 
-    const filteredStocks = stocks.filter(item => {
+    // const filteredStocks = stocks.filter(item => {
 
-        // ========================================
-        // POPULARITY FILTER
-        // ========================================
+    //     // ========================================
+    //     // POPULARITY FILTER
+    //     // ========================================
 
-        const matchesPopularity =
-            !popularityFilter ||
-            item.catalogPopularity === popularityFilter;
+    //     const matchesPopularity =
+    //         !popularityFilter ||
+    //         item.catalogPopularity === popularityFilter;
 
-        // ========================================
-        // USER FILTER
-        // ========================================
+    //     // ========================================
+    //     // USER FILTER
+    //     // ========================================
 
-        const matchesUser =
-            role !== "admin" &&
-                role !== "superadmin"
-                ? true
-                : selectedUser === "all"
+    //     const matchesUser =
+    //         role !== "admin" &&
+    //             role !== "superadmin"
+    //             ? true
+    //             : selectedUser === "all"
+    //                 ? true
+    //                 : item.userId === selectedUser;
+
+    //     // ========================================
+    //     // CATALOG SEARCH
+    //     // ========================================
+
+    //     const matchesCatalog =
+    //         !searchId ||
+    //         item.catalogId
+    //             ?.toUpperCase()
+    //             .includes(searchId.toUpperCase());
+
+    //     // ========================================
+    //     // FINAL
+    //     // ========================================
+
+    //     return (
+    //         matchesPopularity &&
+    //         matchesUser &&
+    //         matchesCatalog
+    //     );
+    // });
+
+    const filteredStocks = useMemo(() => {
+
+        return stocks.filter(item => {
+
+            const matchesPopularity =
+                !popularityFilter ||
+                item.catalogPopularity === popularityFilter;
+
+            const matchesUser =
+                role !== "admin" &&
+                    role !== "superadmin"
                     ? true
-                    : item.userId === selectedUser;
+                    : selectedUser === "all"
+                        ? true
+                        : item.userId === selectedUser;
 
-        // ========================================
-        // CATALOG SEARCH
-        // ========================================
+            const matchesCatalog =
+                !searchId ||
+                item.catalogId
+                    ?.toUpperCase()
+                    .includes(searchId.toUpperCase());
 
-        const matchesCatalog =
-            !searchId ||
-            item.catalogId
-                ?.toUpperCase()
-                .includes(searchId.toUpperCase());
+            return (
+                matchesPopularity &&
+                matchesUser &&
+                matchesCatalog
+            );
+        });
 
-        // ========================================
-        // FINAL
-        // ========================================
+    }, [
+        stocks,
+        popularityFilter,
+        selectedUser,
+        searchId,
+        role
+    ]);
 
-        return (
-            matchesPopularity &&
-            matchesUser &&
-            matchesCatalog
-        );
-    });
+    // const getItemQR = (item) => {
+    //     return qrData.filter(qr =>
+    //         qr.stockId === item.id &&
+    //         qr.status === "available"
+    //     );
+    // };
 
     const getItemQR = (item) => {
-        return qrData.filter(qr =>
-            qr.stockId === item.id &&
-            qr.status === "available"
+        return (qrData[item.id] || []).filter(
+            qr => qr.status === "available"
         );
     };
 
@@ -645,7 +948,7 @@ const StockList = ({ user }) => {
 
             const newPrice = item.sizes[sizeKey].sellingPrice;
 
-            const qrs = qrData.filter(qr =>
+            const qrs = (qrData[item.id] || []).filter(qr =>
                 qr.stockId === item.id &&
                 qr.size === sizeKey &&
                 qr.status === "available"
@@ -678,6 +981,46 @@ const StockList = ({ user }) => {
         }
     };
 
+    const sortSizes = (sizes = {}) => {
+
+        return Object.entries(sizes).sort(([sizeA], [sizeB]) => {
+
+            const a = String(sizeA).trim().toUpperCase();
+            const b = String(sizeB).trim().toUpperCase();
+
+            const indexA = MASTER_SIZE_ORDER.indexOf(a);
+            const indexB = MASTER_SIZE_ORDER.indexOf(b);
+
+            if (indexA !== -1 && indexB !== -1) {
+                return indexA - indexB;
+            }
+
+            if (indexA !== -1) return -1;
+            if (indexB !== -1) return 1;
+
+            const meterRegex = /^(\d+(\.\d+)?)\s*METER$/i;
+
+            const meterA = a.match(meterRegex);
+            const meterB = b.match(meterRegex);
+
+            if (meterA && meterB) {
+                return parseFloat(meterA[1]) - parseFloat(meterB[1]);
+            }
+
+            const numA = parseFloat(a);
+            const numB = parseFloat(b);
+
+            if (!isNaN(numA) && !isNaN(numB)) {
+                return numA - numB;
+            }
+
+            return a.localeCompare(b, undefined, {
+                numeric: true,
+                sensitivity: "base"
+            });
+        });
+    };
+
     return (
         <div className="stock-page" >
             <StockSummary stocks={filteredStocks} user={user} />
@@ -685,6 +1028,22 @@ const StockList = ({ user }) => {
                 <button className="summary-card" style={{ color: "white" }} onClick={() => setShowInventory(true)}>
                     + Add New Items
                 </button>
+
+                <FeatureGate
+                    user={user}
+                    feature="marketplaceIntegrations"
+                    title="Marketplace Integrations"
+                    description="Upgrade your plan to unlock Marketplace Integrations."
+                >
+                    <button className="summary-card" style={{ color: "white" }} onClick={() => navigate("/marketplace-integrations")} >
+                        Marketplace Integrations
+                    </button>
+
+                    <button className="summary-card" style={{ color: "white" }} onClick={() => navigate("/marketplace-csv-import")} >
+                        Marketplace CSV Import
+                    </button>
+                </FeatureGate>
+
 
                 {user && showInventory && (
                     <div className="modal-overlay">
@@ -847,12 +1206,12 @@ const StockList = ({ user }) => {
 
                             <tbody>
                                 {filteredStocks.map((item, idx) => {
-                                    const totalQty = getTotalQty(item.sizes);
-                                    const totalInvestment = getTotalInvestment(item.sizes);
-                                    const totalExtraCost = getTotalExtraCost(item.sizes);
-                                    const totalSelling = getTotalSellingValue(item.sizes);
-                                    const profit = getTotalProfit(item.sizes);
-                                    const avgSelling = getAvgSellingPrice(item.sizes);
+                                    // const totalQty = getTotalQty(item.sizes);
+                                    // const totalInvestment = getTotalInvestment(item.sizes);
+                                    // const totalExtraCost = getTotalExtraCost(item.sizes);
+                                    // const totalSelling = getTotalSellingValue(item.sizes);
+                                    // const profit = getTotalProfit(item.sizes);
+                                    // const avgSelling = getAvgSellingPrice(item.sizes);
                                     const qrCodes = getItemQR(item);
                                     const editable = canEditStock(item);
 
@@ -930,136 +1289,138 @@ const StockList = ({ user }) => {
 
                                             <td>
                                                 <div style={{ overflowY: "auto", maxHeight: "365px", scrollbarWidth: "thin" }} >
-                                                    {Object.entries(item.sizes || {})
-                                                        .sort(([sizeA], [sizeB]) => {
+                                                    {sortSizes(item.sizes).map(([size, data]) => {
 
-                                                            // Normalize
-                                                            const a = String(sizeA).trim().toUpperCase();
-                                                            const b = String(sizeB).trim().toUpperCase();
+                                                        // Normalize
+                                                        // const a = String(sizeA).trim().toUpperCase();
+                                                        // const b = String(sizeB).trim().toUpperCase();
 
-                                                            // ========================================
-                                                            // MASTER SIZE ORDER
-                                                            // ========================================
 
-                                                            const masterOrder = [
 
-                                                                // FREE
-                                                                "FREE SIZE",
+                                                        // // ========================================
+                                                        // // MASTER SIZE ORDER
+                                                        // // ========================================
 
-                                                                // CLOTHING
-                                                                "XXXS",
-                                                                "XXS",
-                                                                "XS",
-                                                                "S",
-                                                                "M",
-                                                                "L",
-                                                                "XL",
-                                                                "XXL",
-                                                                "XXXL",
-                                                                "4XL",
-                                                                "5XL",
-                                                                "6XL",
-                                                                "7XL",
-                                                                "8XL",
+                                                        // const masterOrder = [
 
-                                                                // KIDS
-                                                                "0-3M",
-                                                                "3-6M",
-                                                                "6-9M",
-                                                                "9-12M",
-                                                                "12-18M",
-                                                                "18-24M",
+                                                        //     // FREE
+                                                        //     "FREE SIZE",
 
-                                                                "2Y",
-                                                                "3Y",
-                                                                "4Y",
-                                                                "5Y",
-                                                                "6Y",
-                                                                "7Y",
-                                                                "8Y",
-                                                                "9Y",
-                                                                "10Y",
-                                                                "11Y",
-                                                                "12Y",
-                                                                "13Y",
-                                                                "14Y",
-                                                                "15Y"
-                                                            ];
+                                                        //     // CLOTHING
+                                                        //     "XXXS",
+                                                        //     "XXS",
+                                                        //     "XS",
+                                                        //     "S",
+                                                        //     "M",
+                                                        //     "L",
+                                                        //     "XL",
+                                                        //     "XXL",
+                                                        //     "XXXL",
+                                                        //     "4XL",
+                                                        //     "5XL",
+                                                        //     "6XL",
+                                                        //     "7XL",
+                                                        //     "8XL",
 
-                                                            // ========================================
-                                                            // DIRECT ORDER MATCH
-                                                            // ========================================
+                                                        //     // KIDS
+                                                        //     "0-3M",
+                                                        //     "3-6M",
+                                                        //     "6-9M",
+                                                        //     "9-12M",
+                                                        //     "12-18M",
+                                                        //     "18-24M",
 
-                                                            const indexA = masterOrder.indexOf(a);
-                                                            const indexB = masterOrder.indexOf(b);
+                                                        //     "2Y",
+                                                        //     "3Y",
+                                                        //     "4Y",
+                                                        //     "5Y",
+                                                        //     "6Y",
+                                                        //     "7Y",
+                                                        //     "8Y",
+                                                        //     "9Y",
+                                                        //     "10Y",
+                                                        //     "11Y",
+                                                        //     "12Y",
+                                                        //     "13Y",
+                                                        //     "14Y",
+                                                        //     "15Y"
+                                                        // ];
 
-                                                            if (indexA !== -1 && indexB !== -1) {
-                                                                return indexA - indexB;
-                                                            }
 
-                                                            if (indexA !== -1) return -1;
-                                                            if (indexB !== -1) return 1;
+                                                        // // ========================================
+                                                        // // DIRECT ORDER MATCH
+                                                        // // ========================================
 
-                                                            // ========================================
-                                                            // FABRIC / METER SORT
-                                                            // ========================================
+                                                        // const indexA = masterOrder.indexOf(a);
+                                                        // const indexB = masterOrder.indexOf(b);
 
-                                                            const meterRegex = /^(\d+(\.\d+)?)\s*METER$/i;
+                                                        // if (indexA !== -1 && indexB !== -1) {
+                                                        //     return indexA - indexB;
+                                                        // }
 
-                                                            const meterA = a.match(meterRegex);
-                                                            const meterB = b.match(meterRegex);
+                                                        // if (indexA !== -1) return -1;
+                                                        // if (indexB !== -1) return 1;
 
-                                                            if (meterA && meterB) {
-                                                                return parseFloat(meterA[1]) - parseFloat(meterB[1]);
-                                                            }
+                                                        // // ========================================
+                                                        // // FABRIC / METER SORT
+                                                        // // ========================================
 
-                                                            // ========================================
-                                                            // NUMERIC SORT
-                                                            // 28,30,32...
-                                                            // ========================================
+                                                        // const meterRegex = /^(\d+(\.\d+)?)\s*METER$/i;
 
-                                                            const numA = parseFloat(a);
-                                                            const numB = parseFloat(b);
+                                                        // const meterA = a.match(meterRegex);
+                                                        // const meterB = b.match(meterRegex);
 
-                                                            if (!isNaN(numA) && !isNaN(numB)) {
-                                                                return numA - numB;
-                                                            }
+                                                        // if (meterA && meterB) {
+                                                        //     return parseFloat(meterA[1]) - parseFloat(meterB[1]);
+                                                        // }
 
-                                                            // ========================================
-                                                            // MIXED NUMERIC SORT
-                                                            // 30A, 32B etc
-                                                            // ========================================
+                                                        // // ========================================
+                                                        // // NUMERIC SORT
+                                                        // // 28,30,32...
+                                                        // // ========================================
 
-                                                            const mixedA = a.match(/^(\d+)/);
-                                                            const mixedB = b.match(/^(\d+)/);
+                                                        // const numA = parseFloat(a);
+                                                        // const numB = parseFloat(b);
 
-                                                            if (mixedA && mixedB) {
+                                                        // if (!isNaN(numA) && !isNaN(numB)) {
+                                                        //     return numA - numB;
+                                                        // }
 
-                                                                const diff =
-                                                                    parseInt(mixedA[1]) -
-                                                                    parseInt(mixedB[1]);
+                                                        // // ========================================
+                                                        // // MIXED NUMERIC SORT
+                                                        // // 30A, 32B etc
+                                                        // // ========================================
 
-                                                                if (diff !== 0) return diff;
-                                                            }
+                                                        // const mixedA = a.match(/^(\d+)/);
+                                                        // const mixedB = b.match(/^(\d+)/);
 
-                                                            // ========================================
-                                                            // FINAL FALLBACK
-                                                            // ========================================
+                                                        // if (mixedA && mixedB) {
 
-                                                            return a.localeCompare(
-                                                                b,
-                                                                undefined,
-                                                                {
-                                                                    numeric: true,
-                                                                    sensitivity: "base"
-                                                                }
-                                                            );
-                                                        })
-                                                        .map(([size, data]) => {
+                                                        //     const diff =
+                                                        //         parseInt(mixedA[1]) -
+                                                        //         parseInt(mixedB[1]);
+
+                                                        //     if (diff !== 0) return diff;
+                                                        // }
+
+                                                        // // ========================================
+                                                        // // FINAL FALLBACK
+                                                        // // ========================================
+
+                                                        // return a.localeCompare(
+                                                        //     b,
+                                                        //     undefined,
+                                                        //     {
+                                                        //         numeric: true,
+                                                        //         sensitivity: "base"
+                                                        //     }
+                                                        // );
+                                                    // })
+                                                    //     .map(([size, data]) => {
                                                             const soldCount = getSoldCount(item, size);
                                                             const total = data.initialQty ?? 0;
                                                             const available = data.qty ?? 0;
-                                                            const removedCount = qrData.reduce((count, qr) => {
+                                                            const removedCount = (qrData[item.id] || []).reduce((count, qr) => {
                                                                 if (
                                                                     qr.stockId === item.id &&
                                                                     qr.size === size &&
@@ -1245,6 +1606,212 @@ const StockList = ({ user }) => {
                                                                                 </div>
                                                                             ))}
                                                                         </div>
+                                                                        {/* =======================================
+                                                                               ONLINE STORE LINKS
+                                                                            ======================================= */}
+
+                                                                        <div
+                                                                            style={{
+                                                                                marginTop: "10px",
+                                                                                borderTop: "1px dashed #555",
+                                                                                paddingTop: "10px",
+                                                                                overflowY: "auto",
+                                                                                maxHeight: "100px",
+                                                                                width: "100%",
+                                                                                scrollbarWidth: "thin"
+                                                                            }}
+                                                                        >
+                                                                            <div
+                                                                                style={{
+                                                                                    fontWeight: "bold",
+                                                                                    fontSize: "13px",
+                                                                                    color: "#3b82f6",
+                                                                                    position: "sticky",
+                                                                                    top: 0,
+                                                                                }}
+                                                                            >
+                                                                                🌐 Online Store Links
+                                                                            </div>
+
+                                                                            <div
+                                                                                style={{
+                                                                                    fontWeight: "bold",
+                                                                                    // marginBottom: "8px",
+                                                                                    fontSize: "13px",
+                                                                                    color: "#3b82f6",
+                                                                                    padding: "10px 10px"
+                                                                                }}
+                                                                            >
+                                                                                <div
+                                                                                    style={{
+                                                                                        display: "flex",
+                                                                                        justifyContent: "space-between",
+                                                                                        alignItems: "center",
+                                                                                        flexWrap: "wrap",
+                                                                                        gap: "8px"
+                                                                                    }}
+                                                                                >
+                                                                                    <button
+                                                                                        onClick={() => {
+
+                                                                                            Object.values(
+                                                                                                data.storeLinks || {}
+                                                                                            ).forEach((link) => {
+
+                                                                                                if (isValidUrl(link)) {
+
+                                                                                                    window.open(
+                                                                                                        normalizeUrl(link),
+                                                                                                        "_blank"
+                                                                                                    );
+
+                                                                                                }
+                                                                                            });
+                                                                                        }}
+                                                                                        style={{
+                                                                                            padding: "5px 10px",
+                                                                                            border: "none",
+                                                                                            borderRadius: "5px",
+                                                                                            background: "#059669",
+                                                                                            color: "#fff",
+                                                                                            cursor: "pointer",
+                                                                                            fontSize: "11px"
+                                                                                        }}
+                                                                                    >
+                                                                                        🚀 Open All
+                                                                                    </button>
+
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <div
+                                                                                style={{
+                                                                                    display: "grid",
+                                                                                    gridTemplateColumns:
+                                                                                        "repeat(auto-fit,minmax(220px,1fr))",
+                                                                                    gap: "8px"
+                                                                                }}
+                                                                            >
+
+                                                                                {storePlatforms.map((platform) => {
+
+                                                                                    const link =
+                                                                                        data.storeLinks?.[platform.key] || "";
+
+                                                                                    return (
+
+                                                                                        <div
+                                                                                            key={platform.key}
+                                                                                            style={{
+                                                                                                border: "1px solid #333",
+                                                                                                borderRadius: "8px",
+                                                                                                padding: "8px",
+                                                                                                background: "#111827"
+                                                                                            }}
+                                                                                        >
+
+                                                                                            <div
+                                                                                                style={{
+                                                                                                    fontSize: "12px",
+                                                                                                    marginBottom: "5px",
+                                                                                                    fontWeight: "bold"
+                                                                                                }}
+                                                                                            >
+                                                                                                {platform.icon} {platform.label}
+                                                                                            </div>
+
+                                                                                            <input
+                                                                                                type="text"
+                                                                                                placeholder={`${platform.label} Link`}
+                                                                                                value={link}
+                                                                                                onChange={(e) =>
+                                                                                                    handleStoreLinkUpdate(
+                                                                                                        item,
+                                                                                                        size,
+                                                                                                        platform.key,
+                                                                                                        e.target.value
+                                                                                                    )
+                                                                                                }
+                                                                                                disabled={!editable}
+                                                                                                style={{
+                                                                                                    width: "95%",
+                                                                                                    padding: "6px",
+                                                                                                    fontSize: "11px",
+                                                                                                    marginBottom: "5px"
+                                                                                                }}
+                                                                                            />
+
+                                                                                            {link && !isValidUrl(link) && (
+                                                                                                <div
+                                                                                                    style={{
+                                                                                                        color: "#ef4444",
+                                                                                                        fontSize: "10px",
+                                                                                                        marginBottom: "5px"
+                                                                                                    }}
+                                                                                                >
+                                                                                                    Invalid URL
+                                                                                                </div>
+                                                                                            )}
+
+                                                                                            <div
+                                                                                                style={{
+                                                                                                    display: "flex",
+                                                                                                    gap: "5px"
+                                                                                                }}
+                                                                                            >
+
+                                                                                                <button
+                                                                                                    onClick={() =>
+                                                                                                        window.open(
+                                                                                                            normalizeUrl(link),
+                                                                                                            "_blank"
+                                                                                                        )
+                                                                                                    }
+                                                                                                    disabled={!isValidUrl(link)}
+                                                                                                    style={{
+                                                                                                        flex: 1,
+                                                                                                        padding: "6px",
+                                                                                                        cursor: isValidUrl(link)
+                                                                                                            ? "pointer"
+                                                                                                            : "not-allowed",
+                                                                                                        background:
+                                                                                                            isValidUrl(link)
+                                                                                                                ? "#2563eb"
+                                                                                                                : "#555",
+                                                                                                        color: "#fff",
+                                                                                                        border: "none",
+                                                                                                        borderRadius: "5px"
+                                                                                                    }}
+                                                                                                >
+                                                                                                    Open
+                                                                                                </button>
+
+                                                                                                <button
+                                                                                                    onClick={() =>
+                                                                                                        copyToClipboard(
+                                                                                                            normalizeUrl(link)
+                                                                                                        )
+                                                                                                    }
+                                                                                                    disabled={!link}
+                                                                                                    style={{
+                                                                                                        padding: "6px 10px",
+                                                                                                        borderRadius: "5px",
+                                                                                                        border: "none",
+                                                                                                        cursor: link
+                                                                                                            ? "pointer"
+                                                                                                            : "not-allowed"
+                                                                                                    }}
+                                                                                                >
+                                                                                                    📋
+                                                                                                </button>
+
+                                                                                            </div>
+
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             )
@@ -1252,16 +1819,16 @@ const StockList = ({ user }) => {
                                                 </div>
                                             </td>
 
-                                            <td>{totalQty}</td>
-                                            <td>₹{totalInvestment.toFixed(2)}</td>
-                                            <td>₹{totalExtraCost.toFixed(2)}</td>
-                                            <td>₹{avgSelling.toFixed(2)}</td>
-                                            <td>₹{totalSelling.toFixed(2)}</td>
+                                            <td>{item.totalQty}</td>
+                                            <td>₹{item.totalInvestment.toFixed(2)}</td>
+                                            <td>₹{item.totalExtraCost.toFixed(2)}</td>
+                                            <td>₹{item.avgSelling.toFixed(2)}</td>
+                                            <td>₹{item.totalSelling.toFixed(2)}</td>
                                             <td style={{
-                                                color: profit < 0 ? "red" : "green",
+                                                color: item.profit < 0 ? "red" : "green",
                                                 fontWeight: "bold"
                                             }}>
-                                                ₹{profit.toFixed(2)}
+                                                ₹{item.profit.toFixed(2)}
                                             </td>
                                             <td>
                                                 <div key={item.catalogId} style={{
@@ -1271,7 +1838,7 @@ const StockList = ({ user }) => {
                                                     height: "inherit",
                                                 }}>
                                                     <button
-                                                        onClick={() => toggleQR(item.catalogId)}
+                                                        onClick={() => toggleQR(item)}
                                                     >
                                                         {qrLoading[item.catalogId]
                                                             ? "Loading..."
@@ -1285,7 +1852,7 @@ const StockList = ({ user }) => {
                                                             <p><b>Catalog ID:</b> {item.catalogId}</p>
                                                             <p><b>Count:</b> {qrCodes.length}</p>
                                                             <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "4px", overflow: "auto", maxHeight: "190px", scrollbarWidth: "thin" }}>
-                                                                {qrCodes.map((qr, index) => {
+                                                                {qrCodes.slice(0, 50).map((qr, index) => {
                                                                     const qrObj = qr;
                                                                     const isNew = !qr.printed;
 
@@ -1330,6 +1897,11 @@ const StockList = ({ user }) => {
 
                                                                     );
                                                                 })}
+                                                                {qrCodes.length > 50 && (
+                                                                    <div>
+                                                                        +{qrCodes.length - 50} more QR
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     )}
@@ -1413,6 +1985,10 @@ const StockList = ({ user }) => {
                         </select>
 
                         <button onClick={async () => {
+
+                            if (!qrData[printItem.id]) {
+                                await loadItemQR(printItem.id);
+                            }
 
                             const qrs = getItemQR(printItem)
                                 .filter(qr =>

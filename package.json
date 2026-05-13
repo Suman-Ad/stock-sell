@@ -10,11 +10,13 @@
     "file-saver": "^2.0.5",
     "firebase": "^12.13.0",
     "html5-qrcode": "^2.3.8",
+    "papaparse": "^5.5.3",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-router-dom": "^6.30.3",
     "react-scripts": "5.0.1",
+    "react-window": "^2.2.7",
     "web-vitals": "^2.1.4",
     "xlsx": "^0.18.5"
   },

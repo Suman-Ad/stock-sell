@@ -41,6 +41,8 @@ import SubscriptionExpired from "./pages/SubscriptionExpired";
 
 import PlansPage from "./pages/PlansPage";
 import ContactUs from "./pages/ContactUs";
+import MarketplaceIntegrations from "./pages/MarketplaceIntegrations";
+import MarketplaceCSVImport from "./pages/MarketplaceCSVImport";
 
 function App() {
 
@@ -116,7 +118,7 @@ function App() {
             // <ProtectedRoute
             //   user={user}
             // >
-              <PlansPage user={user} />
+            <PlansPage user={user} />
             // </ProtectedRoute>
           }
         />
@@ -255,7 +257,19 @@ function App() {
             }
           />
 
+          <Route
+            path="/marketplace-integrations"
+            element={
+              <MarketplaceIntegrations user={user} />
+            }
+          />
 
+          <Route
+            path="/marketplace-csv-import"
+            element={
+              <MarketplaceCSVImport user={user} />
+            }
+          />
 
           {/* ======================
               ADMIN ROUTES
