@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { db, auth } from "../firebase";
 
 import {
@@ -50,6 +50,7 @@ const SalesHistory = ({ user }) => {
             q = query(
                 collection(db, "sales"),
                 where("deleted", "!=", true)
+                // where("deleted", "in", [false, null])
             );
 
         } else {
@@ -58,6 +59,7 @@ const SalesHistory = ({ user }) => {
                 collection(db, "sales"),
                 where("userId", "==", auth.currentUser.uid),
                 where("deleted", "!=", true)
+                // where("deleted", "in", [false, null])
             );
         }
 
@@ -79,80 +81,263 @@ const SalesHistory = ({ user }) => {
     // =========================================
     // FILTER
     // =========================================
-    const filteredSales = sales.filter((s) => {
+    // =========================================
+    // FILTER STATES
+    // =========================================
+    const [statusFilter, setStatusFilter] = useState("");
+    const [platformFilter, setPlatformFilter] = useState("");
+    const [saleTypeFilter, setSaleTypeFilter] = useState("");
+    const [profitFilter, setProfitFilter] = useState("");
+    const [sizeFilter, setSizeFilter] = useState("");
 
-        // DATE FILTER
-        if (filterDate) {
+    // =========================================
+    // FILTER
+    // =========================================
+    // =========================================
+    // NORMALIZE VALUE
+    // =========================================
+    const normalize = (value) => {
+        return String(value || "")
+            .trim()
+            .toLowerCase();
+    };
 
-            let saleDateObj = null;
+    // =========================================
+    // FILTER
+    // =========================================
+    const filteredSales = useMemo(() => {
+        return sales.filter((s) => {
 
-            if (s.soldAt?.toDate) {
+            // =========================
+            // NORMALIZED VALUES
+            // =========================
+            const orderStatus =
+                normalize(s.orderStatus);
 
-                saleDateObj = s.soldAt.toDate();
+            const platform =
+                normalize(s.platform);
 
-            } else if (s.soldAt instanceof Date) {
-
-                saleDateObj = s.soldAt;
-
-            } else if (s.soldAt) {
-
-                saleDateObj = new Date(s.soldAt);
-            }
-
-            if (!saleDateObj || isNaN(saleDateObj)) {
-                return false;
-            }
-
-            const saleDate =
-                saleDateObj.toISOString().split("T")[0];
-
-            if (saleDate !== filterDate) {
-                return false;
-            }
-        }
-
-        // SEARCH
-        if (search) {
-
-            const keyword = search.toLowerCase();
+            const size =
+                normalize(s.size);
 
             const catalogId =
-                s.catalogId?.toLowerCase() || "";
-
-            const customerName =
-                s.customer?.name?.toLowerCase() || "";
-
-            const customerPhone =
-                s.customer?.phone?.toLowerCase() || "";
+                normalize(s.catalogId);
 
             const productName =
-                s.productName?.toLowerCase() || "";
+                normalize(s.productName);
 
+            const orderId =
+                normalize(s.orderId);
+
+            const customerName =
+                normalize(s.customer?.name);
+
+            const customerPhone =
+                normalize(s.customer?.phone);
+
+            const customerEmail =
+                normalize(s.customer?.email);
+
+            const awbNo =
+                normalize(s.customer?.awbNo);
+
+            const keyword =
+                normalize(search);
+
+            // =========================
+            // DATE FILTER
+            // =========================
+            if (filterDate) {
+
+                let saleDateObj = null;
+
+                if (s.soldAt?.toDate) {
+
+                    saleDateObj = s.soldAt.toDate();
+
+                } else if (s.soldAt instanceof Date) {
+
+                    saleDateObj = s.soldAt;
+
+                } else if (s.soldAt) {
+
+                    saleDateObj = new Date(s.soldAt);
+                }
+
+                if (
+                    !saleDateObj ||
+                    isNaN(saleDateObj.getTime())
+                ) {
+                    return false;
+                }
+
+                const yyyy =
+                    saleDateObj.getFullYear();
+
+                const mm = String(
+                    saleDateObj.getMonth() + 1
+                ).padStart(2, "0");
+
+                const dd = String(
+                    saleDateObj.getDate()
+                ).padStart(2, "0");
+
+                const saleDate =
+                    `${yyyy}-${mm}-${dd}`;
+
+                if (saleDate !== filterDate) {
+                    return false;
+                }
+            }
+
+            // =========================
+            // STATUS FILTER
+            // =========================
             if (
-                !catalogId.includes(keyword) &&
-                !customerName.includes(keyword) &&
-                !customerPhone.includes(keyword) &&
-                !productName.includes(keyword)
+                statusFilter &&
+                !orderStatus.includes(
+                    normalize(statusFilter)
+                )
             ) {
                 return false;
             }
-        }
 
-        return true;
-    });
+            // =========================
+            // PLATFORM FILTER
+            // =========================
+            if (
+                platformFilter &&
+                !platform.includes(
+                    normalize(platformFilter)
+                )
+            ) {
+                return false;
+            }
+
+            // =========================
+            // SIZE FILTER
+            // =========================
+            if (
+                sizeFilter &&
+                !size.includes(
+                    normalize(sizeFilter)
+                )
+            ) {
+                return false;
+            }
+
+            // =========================
+            // ONLINE / OFFLINE FILTER
+            // =========================
+            if (saleTypeFilter) {
+
+                const isOnline =
+                    s.isSaleOnline === true ||
+                    normalize(s.isSaleOnline) === "true" ||
+                    normalize(s.isSaleOnline) === "online";
+
+                if (
+                    saleTypeFilter === "online" &&
+                    !isOnline
+                ) {
+                    return false;
+                }
+
+                if (
+                    saleTypeFilter === "offline" &&
+                    isOnline
+                ) {
+                    return false;
+                }
+            }
+
+            // =========================
+            // PROFIT / LOSS FILTER
+            // =========================
+            if (profitFilter) {
+
+                const profit =
+                    Number(s.profit || 0);
+
+                if (
+                    profitFilter === "profit" &&
+                    profit <= 0
+                ) {
+                    return false;
+                }
+
+                if (
+                    profitFilter === "loss" &&
+                    profit >= 0
+                ) {
+                    return false;
+                }
+            }
+
+            // =========================
+            // SEARCH
+            // =========================
+            if (keyword) {
+
+                const searchValues = [
+                    catalogId,
+                    productName,
+                    orderId,
+                    platform,
+                    orderStatus,
+                    size,
+                    customerName,
+                    customerPhone,
+                    customerEmail,
+                    awbNo
+                ];
+
+                const found =
+                    searchValues.some(v =>
+                        v.includes(keyword)
+                    );
+
+                if (!found) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+    }, [
+        sales,
+        search,
+        filterDate,
+        statusFilter,
+        platformFilter,
+        saleTypeFilter,
+        profitFilter,
+        sizeFilter
+    ]);
 
     // =========================================
-    // SUMMARY
+    // FILTERED SALES
     // =========================================
     const activeSales = filteredSales;
 
+    // =========================================
     // PAGINATION
-    const totalPages = Math.ceil(
-        activeSales.length / ITEMS_PER_PAGE
+    // =========================================
+    const totalPages = Math.max(
+        1,
+        Math.ceil(
+            activeSales.length / ITEMS_PER_PAGE
+        )
+    );
+
+    // FIX INVALID PAGE
+    const safeCurrentPage = Math.min(
+        currentPage,
+        totalPages
     );
 
     const startIndex =
-        (currentPage - 1) * ITEMS_PER_PAGE;
+        (safeCurrentPage - 1) * ITEMS_PER_PAGE;
 
     const paginatedSales =
         activeSales.slice(
@@ -293,8 +478,23 @@ const SalesHistory = ({ user }) => {
     };
 
     useEffect(() => {
-        setCurrentPage(1);
-    }, [search, filterDate]);
+
+        const maxPage = Math.max(
+            1,
+            Math.ceil(
+                filteredSales.length /
+                ITEMS_PER_PAGE
+            )
+        );
+
+        if (currentPage > maxPage) {
+            setCurrentPage(maxPage);
+        }
+
+    }, [
+        filteredSales.length,
+        currentPage
+    ]);
 
     return (
 
@@ -341,9 +541,9 @@ const SalesHistory = ({ user }) => {
                     title="Marketplace Integrations"
                     description="Upgrade your plan to unlock Marketplace Integrations."
                 >
-                    <button className="summary-card" style={{ color: "white" }} onClick={() => navigate("/marketplace-integrations")} >
+                    {/* <button className="summary-card" style={{ color: "white" }} onClick={() => navigate("/marketplace-integrations")} >
                         Marketplace Integrations
-                    </button>
+                    </button> */}
 
                     <button className="summary-card" style={{ color: "white" }}
                         onClick={() =>
@@ -358,6 +558,7 @@ const SalesHistory = ({ user }) => {
                 </FeatureGate>
 
                 {/* FILTER */}
+                {/* FILTER */}
                 <div className="sales-filter">
 
                     <input
@@ -370,12 +571,141 @@ const SalesHistory = ({ user }) => {
 
                     <input
                         type="text"
-                        placeholder="Search Catalog ID / customer / phone / product"
+                        placeholder="Search anything..."
                         value={search}
                         onChange={(e) =>
                             setSearch(e.target.value)
                         }
                     />
+
+                    {/* STATUS */}
+                    <select
+                        value={statusFilter}
+                        onChange={(e) =>
+                            setStatusFilter(e.target.value)
+                        }
+                    >
+                        <option value="">
+                            All Status
+                        </option>
+
+                        <option value="pending">
+                            Pending
+                        </option>
+
+                        <option value="shipped">
+                            Shipped
+                        </option>
+
+                        <option value="delivered">
+                            Delivered
+                        </option>
+
+                        <option value="cancelled">
+                            Cancelled
+                        </option>
+
+                        <option value="returned">
+                            Returned
+                        </option>
+
+                        <option value="rto">
+                            RTO
+                        </option>
+                    </select>
+
+                    {/* PLATFORM */}
+                    <select
+                        value={platformFilter}
+                        onChange={(e) =>
+                            setPlatformFilter(e.target.value)
+                        }
+                    >
+                        <option value="">
+                            All Platform
+                        </option>
+
+                        <option value="meesho">
+                            Meesho
+                        </option>
+
+                        <option value="flipkart">
+                            Flipkart
+                        </option>
+
+                        <option value="amazon">
+                            Amazon
+                        </option>
+
+                        <option value="offline">
+                            Offline
+                        </option>
+                    </select>
+
+                    {/* ONLINE/OFFLINE */}
+                    <select
+                        value={saleTypeFilter}
+                        onChange={(e) =>
+                            setSaleTypeFilter(e.target.value)
+                        }
+                    >
+                        <option value="">
+                            All Sales
+                        </option>
+
+                        <option value="online">
+                            Online
+                        </option>
+
+                        <option value="offline">
+                            Offline
+                        </option>
+                    </select>
+
+                    {/* PROFIT/LOSS */}
+                    <select
+                        value={profitFilter}
+                        onChange={(e) =>
+                            setProfitFilter(e.target.value)
+                        }
+                    >
+                        <option value="">
+                            Profit + Loss
+                        </option>
+
+                        <option value="profit">
+                            Only Profit
+                        </option>
+
+                        <option value="loss">
+                            Only Loss
+                        </option>
+                    </select>
+
+                    {/* SIZE */}
+                    <input
+                        type="text"
+                        placeholder="Size"
+                        value={sizeFilter}
+                        onChange={(e) =>
+                            setSizeFilter(e.target.value)
+                        }
+                    />
+
+                    {/* RESET */}
+                    <button
+                        onClick={() => {
+                            setFilterDate("");
+                            setSearch("");
+                            setStatusFilter("");
+                            setPlatformFilter("");
+                            setSaleTypeFilter("");
+                            setProfitFilter("");
+                            setSizeFilter("");
+                        }}
+                    >
+                        Reset
+                    </button>
 
                 </div>
 
@@ -426,13 +756,16 @@ const SalesHistory = ({ user }) => {
                                         >
                                             <QRCodeCanvas
                                                 value={JSON.stringify({
-                                                    id: s.id,
+                                                    id: s.stockId,
                                                     orderId: s.orderId || "",
                                                     productName: s.productName || "",
                                                     catalogId: s.catalogId || "",
                                                     size: s.size || "",
                                                     sellingPrice: s.sellingPrice || 0,
                                                     soldAt: s.soldAt || "",
+                                                    status: s.status || "",
+                                                    isSellOnline: s.isSaleOnline || "",
+                                                    platform: s.platform || "",
                                                 })}
                                                 size={80}
                                                 bgColor="#ffffff"
@@ -599,25 +932,28 @@ const SalesHistory = ({ user }) => {
                 <div className="pagination">
 
                     <button
-                        disabled={currentPage === 1}
+                        disabled={safeCurrentPage === 1}
                         onClick={() =>
-                            setCurrentPage(prev => prev - 1)
+                            setCurrentPage(prev =>
+                                Math.max(1, prev - 1)
+                            )
                         }
                     >
                         Prev
                     </button>
 
                     <span>
-                        Page {currentPage} of {totalPages || 1}
+                        Page {safeCurrentPage} of {totalPages || 1}
                     </span>
 
                     <button
                         disabled={
-                            currentPage === totalPages ||
-                            totalPages === 0
+                            safeCurrentPage >= totalPages
                         }
                         onClick={() =>
-                            setCurrentPage(prev => prev + 1)
+                            setCurrentPage(prev =>
+                                Math.min(totalPages, prev + 1)
+                            )
                         }
                     >
                         Next
@@ -633,13 +969,16 @@ const SalesHistory = ({ user }) => {
 
                                 <QRCodeCanvas
                                     value={JSON.stringify({
-                                        id: s.id,
+                                        id: s.stockId,
                                         orderId: s.orderId || "",
                                         productName: s.productName || "",
                                         catalogId: s.catalogId || "",
                                         size: s.size || "",
                                         sellingPrice: s.sellingPrice || 0,
                                         soldAt: s.soldAt || "",
+                                        status: s.status || "",
+                                        isSellOnline: s.isSaleOnline || "",
+                                        platform: s.platform || "",
                                     })}
                                     size={300}
                                     bgColor="#ffffff"

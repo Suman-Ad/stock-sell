@@ -1122,6 +1122,9 @@ const MarketplaceCSVImport = ({ user }) => {
                     stockId:
                         stock.id,
 
+                    uniqueId:
+                        stock.uniqueId || "",
+
                     catalogId:
                         stock.catalogId || "",
 
@@ -1168,6 +1171,8 @@ const MarketplaceCSVImport = ({ user }) => {
                         row,
 
                     deleted: false,
+
+                    isSaleOnline: true,
 
                     createdBy: user,
                     createdAt:

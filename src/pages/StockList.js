@@ -1355,7 +1355,156 @@ const StockList = ({ user }) => {
 
     return (
         <div className="stock-page" >
+
+            <div
+                style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: "15px",
+                    marginBottom: "25px",
+                    padding: "25px",
+                    borderRadius: "30px",
+                    background:
+                        "linear-gradient(135deg,#0f172a,#111827)",
+                    color: "#fff",
+                    boxShadow:
+                        "0 20px 40px rgba(0,0,0,0.18)"
+                }}
+            >
+
+                {/* LEFT */}
+                <div>
+
+                    <h1
+                        style={{
+                            margin: 0,
+                            fontSize: "38px",
+                            fontWeight: "900"
+                        }}
+                    >
+                        📦 Inventory Intelligence
+                    </h1>
+
+                    <p
+                        style={{
+                            marginTop: "8px",
+                            color: "#94a3b8",
+                            fontSize: "15px"
+                        }}
+                    >
+                        Manage stock, QR systems, pricing,
+                        marketplace links & inventory analytics
+                    </p>
+                </div>
+
+                {/* RIGHT */}
+                <div
+                    style={{
+                        display: "flex",
+                        gap: "12px",
+                        flexWrap: "wrap"
+                    }}
+                >
+
+                    <div
+                        style={{
+                            background:
+                                "rgba(255,255,255,0.08)",
+                            padding: "14px 18px",
+                            borderRadius: "18px",
+                            minWidth: "140px"
+                        }}
+                    >
+                        <small
+                            style={{
+                                color: "#94a3b8"
+                            }}
+                        >
+                            Total Catalogs
+                        </small>
+
+                        <h2
+                            style={{
+                                margin: "5px 0 0"
+                            }}
+                        >
+                            {filteredStocks.length}
+                        </h2>
+                    </div>
+
+                    <div
+                        style={{
+                            background:
+                                "rgba(255,255,255,0.08)",
+                            padding: "14px 18px",
+                            borderRadius: "18px",
+                            minWidth: "140px"
+                        }}
+                    >
+                        <small
+                            style={{
+                                color: "#94a3b8"
+                            }}
+                        >
+                            Total Qty
+                        </small>
+
+                        <h2
+                            style={{
+                                margin: "5px 0 0"
+                            }}
+                        >
+                            {filteredStocks.reduce(
+                                (a, b) =>
+                                    a + (b.totalQty || 0),
+                                0
+                            )}
+                        </h2>
+                    </div>
+
+                    <div
+                        style={{
+                            background:
+                                "rgba(34,197,94,0.12)",
+                            color: "#4ade80",
+                            padding: "14px 18px",
+                            borderRadius: "18px",
+                            minWidth: "160px"
+                        }}
+                    >
+                        <small
+                            style={{
+                                color: "#bbf7d0"
+                            }}
+                        >
+                            Inventory Value
+                        </small>
+
+                        <h2
+                            style={{
+                                margin: "5px 0 0"
+                            }}
+                        >
+                            ₹{
+                                filteredStocks
+                                    .reduce(
+                                        (a, b) =>
+                                            a +
+                                            (b.totalSelling || 0),
+                                        0
+                                    )
+                                    .toFixed(0)
+                            }
+                        </h2>
+                    </div>
+
+                </div>
+
+            </div>
             <StockSummary stocks={filteredStocks} user={user} />
+
             <>
                 <button className="summary-card" style={{ color: "white" }} onClick={() => setShowInventory(true)}>
                     + Add New Catalog
@@ -1367,9 +1516,9 @@ const StockList = ({ user }) => {
                     title="Marketplace Integrations"
                     description="Upgrade your plan to unlock Marketplace Integrations."
                 >
-                    <button className="summary-card" style={{ color: "white" }} onClick={() => navigate("/marketplace-integrations")} >
+                    {/* <button className="summary-card" style={{ color: "white" }} onClick={() => navigate("/marketplace-integrations")} >
                         Marketplace Integrations
-                    </button>
+                    </button> */}
 
                     <button className="summary-card" style={{ color: "white" }}
                         onClick={() =>
@@ -1416,7 +1565,6 @@ const StockList = ({ user }) => {
                 )}
             </>
 
-            <h2>Stock List</h2>
             <div style={{
                 display: "flex",
                 gap: "10px",
@@ -2227,93 +2375,7 @@ const StockList = ({ user }) => {
                                             }}>
                                                 ₹{item.profit.toFixed(2)}
                                             </td>
-                                            {/* <td>
-                                                <div key={item.catalogId} style={{
-                                                    border: "1px solid #ccc",
-                                                    marginBottom: "20px",
-                                                    padding: "10px",
-                                                    height: "inherit",
-                                                }}>
-                                                    <button
-                                                        onClick={() => toggleQR(item)}
-                                                    >
-                                                        {qrLoading[item.catalogId]
-                                                            ? "Loading..."
-                                                            : showQR[item.catalogId]
-                                                                ? "Hide QR"
-                                                                : "Show QR"}
-                                                    </button>
-
-                                                    {showQR[item.catalogId] && (
-                                                        <div className="qr-box">
-                                                            <p><b>Catalog ID:</b> {item.catalogId}</p>
-                                                            <p><b>Count:</b> {qrCodes.length}</p>
-                                                            <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "4px", overflow: "auto", maxHeight: "190px", scrollbarWidth: "thin" }}>
-                                                                {qrCodes.slice(0, 5).map((qr, index) => {
-                                                                    const qrObj = qr;
-                                                                    const isNew = !qr.printed;
-
-                                                                    return (
-                                                                        <div key={qr.id} className={`qr-card ${!qr.printed ? "new" : ""}`}
-                                                                            onClick={() => setQrPopup({ open: true, value: JSON.stringify(qr) })}
-                                                                        >
-
-                                                                            <QRCodeCanvas value={JSON.stringify(qr)} size={100} />
-                                                                            {!qr.printed && (
-                                                                                <div style={{ color: "green", fontWeight: "bold" }}>
-                                                                                    NEW
-                                                                                </div>
-                                                                            )}
-
-                                                                            {qr.reprintRequired && (
-                                                                                <div style={{
-                                                                                    color: "red",
-                                                                                    fontWeight: "bold",
-                                                                                    fontSize: "10px"
-                                                                                }}>
-                                                                                    REPRINT REQUIRED
-                                                                                </div>
-                                                                            )}
-
-                                                                            <div style={{ fontWeight: "bold" }}>
-                                                                                {qrObj.productType}
-                                                                            </div>
-
-                                                                            <div>{qrObj.color}</div>
-
-                                                                            <div style={{ fontWeight: "bold" }}>
-                                                                                Size: {qrObj.size}
-                                                                            </div>
-
-                                                                            <div>₹{qrObj.sellingPrice}</div>
-
-                                                                            <div style={{ fontSize: "8px" }}>
-                                                                                {qrObj.catalogId}
-                                                                            </div>
-                                                                        </div>
-
-                                                                    );
-                                                                })}
-                                                                {qrCodes.length > 5 && (
-                                                                    <div>
-                                                                        +{qrCodes.length - 5} more QR
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                </div>
-
-                                            </td> */}
-
                                             <td>
-                                                {/* <button onClick={() => {
-                                                    setSelectedSize("ALL");
-                                                    setPrintItem(item);
-                                                }}>
-                                                    🖨 Print Preview
-                                                </button> */}
                                                 <button onClick={() => handleDelete(item)}>
                                                     Delete
                                                 </button>
@@ -2345,7 +2407,10 @@ const StockList = ({ user }) => {
                 </button>
 
                 <span>
-                    Page {currentPage}
+                    Page {currentPage}/{Math.ceil(
+                            filteredStocks.length /
+                            ITEMS_PER_PAGE
+                        )}
                 </span>
 
                 <button
