@@ -51,12 +51,41 @@ input {
 }
 
 .stock-table th {
-  background: #111827;
-  color: #fff;
-  padding: 10px;
+
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 50;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(2,6,23,0.98),
+      rgba(15,23,42,0.98)
+    );
+
+  backdrop-filter: blur(14px);
+
+  color: #f8fafc;
+
+  padding: 16px 14px;
+
+  text-align: left;
+
+  font-size: 13px;
+
+  font-weight: 800;
+
+  letter-spacing: 0.4px;
+
+  text-transform: uppercase;
+
+  border-bottom:
+    1px solid rgba(255,255,255,0.08);
+
+  white-space: nowrap;
+
+  box-shadow:
+    0 8px 20px rgba(0,0,0,0.25);
 }
 
 .stock-table td {
@@ -286,11 +315,6 @@ input {
   margin-top: 10px;
 }
 
-.stock-table th {
-  background: rgba(255, 255, 255, 0.08);
-  padding: 10px;
-  text-align: left;
-}
 
 .stock-table td {
   padding: 8px;
@@ -317,4 +341,290 @@ input {
   100% {
     opacity: 1;
   }
+}
+
+/* =========================================
+   PRO SIZE CARD
+========================================= */
+
+.pro-size-card {
+  background:
+    linear-gradient(
+      145deg,
+      rgba(17, 24, 39, 0.96),
+      rgba(15, 23, 42, 0.98)
+    );
+
+  border: 1px solid rgba(59, 130, 246, 0.18);
+
+  border-radius: 24px;
+
+  padding: 18px;
+
+  margin-bottom: 18px;
+
+  transition: all 0.25s ease;
+
+  backdrop-filter: blur(12px);
+
+  box-shadow:
+    0 10px 30px rgba(0,0,0,0.18);
+}
+
+.pro-size-card:hover {
+
+  transform: translateY(-3px);
+
+  border-color: rgba(59,130,246,0.45);
+
+  box-shadow:
+    0 15px 40px rgba(59,130,246,0.18);
+}
+
+/* =========================================
+   PRICE EDITOR
+========================================= */
+
+.price-editor-grid {
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(auto-fit,minmax(180px,1fr));
+
+  gap: 14px;
+
+  margin-top: 14px;
+}
+
+.editor-box {
+
+  background:
+    rgba(255,255,255,0.04);
+
+  border:
+    1px solid rgba(255,255,255,0.06);
+
+  border-radius: 18px;
+
+  padding: 16px;
+
+  transition: all 0.25s ease;
+}
+
+.editor-box:hover {
+
+  background:
+    rgba(255,255,255,0.06);
+
+  border-color:
+    rgba(59,130,246,0.3);
+}
+
+.editor-box.highlight {
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(59,130,246,0.18),
+      rgba(14,165,233,0.12)
+    );
+}
+
+.editor-label {
+
+  font-size: 12px;
+
+  color: #94a3b8;
+
+  margin-bottom: 10px;
+
+  text-transform: uppercase;
+
+  letter-spacing: 0.5px;
+
+  font-weight: 700;
+}
+
+.editor-input {
+
+  width: 100%;
+
+  padding: 12px;
+
+  border-radius: 14px;
+
+  border:
+    1px solid rgba(255,255,255,0.08);
+
+  background:
+    rgba(15,23,42,0.9);
+
+  color: #fff;
+
+  font-size: 15px;
+
+  font-weight: 700;
+
+  outline: none;
+
+  transition: all 0.2s ease;
+}
+
+.editor-input:focus {
+
+  border-color: #3b82f6;
+
+  box-shadow:
+    0 0 0 4px rgba(59,130,246,0.15);
+}
+
+.editor-value {
+
+  margin-top: 10px;
+
+  font-size: 18px;
+
+  font-weight: 800;
+
+  color: #fff;
+}
+
+.editor-value.success {
+  color: #4ade80;
+}
+
+.price-highlight {
+
+  font-size: 32px;
+
+  font-weight: 900;
+
+  color: #60a5fa;
+
+  margin-top: 8px;
+}
+
+.editor-meta {
+
+  margin-top: 8px;
+
+  color: #94a3b8;
+
+  font-size: 12px;
+}
+
+/* =========================================
+   QTY CONTROLS
+========================================= */
+
+.qty-controls {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+}
+
+.qty-btn {
+
+  width: 38px;
+
+  height: 38px;
+
+  border-radius: 12px;
+
+  font-size: 20px;
+
+  font-weight: 800;
+
+  border: none;
+
+  transition: 0.2s ease;
+}
+
+.qty-btn.minus {
+
+  background: rgba(239,68,68,0.18);
+
+  color: #f87171;
+}
+
+.qty-btn.plus {
+
+  background: rgba(34,197,94,0.18);
+
+  color: #4ade80;
+}
+
+.qty-btn:hover {
+
+  transform: scale(1.08);
+}
+
+.qty-input {
+
+  text-align: center;
+}
+
+/* =========================================
+   EXTRA COST GRID
+========================================= */
+
+.extra-cost-grid {
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(auto-fit,minmax(120px,1fr));
+
+  gap: 12px;
+
+  margin-top: 18px;
+}
+
+.cost-card {
+
+  background:
+    rgba(255,255,255,0.03);
+
+  border:
+    1px solid rgba(255,255,255,0.05);
+
+  border-radius: 16px;
+
+  padding: 12px;
+}
+
+.cost-label {
+
+  color: #94a3b8;
+
+  font-size: 11px;
+
+  text-transform: uppercase;
+
+  margin-bottom: 8px;
+
+  font-weight: 700;
+}
+
+.cost-input {
+
+  width: 100%;
+
+  padding: 10px;
+
+  border-radius: 12px;
+
+  border:
+    1px solid rgba(255,255,255,0.08);
+
+  background:
+    rgba(15,23,42,0.9);
+
+  color: #fff;
+
+  font-size: 13px;
 }

@@ -1915,16 +1915,7 @@ const StockList = ({ user }) => {
                                                         );
 
                                                         return (
-                                                            <div clas key={size} style={{ marginBottom: "8px", alignItems: "center", gap: "5px", border: "1px solid #3b82f6", padding: "5px 10px", borderRadius: "5px", }}
-                                                                onMouseMove={(e) => {
-                                                                    e.currentTarget.style.boxShadow = "0 6px 20px rgba(54, 238, 79, 0.59)";
-                                                                    e.currentTarget.style.backgroundColor = "#372983"
-                                                                }}
-                                                                onMouseLeave={(e) => {
-                                                                    e.currentTarget.style.boxShadow = "";
-                                                                    e.currentTarget.style.backgroundColor = ""
-                                                                }}
-                                                            >
+                                                            <div className="pro-size-card" key={size} >
                                                                 <label><strong>Size: {size}</strong></label>
                                                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "5px", fontSize: "12px" }}>
                                                                     <span style={{ marginLeft: "8px" }}>
@@ -2070,7 +2061,7 @@ const StockList = ({ user }) => {
                                                                 <div style={{ fontSize: "10px", color: "gray" }}>
                                                                     Sold: {soldCount} | Available: {available} | Total: {total} | Removed: {removedCount}
                                                                 </div>
-                                                                <div key={size} style={{ marginBottom: "8px", display: "flex", alignItems: "center", gap: "5px" }}>
+                                                                {/* <div key={size} style={{ marginBottom: "8px", display: "flex", alignItems: "center", gap: "5px" }}>
 
                                                                     <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
                                                                         <legend style={{ fontSize: "10px", color: "gray", whiteSpace: "nowrap" }}>Qty:-
@@ -2150,7 +2141,164 @@ const StockList = ({ user }) => {
                                                                                 />
                                                                             </div>
                                                                         ))}
+                                                                    </div> */}
+                                                                <div className="price-editor-grid">
+
+                                                                    {/* QTY */}
+                                                                    <div className="editor-box">
+
+                                                                        <div className="editor-label">
+                                                                            Inventory
+                                                                        </div>
+
+                                                                        <div className="qty-controls">
+
+                                                                            <button
+                                                                                className="qty-btn minus"
+                                                                                onClick={() =>
+                                                                                    handleReduceStock(item, size, 1)
+                                                                                }
+                                                                                disabled={!editable}
+                                                                            >
+                                                                                −
+                                                                            </button>
+
+                                                                            <input
+                                                                                type="number"
+                                                                                value={data.qty}
+                                                                                readOnly
+                                                                                className="editor-input qty-input"
+                                                                            />
+
+                                                                            <button
+                                                                                className="qty-btn plus"
+                                                                                onClick={() =>
+                                                                                    handleAddStock(item, size, 1)
+                                                                                }
+                                                                                disabled={!editable}
+                                                                            >
+                                                                                +
+                                                                            </button>
+                                                                        </div>
+
+                                                                        <div className="editor-meta">
+                                                                            Sold: {soldCount}
+                                                                        </div>
                                                                     </div>
+
+                                                                    {/* BUY */}
+                                                                    <div className="editor-box">
+
+                                                                        <div className="editor-label">
+                                                                            Buying Price
+                                                                        </div>
+
+                                                                        <input
+                                                                            type="number"
+                                                                            value={data.buyingPrice || 0}
+                                                                            className="editor-input"
+                                                                            onChange={(e) =>
+                                                                                handleSizeUpdate(
+                                                                                    item,
+                                                                                    size,
+                                                                                    "buyingPrice",
+                                                                                    e.target.value
+                                                                                )
+                                                                            }
+                                                                            disabled={!editable}
+                                                                        />
+
+                                                                        <div className="editor-value">
+                                                                            ₹{data.buyingPrice || 0}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* MARGIN */}
+                                                                    <div className="editor-box">
+
+                                                                        <div className="editor-label">
+                                                                            Margin %
+                                                                        </div>
+
+                                                                        <input
+                                                                            type="number"
+                                                                            value={data.margin || 0}
+                                                                            className="editor-input"
+                                                                            onChange={(e) =>
+                                                                                handleSizeUpdate(
+                                                                                    item,
+                                                                                    size,
+                                                                                    "margin",
+                                                                                    e.target.value
+                                                                                )
+                                                                            }
+                                                                            disabled={!editable}
+                                                                        />
+
+                                                                        <div className="editor-value success">
+                                                                            {data.margin || 0}%
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* SELL PRICE */}
+                                                                    <div className="editor-box highlight">
+
+                                                                        <div className="editor-label">
+                                                                            Selling Price
+                                                                        </div>
+
+                                                                        <div className="price-highlight">
+                                                                            ₹{(data.sellingPrice || 0).toFixed(2)}
+                                                                        </div>
+
+                                                                        <div className="editor-meta">
+                                                                            Final marketplace price
+                                                                        </div>
+                                                                    </div>
+
+                                                                </div>
+
+                                                                {/* EXTRA COSTS */}
+                                                                <div className="extra-cost-grid">
+
+                                                                    {[
+                                                                        "packaging",
+                                                                        "labeling",
+                                                                        "rto",
+                                                                        "returnCost",
+                                                                        "advertisementCost",
+                                                                        "delivery",
+                                                                        "others",
+                                                                        "gst"
+                                                                    ].map((key) => (
+
+                                                                        <div
+                                                                            key={key}
+                                                                            className="cost-card"
+                                                                        >
+
+                                                                            <div className="cost-label">
+                                                                                {key}
+                                                                            </div>
+
+                                                                            <input
+                                                                                type="number"
+                                                                                value={
+                                                                                    data.extraCosts?.[key] || 0
+                                                                                }
+                                                                                className="cost-input"
+                                                                                onChange={(e) =>
+                                                                                    handleSizeUpdate(
+                                                                                        item,
+                                                                                        size,
+                                                                                        `extraCosts.${key}`,
+                                                                                        e.target.value
+                                                                                    )
+                                                                                }
+                                                                                disabled={!editable}
+                                                                            />
+                                                                        </div>
+                                                                    ))}
                                                                     {/* =======================================
                                                                                ONLINE STORE LINKS
                                                                             ======================================= */}
@@ -2408,9 +2556,9 @@ const StockList = ({ user }) => {
 
                 <span>
                     Page {currentPage}/{Math.ceil(
-                            filteredStocks.length /
-                            ITEMS_PER_PAGE
-                        )}
+                        filteredStocks.length /
+                        ITEMS_PER_PAGE
+                    )}
                 </span>
 
                 <button
