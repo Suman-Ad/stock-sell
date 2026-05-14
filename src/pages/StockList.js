@@ -2308,12 +2308,12 @@ const StockList = ({ user }) => {
                                             </td> */}
 
                                             <td>
-                                                <button onClick={() => {
+                                                {/* <button onClick={() => {
                                                     setSelectedSize("ALL");
                                                     setPrintItem(item);
                                                 }}>
                                                     🖨 Print Preview
-                                                </button>
+                                                </button> */}
                                                 <button onClick={() => handleDelete(item)}>
                                                     Delete
                                                 </button>
