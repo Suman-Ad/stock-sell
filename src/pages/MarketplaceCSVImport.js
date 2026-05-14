@@ -173,7 +173,10 @@ const normalizeSize = (size = "") => {
     return String(size)
         .trim()
         .toUpperCase()
-        .replace(/\s+/g, "");
+        .replace(/MONTHS/g, "M")
+        .replace(/YEARS/g, "Y")
+        .replace(/\s+/g, "")
+        .replace(/[^A-Z0-9\-]/g, "");
 };
 
 const internalFields = {
@@ -319,30 +322,28 @@ const importProfiles = {
         pricing: {
 
             catalogId: [
-                "Style ID",
-                "Catalog ID"
+                "STYLE ID",
+                "Style ID"
             ],
 
-            productId: [
-                "SKU",
-                "Seller SKU"
+            productName: [
+                "PRODUCT NAME"
             ],
 
             size: [
+                "VARIANT",
+                "Variation",
                 "Size"
             ],
 
-            buyingPrice: [
-                "Buying Price"
-            ],
-
             sellingPrice: [
-                "Supplier Listed Price",
-                "Selling Price"
+                "COMPETITIVE MEESHO PRICE",
+                "MEESHO PRICE"
             ],
 
-            margin: [
-                "Margin"
+            action: [
+                "ACCEPT/REJECT",
+                "ACTION"
             ]
         }
     }
@@ -456,13 +457,78 @@ const MarketplaceCSVImport = ({ user }) => {
                 const worksheet =
                     workbook.Sheets[firstSheet];
 
-                const jsonData =
-                    XLSX.utils.sheet_to_json(
-                        worksheet,
-                        {
-                            defval: ""
-                        }
-                    );
+                let jsonData = [];
+
+                if (
+                    platform === "meesho" &&
+                    importType === "pricing"
+                ) {
+
+                    // ====================================
+                    // RAW SHEET
+                    // ====================================
+
+                    const raw =
+                        XLSX.utils.sheet_to_json(
+                            worksheet,
+                            {
+                                header: 1,
+                                defval: ""
+                            }
+                        );
+
+                    // ====================================
+                    // ROW 2 = HEADERS
+                    // index 1 because zero-based
+                    // ====================================
+
+                    const headers =
+                        raw[1].map(header =>
+                            String(header || "").trim()
+                        );
+
+                    // ====================================
+                    // START FROM ROW 5
+                    // index 4 because zero-based
+                    // ====================================
+
+                    const dataRows =
+                        raw.slice(4);
+
+                    jsonData =
+                        dataRows
+                            .filter(row =>
+
+                                row.some(cell =>
+                                    String(cell || "")
+                                        .trim() !== ""
+                                )
+                            )
+                            .map(row => {
+
+                                const obj = {};
+
+                                headers.forEach(
+                                    (header, index) => {
+
+                                        obj[header] =
+                                            row[index];
+                                    }
+                                );
+
+                                return obj;
+                            });
+
+                } else {
+
+                    jsonData =
+                        XLSX.utils.sheet_to_json(
+                            worksheet,
+                            {
+                                defval: ""
+                            }
+                        );
+                }
 
                 processImportedRows(
                     jsonData
@@ -525,14 +591,40 @@ const MarketplaceCSVImport = ({ user }) => {
                     .forEach(
                         ([internalField, csvColumn]) => {
 
-                            normalizedRow[internalField] =
+                            // ====================================
+                            // MEESHO PRICING SPECIAL PRICE
+                            // ====================================
 
-                                csvColumn &&
-                                    row[csvColumn] !== undefined
+                            if (
+                                platform === "meesho" &&
+                                importType === "pricing" &&
+                                internalField === "sellingPrice"
+                            ) {
 
-                                    ? row[csvColumn]
+                                // priority competitive price
+                                normalizedRow.sellingPrice =
 
-                                    : "";
+                                    row["COMPETITIVE MEESHO PRICE"] ||
+
+                                    row["Competitive Meesho Price"] ||
+
+                                    row["MEESHO PRICE"] ||
+
+                                    row["Meesho Price"] ||
+
+                                    "";
+
+                            } else {
+
+                                normalizedRow[internalField] =
+
+                                    csvColumn &&
+                                        row[csvColumn] !== undefined
+
+                                        ? row[csvColumn]
+
+                                        : "";
+                            }
                         }
                     );
 
@@ -1409,6 +1501,7 @@ Duplicates Skipped: ${skipped}
                         options: {
                             isOnlineItem: true,
                             inventorySource: "csv",
+                            isMarketplaceQR: true,
                             platform
                         }
                     });
@@ -1467,6 +1560,7 @@ Duplicates Skipped: ${skipped}
                         options: {
                             isOnlineItem: true,
                             inventorySource: "csv",
+                            isMarketplaceQR: true,
                             platform
                         }
                     });
@@ -1527,6 +1621,7 @@ Duplicates Skipped: ${skipped}
                         options: {
                             isOnlineItem: true,
                             inventorySource: "csv",
+                            isMarketplaceQR: true,
                             platform
                         }
                     });
@@ -1601,37 +1696,61 @@ Duplicates Skipped: ${skipped}
 
             await batchRef.current.commit();
 
-            batchRef.current =
-                writeBatch(db);
+            batchRef.current = writeBatch(db);
 
             operationRef.current = 0;
         };
 
-        const total = normalizedPreview.length;
-
-        let updated = 0;
+        // ====================================
+        // LOAD STOCKS
+        // ====================================
 
         const stockQuery = query(
             collection(db, "stocks"),
             where("userId", "==", user.uid)
         );
 
-        const stockSnap =
-            await getDocs(stockQuery);
+        const stockSnap = await getDocs(stockQuery);
 
-        const stocks =
-            stockSnap.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
+        const stocks = stockSnap.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+
+        // ====================================
+        // REMOVE DUPLICATES
+        // ====================================
+
+        const uniqueRows = [];
+
+        const seen = new Set();
+
+        normalizedPreview.forEach(row => {
+
+            const key = [
+                row.catalogId,
+                normalizeSize(row.size)
+            ].join("_");
+
+            if (!seen.has(key)) {
+
+                seen.add(key);
+
+                uniqueRows.push(row);
+            }
+        });
+
+        const total = uniqueRows.length;
+
+        let updated = 0;
 
         for (
             let index = 0;
-            index < normalizedPreview.length;
+            index < uniqueRows.length;
             index++
         ) {
 
-            const row = normalizedPreview[index];
+            const row = uniqueRows[index];
 
             const percent = Math.round(
                 ((index + 1) / total) * 100
@@ -1643,58 +1762,89 @@ Duplicates Skipped: ${skipped}
                 `Updating Pricing ${index + 1}/${total}`
             );
 
+            // ====================================
+            // ONLY ACCEPT
+            // ====================================
+
+            const action =
+                String(row.action || "")
+                    .toUpperCase();
+
+            if (
+                action.includes("REJECT")
+            ) {
+                continue;
+            }
+
+            // ====================================
+            // PRICE
+            // ====================================
+
+            const sellingPrice =
+                Number(
+                    String(row.sellingPrice || "")
+                        .replace(/[^0-9.]/g, "")
+                );
+
+            if (!sellingPrice) {
+                continue;
+            }
+
+            console.log({
+                catalogId: row.catalogId,
+                size: row.size,
+                sellingPrice: row.sellingPrice
+            });
+
+            // ====================================
+            // FIND STOCK
+            // MATCH USING STYLE ID
+            // ====================================
+
             const stockMatch =
                 stocks.find(stock =>
 
-                    (
-                        stock.catalogId
-                            ?.toLowerCase()
-                        ===
-                        String(
-                            row.catalogId
-                        ).toLowerCase()
+                    String(stock.catalogId || "")
+                        .trim()
+                        .toUpperCase()
 
-                    ) ||
+                    ===
 
-                    (
-                        stock.productId
-                            ?.toLowerCase()
-                        ===
-                        String(
-                            row.productId
-                        ).toLowerCase()
-
-                    )
+                    String(row.catalogId || "")
+                        .trim()
+                        .toUpperCase()
                 );
 
-            if (!stockMatch) continue;
+            if (!stockMatch) {
+                continue;
+            }
+
+            const sizeKey =
+                normalizeSize(row.size);
 
             if (
-                !stockMatch.sizes?.[normalizeSize(row.size)]
-            ) continue;
+                !stockMatch.sizes?.[sizeKey]
+            ) {
+                continue;
+            }
 
             const stockRef =
-                doc(
-                    db,
-                    "stocks",
-                    stockMatch.id
-                );
+                doc(db, "stocks", stockMatch.id);
 
             const updatedSizes = {
                 ...stockMatch.sizes
             };
 
-            updatedSizes[normalizeSize(row.size)]
-                .sellingPrice =
-                Number(
-                    row.sellingPrice || 0
-                );
+            // ====================================
+            // UPDATE SELLING PRICE ONLY
+            // ====================================
 
-            updatedSizes[normalizeSize(row.size)]
-                .buyingPrice =
-                Number(
-                    row.buyingPrice || 0
-                );
+            updatedSizes[sizeKey] = {
+
+                ...updatedSizes[sizeKey],
+
+                sellingPrice
+            };
 
             batchRef.current.update(
                 stockRef,
@@ -1702,15 +1852,24 @@ Duplicates Skipped: ${skipped}
                     sizes: updatedSizes
                 }
             );
+
+            stockMatch.sizes = updatedSizes;
+
             operationRef.current++;
+
             if (operationRef.current >= 450) {
                 await commitBatch();
             }
+
             updated++;
         }
+
         setProgress(100);
+
         setProgressText("Import Completed");
+
         await commitBatch();
+
         alert(
             `Pricing Updated: ${updated}`
         );

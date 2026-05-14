@@ -237,11 +237,16 @@ const StockList = ({ user }) => {
 
     const [qrData, setQrData] = useState({});
 
+    const qrDataFlat = useMemo(() => {
+        return Object.values(qrData).flat();
+    }, [qrData]);
+
     const loadItemQR = async (stockId) => {
 
         const q = query(
             collection(db, "qrcodes"),
-            where("stockId", "==", stockId)
+            where("stockId", "==", stockId),
+            where("status", "in", ["available", "sold", "removed"])
         );
 
         const snap = await getDocs(q);
@@ -359,14 +364,81 @@ const StockList = ({ user }) => {
     });
 
     const [soldIds, setSoldIds] = useState(new Set());
+    const [salesMap, setSalesMap] = useState({});
+
+    // useEffect(() => {
+    //     const unsubscribe = onSnapshot(collection(db, "sales"), (snapshot) => {
+    //         const ids = new Set(snapshot.docs.map(doc => doc.data().uniqueId));
+    //         setSoldIds(ids);
+    //     });
+
+    //     return () => unsubscribe();
+    // }, []);
+
+    // useEffect(() => {
+
+    //     const unsubscribe = onSnapshot(
+    //         collection(db, "sales"),
+    //         async (snapshot) => {
+
+    //             const ids = new Set(
+    //                 snapshot.docs.map(doc => doc.data().uniqueId)
+    //             );
+
+    //             setSoldIds(ids);
+
+    //             // 🔥 refresh opened QR items
+    //             const openedIds = Object.keys(showQR);
+
+    //             await Promise.all(
+    //                 openedIds.map(async (catalogId) => {
+
+    //                     const stock = stocks.find(
+    //                         s => s.catalogId === catalogId
+    //                     );
+
+    //                     if (stock) {
+    //                         await loadItemQR(stock.id);
+    //                     }
+    //                 })
+    //             );
+    //         }
+    //     );
+
+    //     return () => unsubscribe();
+
+    // }, [showQR, stocks]);
 
     useEffect(() => {
-        const unsubscribe = onSnapshot(collection(db, "sales"), (snapshot) => {
-            const ids = new Set(snapshot.docs.map(doc => doc.data().uniqueId));
-            setSoldIds(ids);
-        });
+
+        const unsubscribe = onSnapshot(
+            collection(db, "sales"),
+            (snapshot) => {
+
+                const ids = new Set();
+                const map = {};
+
+                snapshot.docs.forEach(doc => {
+
+                    const data = doc.data();
+
+                    if (data.uniqueId) {
+                        ids.add(data.uniqueId);
+                    }
+
+                    if (data.catalogId) {
+                        map[data.catalogId] =
+                            (map[data.catalogId] || 0) + 1;
+                    }
+                });
+
+                setSoldIds(ids);
+                setSalesMap(map);
+            }
+        );
 
         return () => unsubscribe();
+
     }, []);
 
     useEffect(() => {
@@ -409,11 +481,12 @@ const StockList = ({ user }) => {
                     const totalSelling = getTotalSellingValue(sizes);
                     const profit = getTotalProfit(sizes);
                     const avgSelling = getAvgSellingPrice(sizes);
+                    const popularity = getCatalogPopularity(stock.catalogId);
 
                     return {
                         ...stock,
                         sizes,
-
+                        catalogPopularity: popularity,
                         totalQty,
                         totalInvestment,
                         totalExtraCost,
@@ -759,12 +832,26 @@ const StockList = ({ user }) => {
                 sizes: updatedSizes
             });
 
-            // 🔥 FIND ALL AVAILABLE QR
-            const qrToUpdate = (qrData[item.id] || []).filter(qr =>
-                qr.stockId === item.id &&
-                qr.size === sizeKey &&
-                qr.status === "available"
+            const qrQuery = query(
+                collection(db, "qrcodes"),
+                where("stockId", "==", item.id),
+                where("size", "==", sizeKey),
+                where("status", "==", "available")
             );
+
+            const qrSnap = await getDocs(qrQuery);
+
+            const qrToUpdate = qrSnap.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+
+            // 🔥 FIND ALL AVAILABLE QR
+            // const qrToUpdate = (qrData[item.id] || []).filter(qr =>
+            //     qr.stockId === item.id &&
+            //     qr.size === sizeKey &&
+            //     qr.status === "available"
+            // );
 
             const batch = writeBatch(db);
 
@@ -795,6 +882,7 @@ const StockList = ({ user }) => {
             });
 
             await batch.commit();
+            await loadItemQR(item.id);
 
             if (skippedPrinted > 0) {
                 alert(
@@ -909,13 +997,17 @@ const StockList = ({ user }) => {
         const updatedSizes = { ...item.sizes };
         const sizeData = updatedSizes[sizeKey];
 
+
         sizeData.qty = (sizeData.qty || 0) + amount;
         sizeData.initialQty = (sizeData.initialQty || 0) + amount;
 
         await updateDoc(doc(db, "stocks", item.id), {
             sizes: updatedSizes
         });
+
+        await loadItemQR(item.id);
     };
+
 
     const handleReduceStock = async (item, sizeKey, amount) => {
 
@@ -953,6 +1045,8 @@ const StockList = ({ user }) => {
         await updateDoc(doc(db, "stocks", item.id), {
             sizes: updatedSizes
         });
+
+        await loadItemQR(item.id);
     };
 
 
@@ -1168,7 +1262,82 @@ const StockList = ({ user }) => {
         });
     };
 
-    const ITEMS_PER_PAGE = 25;
+    const getCatalogPopularity = (catalogId) => {
+
+        const soldCount =
+            salesMap[catalogId] || 0;
+
+        if (soldCount >= 100) {
+            return "High";
+        }
+
+        if (soldCount >= 50) {
+            return "Mid";
+        }
+
+        return "Low";
+    };
+
+    // const getCatalogPopularity = (catalogId) => {
+
+    //     const salesMap = {};
+
+    //     qrDataFlat.forEach(qr => {
+
+    //         if (qr.status !== "sold") return;
+
+    //         salesMap[qr.catalogId] =
+    //             (salesMap[qr.catalogId] || 0) + 1;
+    //     });
+
+    //     const values = Object.values(salesMap);
+
+    //     const max = Math.max(...values, 1);
+
+    //     const sold = salesMap[catalogId] || 0;
+
+    //     const ratio = sold / max;
+
+    //     if (ratio >= 0.7) return "High";
+    //     if (ratio >= 0.3) return "Mid";
+
+    //     return "Low";
+    // };
+
+    const getStockFlag = (sizes = {}) => {
+
+        const totalQty = Object.values(sizes).reduce(
+            (sum, s) => sum + (s.qty || 0),
+            0
+        );
+
+        if (totalQty <= 0) {
+            return {
+                label: "Out of Stock",
+                color: "#dc2626",
+                bg: "#fee2e2",
+                icon: "❌"
+            };
+        }
+
+        if (totalQty < 50) {
+            return {
+                label: "Low Stock",
+                color: "#92400e",
+                bg: "#fef3c7",
+                icon: "⚠️"
+            };
+        }
+
+        return {
+            label: "In Stock",
+            color: "#166534",
+            bg: "#dcfce7",
+            icon: "✅"
+        };
+    };
+
+    const ITEMS_PER_PAGE = 10;
 
     const [currentPage, setCurrentPage] = useState(1);
 
@@ -1212,6 +1381,17 @@ const StockList = ({ user }) => {
                                 })}
                     >
                         Marketplace Inventory CSV Import
+                    </button>
+                    <button className="summary-card" style={{ color: "white" }}
+                        onClick={() =>
+                            navigate("/marketplace-csv-import",
+                                {
+                                    state: {
+                                        type: "pricing"
+                                    }
+                                })}
+                    >
+                        Marketplace Price CSV Import
                     </button>
                 </FeatureGate>
 
@@ -1457,24 +1637,25 @@ const StockList = ({ user }) => {
                                     <th>Avg Selling Price</th>
                                     <th>Total Selling Value</th>
                                     <th>Profit</th>
-                                    <th>QR Codes</th>
+                                    {/* <th>QR Codes</th> */}
                                     <th>Actions</th>
                                 </tr>
                             </thead>
 
                             <tbody>
                                 {paginatedStocks.map((item, idx) => {
-                                    // const totalQty = getTotalQty(item.sizes);
-                                    // const totalInvestment = getTotalInvestment(item.sizes);
-                                    // const totalExtraCost = getTotalExtraCost(item.sizes);
-                                    // const totalSelling = getTotalSellingValue(item.sizes);
-                                    // const profit = getTotalProfit(item.sizes);
-                                    // const avgSelling = getAvgSellingPrice(item.sizes);
                                     const qrCodes = getItemQR(item);
                                     const editable = canEditStock(item);
+                                    const stockFlag = getStockFlag(item.sizes);
+                                    const soldCount =
+                                        salesMap[item.catalogId] || 0;
 
                                     return (
-                                        <tr key={item.id}>
+                                        <tr key={item.id} className={
+                                            stockFlag.label === "Low Stock"
+                                                ? "low-stock"
+                                                : ""
+                                        }>
                                             <td>{idx + 1}</td>
                                             {isAdmin && (
                                                 <td>{item.createdBy?.shopName || "N/A"}</td>
@@ -1484,37 +1665,51 @@ const StockList = ({ user }) => {
                                             )}
                                             <td>{item.productName}</td>
                                             <td>{item.productId}</td>
-                                            <td><span style={{ whiteSpace: "nowrap" }}>{item.catalogId}</span>
-                                                <span
-                                                    style={{
-                                                        padding: "4px 10px",
-                                                        borderRadius: "20px",
-                                                        fontSize: "11px",
-                                                        fontWeight: "bold",
+                                            <td>{item.catalogId}
+                                                <span style={{ whiteSpace: "nowrap" }}>
+                                                    <span
+                                                        style={{
+                                                            padding: "4px 10px",
+                                                            borderRadius: "20px",
+                                                            fontSize: "11px",
+                                                            fontWeight: "bold",
 
-                                                        background:
-                                                            item.catalogPopularity === "High"
-                                                                ? "#dcfce7"
-                                                                : item.catalogPopularity === "Mid"
-                                                                    ? "#fef3c7"
-                                                                    : "#fee2e2",
+                                                            background:
+                                                                item.catalogPopularity === "High"
+                                                                    ? "#dcfce7"
+                                                                    : item.catalogPopularity === "Mid"
+                                                                        ? "#fef3c7"
+                                                                        : "#fee2e2",
 
-                                                        color:
+                                                            color:
+                                                                item.catalogPopularity === "High"
+                                                                    ? "#166534"
+                                                                    : item.catalogPopularity === "Mid"
+                                                                        ? "#92400e"
+                                                                        : "#991b1b"
+                                                        }}
+                                                    >
+                                                        {
                                                             item.catalogPopularity === "High"
-                                                                ? "#166534"
+                                                                ? `🔥 High (sold:${soldCount})`
                                                                 : item.catalogPopularity === "Mid"
-                                                                    ? "#92400e"
-                                                                    : "#991b1b"
-                                                    }}
-                                                >
-                                                    {
-                                                        item.catalogPopularity === "High"
-                                                            ? `🔥 High`
-                                                            : item.catalogPopularity === "Mid"
-                                                                ? `⭐ Mid`
-                                                                : `📦 Low`
-                                                    }
-                                                    <select
+                                                                    ? `⭐ Mid(sold:${soldCount})`
+                                                                    : `📦 Low(sold:${soldCount})`
+                                                        }
+                                                        <span
+                                                            style={{
+                                                                padding: "4px 10px",
+                                                                borderRadius: "20px",
+                                                                fontSize: "11px",
+                                                                fontWeight: "bold",
+                                                                background: stockFlag.bg,
+                                                                color: stockFlag.color,
+                                                                marginLeft: "5px"
+                                                            }}
+                                                        >
+                                                            {stockFlag.icon} {stockFlag.label}
+                                                        </span>
+                                                        {/* <select
                                                         value={item.catalogPopularity || "Low"}
                                                         onChange={async (e) => {
 
@@ -1539,7 +1734,8 @@ const StockList = ({ user }) => {
                                                         <option value="High">
                                                             High
                                                         </option>
-                                                    </select>
+                                                    </select> */}
+                                                    </span>
                                                 </span>
 
                                             </td>
@@ -2031,7 +2227,7 @@ const StockList = ({ user }) => {
                                             }}>
                                                 ₹{item.profit.toFixed(2)}
                                             </td>
-                                            <td>
+                                            {/* <td>
                                                 <div key={item.catalogId} style={{
                                                     border: "1px solid #ccc",
                                                     marginBottom: "20px",
@@ -2109,7 +2305,7 @@ const StockList = ({ user }) => {
 
                                                 </div>
 
-                                            </td>
+                                            </td> */}
 
                                             <td>
                                                 <button onClick={() => {
